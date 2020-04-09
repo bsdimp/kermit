@@ -1,0 +1,173 @@
+CKCMAI.C:
+	Call to hack_vms_open_console (see CKVTIO).
+
+CKCFNS.C:
+	Removed a ZRTOL-related debugging call, since debugging statements
+	were added to ZLTOR and ZRTOL (in CKVFIO) themselves.
+
+CKUCON.C:
+	Made source lines for 'hlpmsg' more consistent, alphabetized the
+	entries, and added a H(angup) entry as somebody had apparently done
+	for CKVCON.
+
+	Appended a space to the "Command>" prompt.
+
+	Added the code to support the H(angup) option.
+
+CKUDIA.C:
+	Merged in Joe Orost's support for US Robotics 212A modem, which
+	included making 'dmode_prompt' and 'wake_prompt' be strings rather
+	than single characters, and correspondingly updating 'waitFor'.
+
+	More explicit specification of DF03 as "DF03-AC".  The "-AA" is
+	not an autodial modem.
+
+	Changes to DF100 and DF200 dial strings and comments to allow
+	use of the modem's memory to store and dial numbers.
+
+	Modularization of some of the failure paths to hopefully provide
+	consistent failure handling, as well as reduced code size.
+
+	Added the ability to interrupt the dialing.
+
+	Changed the call to 'ttopen' to pass the address of 'local'
+	rather than it's value.
+
+	Close the line rather than hang it up on failures, since this
+	might get around some unnecessary problems caused by trying
+	to re-open it.  It is believed that every function that "needs"
+	the line does an explicit call to 'ttopen' anyway.
+
+	Declare handlers AFTER establishing "jump vector" for them.
+
+	Change success message to "Call competed" and beep the bell,
+	if quiet is not enabled.
+
+CKUSCR.C:
+	Changed static 'timeInt' handler to global 'scrtime', to avoid
+	possible problems with VENIX code mapping (see CKUKER.BWR below).
+
+CKUTIO.C:
+	Treat hangup of a closed line as success rather than failure.
+
+CKUUS2.C:
+	Replaced TAB character in help entries for '-q' and '-d' options
+	with spaces.
+
+CKUUSR.C:
+	Created a 'doconnect' function, to be called by the CONNECT
+	and DIAL commands.
+
+	Appended a space to the default "C-Kermit>" prompt.
+
+	DIAL now automatically invokes CONNECT if dialing is successful.
+
+	Modified modem-type display code to avoid some redundant testing.
+
+CKVCON.C:
+	Made source lines for 'hlpmsg' more consistent, alphabetized the
+	entries, and removed explicit occurrences of \r\n (see CKVTIO).
+
+	Appended a space to the "Command>" prompt.
+
+CKVFIO.C:
+	Modified ZLTOR to strip the version number and include debug info.
+
+	Modified ZRTOL to preserved the version number and include debug info.
+
+CKVKER.COM:
+	Automatically determine C Run-Time library to use.
+
+	Save and restore command-file verification.
+
+	Exit on errors.
+
+	Display additional "progress" information.
+
+	Avoid use of LNK$LIBRARY in case user had it defined.
+
+	Use CCMAKE to check/compile CKCPRO and CKWART.
+
+	Allow external definition of C-Compiler options.
+
+	Make the DCL somewhat more efficient.
+
+CKVMAK.COM:
+	Save and restore command-file verification.
+
+	Exit on errors.
+
+	Determine output file specification more efficiently with F$PARSE.
+
+CKVTIO.C:
+	Treat hangup of a closed line as success rather than failure.
+
+	Modified 'conola' to removed any trailing \r and/or \n from each
+	line and for an explicit \r\n.
+
+	'hack_vms_open_console' added to allow display of command-line help.
+
+---------------------------------------------------------------------------
+The following changes were NOT made, but it is suggested that somebody do so.
+
+CKUFIO.C:
+	You should probably add debugging statements to ZLTOR and ZRTOL in
+	CKUFIO as was done in CKVFIO.
+
+CKUTIO.C:
+	It would be "friendlier" if the lock-checking code asked you if
+	you wanted to remove the file, and then did so if desired, rather
+	than telling you what command to use to do it.
+
+	Make a change to 'conola' as was done for CKVTIO if it won't
+	break anything, and then modify the corresponding arrays.
+
+CKUKER.BWR:
+	When modifying or writing KERMIT code, do NOT pass a routine
+	(e.g., "signal") the address of a static function.  Doing so may
+	break VENIX code mapping.  If you must pass the address of the
+	routine, make it global and pick a "non-generic" name for it that
+	will hopefully be unique and yet informative.
+
+	Change some of the function names in CKxTIO to use the name
+	"string" when a new-line is not implied, and "line" when it is.
+	Current usage of the word "line" is sometimes misleading.
+
+	A control-S typed at the keyboard doesn't always seem to "take"
+	when doing terminal emulation under PRO/VENIX V2.  Perhaps other
+	systems as well?
+
+	PRO/VENIX V2 (and some other systems) are having DTR-dropping problems.
+	With PRO/VENIX V2, a workaround is to get the system to ignore the
+	modem control signals and treat the line as a direct line by issuing a
+	"setline -d xxx" command, where "xxx" is the device node (e.g., com1).	
+
+	KERMIT under PRO/VENIX V2 (and probably other systems) doesn't find
+	long (?) file names (e.g., ckvker.com.dif, ckvmak.com.dif) when doing
+	a "send *.dif", even with file names set to literal locally.  A
+	"dir *.com.dif" shows them there, and they can be sent individually.
+
+	The VMS C-Kermit, unlike the BLISS-KERMIT, is NOT interruptable,
+	either with ^C or ^Y.  The latter can be interrupted by two (?) ^Ys.
+
+	The "REMOTE xxx" commands to VMS C-KERMIT do not appear to work, nor
+	does "! xxx" locally from VMS C-Kermit.  A problem with the "system"
+	call or subprocess spawning is suspected.
+
+	VMS C-KERMIT is less efficient than BLISS-KERMIT, and may require the
+	use of lower baud rates or shorter send packets when sending TO it.
+
+	KERMIT under PRO/VENIX V2 on the PRO 350 is (not suprisingly) less
+	responsive than on the PRO 380, and may necessitate the use of lower
+	baud rates or shorter packets.
+
+	If using LAT (Local Area Transport) terminal connections, you may need
+	to use a lower baud rate or shorter send packets when transferring
+	from your "terminal" to the host.  Some LAT software doesn't expect
+	"fast typing" from the terminal direction.
+
+	VMS VAX-C V2 allows DEFINEs by a command line qualifer, and CKVKER.COM
+	makes use of this to include debugging and transaction logging code if
+	it believes that VAX-C V2 is being used.  VAX-C V1 had no such feature.
+	If you want the DEBUG and TLOG symbols defined for use with VAX-C V1,
+	modify the CKCDEB.H file.

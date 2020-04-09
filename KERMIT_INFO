@@ -1,0 +1,145 @@
+
+
+
+
+     For  your  convenience,  and  also   to   facilitate   support-related
+     activities, a copy of KERMIT is included in this distribution.  KERMIT
+     is  a  terminal  emulator  and  file  transfer  program,  capable   of
+     transferring  text  and binary files with error checking and recovery.
+     KERMIT was developed at the Columbia University Center  for  Computing
+     Activities, and carries the following copyright notice:
+
+          Copyright (c) 1985, Trustees of Columbia University  in  the
+          City  of  New York.  Permission is granted to any individual
+          or institution to use, copy, or redistribute  this  software
+          so  long  as  it  is  not  sold  for  profit,  provided this
+          copyright notice is retained.
+
+     Note that no support  of  KERMIT  is  provided  by  Digital  Equipment
+     Corporation.   Also note that this is a preliminary version of KERMIT,
+     that changes are still being made to it, and that  you  may  encounter
+     some  problems  with  it.   You  may write to the following address to
+     inquire about obtaining an up-to-date collection of Kermit programs:
+
+          Kermit Distribution
+          Columbia University Center for Computing Activities
+          612 West 115th Street
+          New York, New York   10025
+
+     The KERMIT distribution you are receiving includes two diskettes, both
+     in   tar(1)   format.    The  first  one,  labelled  "KERMIT  4C(053)+
+     diskette #1", contains sources and related files for building C-Kermit
+     on  a  UNIX  or  UNIX-like  system.   The second one, labelled "KERMIT
+     4C(053)+ diskette #2", contains an executable  KERMIT  image  for  use
+     with  PRO/VENIX V2.0, some documentation on using and building KERMIT,
+     and also additional sources and related files  for  building  C-Kermit
+     for VMS.
+
+     For information on using and  building  KERMIT,  change  your  default
+     directory  if desired using cd(1), insert the second diskette in drive
+     zero, and issue the following command:
+
+             tar xvf /dev/f0 ckaaaa.hlp
+
+     Then use more(1), lp(1), or some other utility, to read the ckaaaa.hlp
+     file that you just extracted from the diskette.
+
+     To extract the executable KERMIT for use with PRO/VENIX V2.0 from  the
+     kit,  insert the second diskette in drive zero and issue the following
+     command:
+
+             (cd /usr/bin; tar xvf /dev/f0 kermit)
+
+     This will place the executable file in the /usr/bin  directory,  which
+     is  normally  included  in  the  search  list  specified  by  the PATH
+     variable.  The file can be used on both the Professional 380  and  the
+     Professional 350.
+
+                                                                     Page 2
+
+
+     If you wish to use KERMIT to do file transfers, you will need to get a
+     version  of  KERMIT  running  on the host as well.  The easiest way is
+     probably to get a magnetic tape from  Columbia,  or  possibly  from  a
+     users'  group or from a network (e.g., USENET).  You can also send the
+     C sources, assuming they are appropriate, from  your  Professional  to
+     the  host.   Send  them  to  the host using cu(1), which does no error
+     checking.  Then either send them again (while  maintaining  the  first
+     set)  and  compare  the  second set with the first set and correct any
+     problems, or use the sum(1) command (if available) on  the  local  and
+     remote copies to see if any of the files need to be resent.  Once this
+     bootstrapping procedure is completed, you can then use KERMIT  to  get
+     updated  sources  or  binaries  of itself from your Professional, from
+     dial-in networks, etc.
+
+     In addition to information in the KERMIT files  included  in  the  kit
+     (e.g.,   ckaaaa.hlp,   ckuker.bwr,  DECnotes),  you  should  note  the
+     following when using KERMIT with PRO/VENIX V2.0:
+
+           o  When using KERMIT to do terminal emulation, type Control-S to
+              "freeze" the display and Control-Q to restore it, rather than
+              using the HOLD SCREEN key.
+
+           o  To build a version of  KERMIT  that  will  run  on  both  the
+              Professional  380  and  the Professional 350, extract all the
+              files from the first diskette, rename ckuker.mak to makefile,
+              and  issue a "make sys3nid" command.  make(1) will produce an
+              executable file named  "wermit",  which  you  can  rename  to
+              /usr/bin/kermit after testing it.
+
+           o  If  using  a  Professional  380,  you  may  instead  issue  a
+              "make sys3"  command  to  produce  a  version  of KERMIT with
+              slightly  better  performance,  and  also  one  that  can  be
+              debugged  using  adb(1).  KERMIT cannot easily be debugged on
+              the  Professional  350  because  adb  cannot  be  used   with
+              code-mapped programs.
+
+           o  The C optimizer will issue a warning  about  running  out  of
+              space when compiling ckuus2.c.  Do not be concerned.
+
+           o  The linker, ld(1), will issue a warning about switching to  a
+              -m  option  when  "wermit"  is  linked using a "make sys3nid"
+              command.  Again, do not be concerned.
+
+
+     In addition to information in the KERMIT files included in the kit you
+     should note the following when using KERMIT with VMS:
+
+           o  Contrary  to  the  file-naming   conventions   mentioned   in
+              CKAAAA.HLP,  VMS  C-KERMIT  is built using some of the "UNIX"
+              files as well as the VMS-specific ones.
+
+                                                                     Page 3
+
+
+           o  If you have problems running CKWART, try  compiling  CKWART.C
+              without optimization.  Alternatively, you can omit the use of
+              CKWART and use the CKCPRO.C file that is included in the kit.
+
+           o  VMS C-KERMIT appears not to be interruptable.  You will  have
+              to send it a FINISH command from a local KERMIT, or abort the
+              VMS process from another terminal line.
+
+           o  There is also a BLISS-32  (and  hence  MACRO-32)  version  of
+              KERMIT  for  VMS.  It has been around a while and is somewhat
+              faster and more stable than the C version.  Contact  Columbia
+              University if you want a copy of it.
+
+
+     Digital has recently made some changes to the  KERMIT  files  and  has
+     sent  those  changes  to  Columbia  University.  This kit includes the
+     changed versions, which have not yet  been  "officially"  accepted  by
+     Columbia.   The  DECnotes  file  on  the second diskette contains some
+     information that was sent to Columbia about the changes  that  Digital
+     has made, and also includes some problem reports, suggestions, etc.
+
+     KERMIT now supports Digital's DF03-AC, DF100 series, and DF200  series
+     modems.   You may redial the last number dialed on the DF100 and DF200
+     modems by simply issuing the DIAL command without any arguments.   You
+     can  also  store dialing strings in the modem's memory and invoke them
+     from KERMIT (e.g., DIAL $WORK, DIAL B).
+
+
+
+     UNIX is a trademark of AT&T.
+     VENIX is a trademark of VenturCom, Inc.

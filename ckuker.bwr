@@ -1,0 +1,258 @@
+C-Kermit Version 4C(052):
+Status, Bugs, and Problems
+As of: 18 June 1985
+
+Note: Version numbering system changed from decimal notation (like 4.2)
+to number-letter notation (like 4C) to avoid confusion with Berkeley Unix
+version numbers.
+
+See ckuker.upd for list of bugs fixed since 4C(050).
+
+-- SUPPORT FOR DIFFERENT SYSTEMS: --
+
+4.2BSD: "make bsd" works.  Should work on VAX, SUN, and Pyramid.
+
+4.1BSD: "make bsd" should work for this too (did not in C-Kermit v4.2).
+
+4.3BSD: untested, "make bsd" should work.
+
+2.9BSD: Support is in but untested: "make bsd29"
+
+Version 7: works ok on the systems tested so far using "make v7", but some
+ fiddling with the make file is necessary for proc table definitions; see
+ the makefile and also ckuv7.hlp for details.
+
+PC/IX: should work ok with "make pcix".
+
+ATT 3Bx systems: should work ok with "make att3bx".
+
+Most other System V or System III based systems can build a working Kermit with
+"make sys3"
+
+PDP-11's running a System III or V based Unix and which have no I & D space
+should use "make sys3nid".
+
+For other Unix systems, see the makefile.
+
+VAX/VMS: support added by Stew Rubenstein at Harvard and Martin Minow at DEC.
+  Has to be built with CKV*.COM, needs development to handle all the VMS/RMS
+  features and to improve performance.  Has its own build procedure.  See
+  CKV*.*.
+
+Macintosh: Support added at Columbia, has own makefile, etc.  See CKM*.*.
+
+
+-- BUG LIST --
+
+General problems:
+
+- Too many features, program is too big, source is too large to fit on
+  some disks.  Needs to be reorganized so that a minimal Kermit can be built
+  for any system, and then frills can be added on if desired -- interactive
+  command parser, help strings, dial command, script command, etc.
+
+- There's not a full enough set of features available from command line
+  invocation.  Commands like "bye" are missing.
+
+- Conditionalizations are not done clearly.  In some cases it might be
+  better to have compile-time flags for features, rather than systems, or
+  generic system names, rather than specific vendor/machine names, to
+  avoid excessive nesting of compile-time variables.  Note that constructions
+  like "#ifdef FOO | BAR" are avoided because many compilers don't understand
+  them; the alternative is to repeat code under different conditionals (to
+  accomplish an OR) or to include it within nested conditionals (AND),
+  sometimes applying De Morgan's law to achieve the desired result...
+
+- It might also be better to have a -D in the makefile for the system name,
+  rather than hard-coding it into the ck[xz]*.c modules.
+
+- Program's return code might be wrong in some cases (in 4.0, it was always
+  zero; in 4C some attempt is made to return correct codes for failure and
+  success).  Also see note about VMS return codes, below.
+
+- The default prompt might be set from the makefile with -DPROMPT.
+
+- Need more 'set' commands:
+  . set incomplete (file disposition) {keep,discard}
+  . set retry-threshhold n
+
+- The program could be a little bit less cavalier in its treatment of files.
+  For instance, when receiving a file (with "warning" turned off) it will
+  overwrite any existing file of the same name.  That's ok, but what if the
+  user types ^F or ^B to interrupt the transfer?  This does not save the
+  existing file -- it's already been destroyed by the open() of the new copy,
+  which in turn is discarded as a result of the interruption.  Maybe Kermit
+  should always make a temporary, unique name for incoming files, and then
+  rename them to their real names only after the transfer is complete.  But
+  that's no good on systems (like the Macintosh) that don't have disk space
+  to burn.
+
+- Local versus remote mode is not, and probably can not, be determined
+  automatically upon startup.  For instance, on a workstation (e.g. a DEC
+  Pro-380/Venix) upon which the user usually logs on through the console
+  device, the program is configured to be in local mode by default.  However,
+  if a user logs in to this workstation through the "back port", the program
+  doesn't know it should be in remote mode.  On some systems, like Pro/Venix
+  V1, ttyname(0) returns a meaningful string like "/dev/console", from which 
+  one can tell if the job is remote.  Others, like bsd, just return the tty
+  number, like "/dev/ttyi6", from which you can't tell anything.  (Note,
+  System V has a nice function ctermid() which helps a lot, but other Unixes
+  don't have it).
+
+- Local mode file transfer display could be improved.  On tty-style displays,
+  the "percent done" could be shown by doing something like
+  "0...1...2...3...4...5...6...7...8...9...".
+
+- Interrupt handling is not done particularly well, and if the program
+  crashes or is halted while it has the terminal in a not-normal mode
+  during command parsing or file transfer, the terminal mode is not restored,
+  and lock files are not cleaned up.
+
+- The shell's interrupt, delete, and kill characters may interfere or
+  conflict with those used by the Kermit command parser.  In any case, there
+  is no way to change Kermit's editing characters to conform to user's taste.
+
+- "status" command needs timing info, maybe also effective baud rate.
+
+- Status info should be updated only for real file transfers, not transactions
+  like "finish".
+
+- "!" command requires a space after, contrary to the Unix user's normal
+  expectation.
+
+- Many people have asked for a system-wide startup file similar to
+  the user's .kermrc file, perhaps with a conditional way to escape from
+  it if the user has her own .kermrc file.  This notion might be extended
+  to include the entire hierarchy system -- home -- current directory.
+
+- It would also be desirable to have a way of specifying alternate startup
+  files on the command line, so that aliases could be defined for running
+  Kermit on certain lines, at certain speeds, etc.
+
+- A deeper problem with the initialization files is that the file is only
+  taken when the program enters interactive command dialog.  To be consistent,
+  it should also be taken when the program is run via command line arguments.
+
+- Some users report that it would be more desirable to have an error during
+  execution of a take file return directly to command level, rather than
+  pop to the invoking take file (why?).
+
+- Some users report that the program should make no internal distinction
+  between running in foreground or background (why?).
+
+- Since kermit opens and closes the communication line with each command line
+  invocation, it is not convenient to use it in scripts in which it is
+  repeatedly invoked (e.g. a print spooler).
+
+- Variable names are sometimes confusing, especially the send/receive parameter
+  pairs (spsiz/rpsize, mystch/stchr, npad/mypadn, rtimo/timint, etc).  This
+  is mostly history... they tend to agree with the names used in other Kermit
+  programs.  Still, they should probably be changed.  Ditto for some of the
+  procedure names.
+
+- When the C-Kermit server is given a host command (or even some generic
+  commands like 'space'), it might have to think for a long time before
+  returning output.  In this case, it should set a timer while waiting for
+  input from the fork and whenever the timer goes off, it should send a null
+  data packet to prevent the other Kermit from timing out.
+
+- When connecting back to C-Kermit after a transaction, or after finishing
+  the server, it may be necessary to type a ^Q to clear up an XOFF deadlock.
+  There's not much the Kermit program can do about this...
+
+ckufio.c:
+
+- ckufio currently goes to a lot of trouble to traverse the directory in
+  order to expand "*" and "?" in wildcards.  Maybe it should just fork the
+  user's customary shell and have it do the expansion.  This would allow
+  fancier filespecs to be given, like "~/ck*.[cwh]".  But it would slow down
+  features like filename completion and menus in the interactive command
+  parser.  (Find out how Unix FTP does it...)
+
+ckvfio.c:
+
+- zltor does not strip version numbers from outbound filenames.
+
+ckutio.c:
+
+- There should be a timed option for ttoc(), for use during connect.
+
+- There's no good way to select baud rates higher than 9600.  Most Unix systems
+  don't supply symbols for them (unless you use EXTA, EXTB), and even when they
+  do, the program has no way of knowing whether a specific port serial
+  controller supports those rates.
+
+- UUCP Lock files are left behind if the program crashes or is interrupted in
+  a way that is not trapped.
+
+- Use of RAW|TANDEM in 4.1 BSD gives only unidirectional, not bidirectional,
+  flow control -- xoff's from the terminal are treated as data rather than
+  control signals.  Symptom: possible loss of characters during CONNECT.
+
+ckudia.c:
+
+- Some systems do not allow users to manipulate dialers directly.
+- Should allow user to break out of a dial command that is obviously going
+  to fail (e.g. user entered wrong number).
+- Should support a "phone book" (this would actually go in ckuus*.c).
+
+ckuus*.c:
+
+- The send command should have the same syntax as the get command to allow
+  multiple filenames to be given on a single line:
+
+	send foo bar baz  <-- send all these files
+  or:
+	send
+	 Local file(s) to send: foo bar baz
+         Name(s) to send it/them under: x y z
+
+  The latter form could be risky, of course, when mixed with wildcards,
+  and in any case would require major rewriting of many parts of the program.
+
+- Certain kinds of quoting don't work, e.g. echo "this \07 should ring".
+
+- Baud rate selection currently requires user to type a number, which is
+  then verified against a system-dependent table.  Better to have a baud rate
+  keyword (cmkey) table defined in the system-dependent module, so user
+  can abbreviate (e.g. '9' for '9600').
+
+- No way to put comments in take files.  Cure: Add an invisible ";" or "#" 
+  "command" for full-line comments.  Trailing comments would be harder.
+
+- ckuus2.c makes the C optimizer run out of space under PC/IX and some other
+  systems.
+
+Protocol (ckcpro.w, ckcfn*.c):
+
+- No way to interrupt a protocol transaction until after it starts
+  successfully.  For instance, no way to interrupt the timeouts and
+  retransmissions of the initial packet when the other side is not
+  responding, except for killing the whole program.  Cure: check for
+  keyboard "interrupts" during the send-init process, set c[xz]seen.
+  But doing this will make the state table a lot more complicated...
+  Maybe change ^C trap to get back to command mode rather than exit
+  the program.
+
+- When parity is in use and the other Kermit cannot do 8th bit prefixing,
+  the user is not warned that binary files will not be transferred correctly.
+  This can be easily remedied by calling screen(SCR_WM,...) after the
+  send-init exchange has occurred, but this would make a dialog box pop
+  up during protocol on the Macintosh...
+
+ckucon.c:
+
+- Doesn't do any particular kind of terminal emulation.  It wasn't meant to.
+  Filters can be used for this.  Or a replacement module can be written
+  (as has been done for the Macintosh).
+
+- Performance is poor on systems that can't check the input buffer.  See the
+  horrendous code that was added for V7 to get around this (peeking into
+  tty buffers in kernal memory).
+
+- As structured, connect mode can't include commands to toggle logging on
+  and off or to change settings, because the fork that reads keyboard input
+  doesn't share variables with the fork that does port i/o.
+
+- The program may become stuck if the two sides get into an XOFF deadlock.
+  There should probably be a timer around (or in) the ttoc() call.
