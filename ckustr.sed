@@ -1,12 +1,12 @@
 #! /bin/sh
 # Special cc preprocessor for using mkstr(1) to extract strings from the
-# kermit5 source.  Change the "CC=cc" line to "CC=./ckustr.sed" to use
+# kermit source.  Change the "CC=cc" line to "CC=./ckustr.sed" to use
 # string extraction.  NOTE: the file ckustr.c might need the StringFile
 # declaration modified to suit local system requirements.  When installing
 # the kermit executable be sure to install kermit.sr and make it readable
 # by the public (mode 444).
 
-STRINGS=kermit5.sr
+STRINGS=cku192.sr
 
 # Get filename and arguments.
 initargs=$@
@@ -43,9 +43,17 @@ sed -e 's/ferror(/strferrorf(/'				\
     -e 's/perror("/strperror("/'			\
     -e 's/experror(/strexperrorf(/'			\
     -e 's/sprintf(\([^,][^,]*\),[ ]*\("[^"]*"\)\([,)]\)/strsrerror(\2, \1\3/' \
+    -e '/sprintf(\([^,][^,]*\),/{N
+s/sprintf(\([^,][^,]*\),\n[ ]*\("[^"]*"\)\([,)]\)/strsrerror(\2, \1\3/
+}'							\
     -e 's/fprintf(\([^,][^,]*\),[ ]*\("[^"]*"\)\([,)]\)/strfrerror(\2, \1\3/' \
-    -e 's/printf("/strprerror("/'				\
-	xxmk.c > mk.c
+    -e '/fprintf(\([^,][^,]*\),/{N
+s/fprintf(\([^,][^,]*\),\n[ ]*\("[^"]*"\)\([,)]\)/strfrerror(\2, \1\3/
+}'							\
+    -e 's/printf[ ]*("/strprerror("/'		\
+    -e '/printf[ ]*(/{N
+s/printf[ ]*(\n"/strprerror("/
+}' xxmk.c > mk.c
 mkstr - $STRINGS xx mk.c
 sed -e 's/^# \([0-9]\)/#line \1/' xxmk.c | xstr -c -
 echo Compiling...

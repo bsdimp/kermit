@@ -2,8 +2,9 @@ WART
 
 Wart is a program that implements a small subset of the Unix 'lex' lexical
 analyzer generator.  Unlike lex, wart may be distributed without requirement
-for a Unix license.  Wart was written by Jeff Damens at the Columbia University
-Center of Computing Activities to facilitate development of Unix Kermit.
+for a Unix license.  Wart was written in 1985 by Jeff Damens at the Columbia
+University Center of Computing Activities to facilitate development of Unix
+Kermit, and modified over the ensuing years by Frank da Cruz.
 
 Wart is intended for production of state table switchers.  It allows a set of
 states to be defined, along with a function for getting input, and a table of
@@ -21,7 +22,8 @@ int state, s = 1, m = 0, d;
 float f;
 char *b;
 
-%states sign mantissa fraction		    /* Declare wart states */
+/* Declare wart states */
+%states sign mantissa fraction
 
 %%					    /* Begin state table */
 <sign>-      { s = -1; BEGIN mantissa; }    /* Look for sign */
@@ -49,7 +51,7 @@ fatal(s) char *s; {			    /* Error exit */
 }
 
 main(argc,argv) int argc; char **argv; {    /* Main program */
-    if (argc < 1) exit(1);
+    if (argc < 2) exit(1);
     b = *++argv;
     state = sign;			    /* Initialize state */
     wart();				    /* Invoke state switcher */
@@ -57,9 +59,9 @@ main(argc,argv) int argc; char **argv; {    /* Main program */
 }
 
 The wart program accepts as input a C program containing lines that start
-with "%" or sections delimited by "%%".  The directive "%states" declares
-the program's states.  The section enclosed by "%%" markers is the state
-table, with entries of the form
+with "%" or a section delimited by "%%" (there can be only one such section).
+The directive "%states" declares the program's states.  The section enclosed
+by "%%" markers is the state table, with entries of the form
 
   <state>X { action }
 
@@ -71,17 +73,22 @@ means the action will be performed regardless of the current state.  If more
 than one state is specifed, then the action will be performed in any of the
 listed states.  Multiple states are separated by commas.
 
-The required input field consists of a single literal character.  When in
-the indicated state, if the input is the specified character, then the
-associated action will be performed.  The character '.' matches any input
+The required input field consists of a single literal printable 7-bit ASCII
+character (i.e. in the range 32 through 126).  Control characters and 8-bit
+characters are not allowed.  This is to prevent the state-table array (whose
+size is the product of the number of states and the number of possible input
+characters) small enough to be handled by any C compiler.
+
+When in the indicated state, if the input is the specified character, then the
+associated action is performed.  The character '.' matches any input
 character.  No pattern matching or range notation is provided.  The input
 character is obtained from the input() function, which you must define.  It
 should be alphanumeric, or else one of the characters ".% -$@" (quotes not
-included).  Note that the program above recognize the binary point '.'
+included).  Note that the program above recognizes the binary point '.'
 through a ruse.
 
 The action is a series of zero or more C language statements, enclosed in
-curly braces.
+curly braces (even if the action consists of only one statement).
 
 The BEGIN macro is defined simply to be "state = ", as in lex.
 
@@ -90,7 +97,7 @@ declarations and the state transition table.  It loops through calls to
 input(), using the result to index into a big case statement it has created
 from the state table.
 
-Wart is invoked as follows:
+The wart program is invoked as follows:
 
 	wart          (Input from stdin, output to stdout)
 
@@ -99,3 +106,5 @@ Wart is invoked as follows:
 	wart fn1 fn2  (Input from fn1, output to fn2.  Example:  wart a.w a.c)
 
 Wart programs have the conventional filetype '.w'.
+
+- F. da Cruz, Columbia University, November 1991
