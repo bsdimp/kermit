@@ -1,15 +1,24 @@
-char *ckxv = "Amiga tty I/O, 4D(005), 11 Jul 86";
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* |_o_o|\\ Copyright (c) 1986 The Software Distillery.  All Rights Reserved */
+/* |. o.| || This program may not be distributed without the permission of   */
+/* | .  | || the authors.                                                    */
+/* | o  | ||    Dave Baker     Ed Burnette  Stan Chow    Jay Denebeim        */
+/* |  . |//     Gordon Keener  Jack Rouse   John Toebes  Doug Walker         */
+/* ======          BBS:(919)-471-6436      VOICE:(919)-469-4210              */
+/*                                                                           */
+/* Contributed to Columbia University for inclusion in C-Kermit.             */
+/* Permission is granted to any individual or institution to use, copy, or   */
+/* redistribute this software so long as it is not sold for profit, provided */
+/* this copyright notice is retained.                                        */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+char *ckxv = "Amiga tty I/O, 4D(005), 31 Jul 87";
  
 /*  C K I T I O  --  Serial and Console I/O support for the Amiga */
 
 /*
- Author: Jack Rouse
+ Author: Jack Rouse, The Software Distillery
  Based on the CKUTIO.C module for Unix
- Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1986, Jack J. Rouse, 106 Rubin Ct. Apt. A-4, Cary NC 27511
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
 */
 
 #include <stdio.h>		/* standard I/O stuff */
@@ -25,11 +34,13 @@ char *ckxv = "Amiga tty I/O, 4D(005), 11 Jul 86";
 #include "intuition/intuition.h"
 #include "intuition/intuitionbase.h"
 #define BREAKSIGS (SIGBREAKF_CTRL_C|SIGBREAKF_CTRL_D)
-#ifdef LAT304
-#include "lattice/fcntl.h"
-#include "lattice/signal.h"
-#endif
+#ifdef LAT310
+#include "fcntl.h"
+#include "signal.h"
+#include "ios1.h"		/* defines ufbs structure */
+#else
 #include "lattice/ios1.h"	/* defines ufbs structure */
+#endif
 
 char *ckxsys = " Commodore Amiga";	/* system name */
 
@@ -40,6 +51,7 @@ extern int speed, mdmtyp, parity, flow;
 char *dftty = SERIALNAME;		/* serial device name */
 int dfloc = 1;				/* serial line is external */
 int dfprty = 0;				/* default parity is none */
+int ttprty = 0;				/* parity in use */
 int dfflow = 1;				/* default flow control is on */
 int backgrd = 0;			/* default to foreground */
 int ckxech = 0;				/* echo in case redirected stdin */
@@ -116,7 +128,7 @@ struct DateStamp *DateStamp();
 struct DosPacket *CreatePacket();
 VOID DeletePacket();
 
-#ifdef LAT304
+#ifdef LAT310
 /* translate Unix file handle (0, 1, or 2) to AmigaDOS file handle */
 #define DOSFH(n) fileno(&_iob[n])
 /* translate Unix file handle (0, 1, or 2) to Lattice file handle */
@@ -165,7 +177,7 @@ sysinit()
 	/* default interrupts to exit handler */
 	intsigs = BREAKSIGS;
 	inthdlr = defhdlr;
-#ifdef LAT304
+#ifdef LAT310
 	signal(SIGINT, SIG_IGN);
 #else
 	Enable_Abort = 0;
@@ -243,7 +255,7 @@ syscleanup()
 		DOSFH(0) = Input();
 		DOSFH(1) = Output();
 		DOSFH(2) = saverr;
-#ifdef LAT304
+#ifdef LAT310
 		close(rawcon);
 #else
 		Close(rawcon);
@@ -640,7 +652,7 @@ int timeout;
 }
 
 /*
- * ttol -- write n chars to serial device
+ * ttol -- write n chars to serial device, assumes <= 256 characters
  */
 ttol(buf, n)
 char *buf;
@@ -648,12 +660,14 @@ int n;
 {
 	register int D7Save;
 	register struct IOExtSer *write = WriteIOB;
+	static char outbuf[256];	/* safe place for output characters */
 
 	if (!serialopen) return(-1);
 	if (TerminateWrite(0) != 0) return(-1);
 	pendwrite = TRUE;
+	movmem(buf, outbuf, n);
 	write->IOSer.io_Command = CMD_WRITE;
-	write->IOSer.io_Data    = (APTR)buf;
+	write->IOSer.io_Data    = (APTR)outbuf;
 	write->IOSer.io_Length  = n;
 	SendIO(write);
 	return(n);
@@ -679,6 +693,7 @@ int n;
 int timeout;				/* timeout in seconds or <= 0 */
 int eol;				/* end of line character */
 {
+        int m;
 	register int D7Save;
 	register struct IOExtSer *read = ReadIOB;
 	register int count;
@@ -686,12 +701,14 @@ int eol;				/* end of line character */
 	testint(0L);
  	if (!serialopen || pendread || n <= 0) return(-1);
 
+	m = (ttprty ? 0177 : 0377);	/* parity stripping mask */
+
 	/* handle pushback */
 	if (queuedser >= 0)
 	{
 		*buf = queuedser;
 		queuedser = -1;
-		if (*buf == eol || n == 1) return(1);
+		if ((*buf & 0177) == eol || n == 1) return(1);
 		++buf;
 		--n;
 		count = 1;
@@ -703,6 +720,10 @@ int eol;				/* end of line character */
 	if (eol >= 0)
 	{
 		/* set up line terminator */
+/*** Watch out -- need to recognize 7-bit eol, even if it comes in with ***/
+/*** parity bit on.  It's not obvious to me how to change this code to  ***/
+/*** do that!   - Frank, C-Kermit 4E ***/
+
 		if (eol != *(UBYTE *)&read->io_TermArray)
 		{
 			setmem(&read->io_TermArray,
@@ -730,6 +751,8 @@ int eol;				/* end of line character */
 			? (count + (int)read->IOSer.io_Actual)
 			: -1);
 	}
+
+/*** Need code somewhere here to strip parity if ttprty != 0 ***/
 
 	/* wait for read to complete */
 	return ((SerialWait(read, timeout) != 0)
@@ -860,7 +883,7 @@ int CreateWindow(esc)
 	if (rawcon > 0) return(0);
 	congm();
 
-#ifdef LAT304
+#ifdef LAT310
 	if ((rawcon = open("RAW:0/0/640/200/Kermit", O_RDWR)) <= 0)
 		return(-1);
 #else
@@ -1015,7 +1038,7 @@ char c;
 	if (pendwrite && CheckIO(WriteIOB))
 	{
 		pendwrite = FALSE;
-		if (WaitIO(write) != 0) return(-1);
+		if (WaitIO(WriteIOB) != 0) return(-1);
 	}
 	if (pendwrite)
 	{
@@ -1127,8 +1150,8 @@ int contti()
 			pendconsole = FALSE;
 			if (pkt->dp_Res1 != 1) return(-1);
 			/* translate CSI to ESC [ */
-			if (conchar == '\233')
-			{	conchar = '\033'; queuedcon = '['; }
+			if (conchar == 0x9B)
+			{	conchar = 0x1B; queuedcon = '['; }
 			return((int)conchar);
 		}
 

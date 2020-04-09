@@ -1,10 +1,5 @@
 /*  C K C D E B . H  */
 /*
- For release 4E of C-Kermit, July 87.  Incorporates changes from Phil Julian 
- and Jack Rouse of SAS Institute for DG, Apollo, and Amiga support, and from
- Jim Noble of Planning Research Corp for Macintosh Megamax C support.
-*/ 
-/*
  This file is included by all C-Kermit modules, including the modules
  that aren't specific to Kermit (like the command parser and the ck?tio and
  ck?fio modules.  It specifies format codes for debug(), tlog(), and similar
@@ -12,8 +7,8 @@
  modules, and also includes some feature selection compile-time switches.
 */
 /*
- Copyright (C) 1987 Trustees of Columbia University in the City of New York.
- Permission is granted to any individual or institution to use, copy, or
+ Copyright (C) 1987, 1989, Trustees of Columbia University in the City of New 
+ York. Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained.
 */
@@ -21,7 +16,7 @@
 /*
  DEBUG and TLOG should be defined in the Makefile if you want debugging
  and transaction logs.  Don't define them if you want to save the space
- and overhead.
+ overhead.
 */
 #ifndef DEBUG
 #define debug(a,b,c,d) {}
@@ -43,13 +38,17 @@
 #define F110 6
 #define F111 7
 
-/* Unix Kernel Dependencies */
+/* Unix Version Dependencies */
 
+/* signal() type, void or int? */
 #ifdef SVR3
-/* Sys V R3 declares signal() differently from other systems. */
-typedef void SIGTYP;
+typedef void SIGTYP;			/* System V R3 and later */
+#else
+#ifdef SUNOS4
+typedef void SIGTYP;			/* SUNOS V 4.0 and later */
 #else
 typedef int SIGTYP;
+#endif
 #endif
 
 /* C Compiler Dependencies */
@@ -70,10 +69,6 @@ typedef int void;
 typedef char CHAR;
 typedef long LONG;
 #else
-#ifdef V9
-typedef char CHAR;
-typedef long LONG;
-#else
 #ifdef C70
 typedef char CHAR;
 typedef long LONG;
@@ -84,7 +79,6 @@ typedef long LONG;
 #else
 typedef unsigned char CHAR;
 typedef long LONG;
-#endif
 #endif
 #endif
 #endif
@@ -116,7 +110,7 @@ typedef int void;
 /* The device name of a job's controlling terminal */
 /* Special for VMS, same for all Unixes (?), not used by Macintosh */
 
-#ifdef vax11c
+#ifdef vms
 #define CTTNAM "TT:"
 #else
 #ifdef datageneral
@@ -128,21 +122,21 @@ typedef int void;
 
 /* Some special includes for VAX/VMS */
 
-#ifndef vax11c
+#ifndef vms
 /* The following #includes cause problems for some preprocessors. */
 /*
 #endif
-#ifdef vax11c
+#ifdef vms
 #include ssdef
 #include stsdef
 #endif
-#ifndef vax11c
+#ifndef vms
 */
 #endif
 
 /* Program return codes for VMS, DECUS C, and Unix */
 
-#ifdef vax11c
+#ifdef vms
 #define GOOD_EXIT   (SS$_NORMAL | STS$M_INHIB_MSG)
 #define BAD_EXIT    SS$_ABORT
 #else

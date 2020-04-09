@@ -1,15 +1,13 @@
 /*  C K C F N 2  --  System-independent Kermit protocol support functions... */
 
 /*  ...Part 2 (continued from ckcfns.c)  */
+
 /*
- Modified July 87 to incorporate changes from Jim Noble of
- Planning Research Corp for Macintosh Megamax C support.
-*/
-/*
- Author: Frank da Cruz (SY.FDC@CU20B),
- Columbia University Center for Computing Activities, January 1985.
- Copyright (C) 1985, Trustees of Columbia University in the City of New York.
- Permission is granted to any individual or institution to use, copy, or
+ Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+ Columbia University Center for Computing Activities.
+ First released January 1985.
+ Copyright (C) 1985, 1989, Trustees of Columbia University in the City of New 
+ York.  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained. 
 */
@@ -34,7 +32,8 @@ extern CHAR filnam[], sndpkt[], recpkt[], data[], srvcmd[];
 extern CHAR *srvptr, stchr, mystch, *rdatap;
 
 char *strcpy();				/* Forward declarations */
-unsigned chk2();			/* of non-int functions */
+unsigned int chk2();			/* of non-int functions */
+unsigned int chk3();
 CHAR dopar();				/* ... */
 
 static CHAR partab[] = {		/* Even parity table for dopar() */
@@ -56,6 +55,16 @@ static CHAR partab[] = {		/* Even parity table for dopar() */
     '\360', '\161', '\162', '\363', '\164', '\365', '\366', '\167',
     '\170', '\371', '\372', '\173', '\374', '\175', '\176', '\377'
 };
+
+/* CRC generation tables */
+
+static unsigned int crcta[16] = {0, 010201, 020402, 030603, 041004,
+  051205, 061406, 071607, 0102010, 0112211, 0122412, 0132613, 0143014,
+  0153215, 0163416, 0173617};
+
+static unsigned int crctb[16] = {0, 010611, 021422, 031233, 043044,
+  053655, 062466, 072277, 0106110, 0116701, 0127532, 0137323, 0145154,
+  0155745, 0164576, 0174367};
 
 /*  I N P U T  --  Attempt to read packet number 'pktnum'.  */
 
@@ -122,7 +131,6 @@ debug(F111,"input",rdatap,type);
     return(type);		/* Success, return packet type. */
 }
 
-
 /*  S P A C K  --  Construct and send a packet  */
 
 /*
@@ -136,6 +144,7 @@ debug(F111,"input",rdatap,type);
 
 spack(type,n,len,d) char type, *d; int n, len; {
     int i, j, lp; CHAR *sohp = sndpkt; CHAR pc;
+    unsigned crc;
 
     spktl = 0;
     pc = dopar(padch);			/* The pad character, if any. */
@@ -145,9 +154,9 @@ spack(type,n,len,d) char type, *d; int n, len; {
     lp = i++;				/* Position of LEN, fill in later */
     sndpkt[i++] = dopar(tochar(n));	/* SEQ field */
     sndpkt[i++] = dopar(sndtyp = type);	/* TYPE field */
-    j = len + bctu;			/* True length */
-    if (j > 95) {			/* Long packet? */
-        sndpkt[lp] = dopar(tochar(0));	/* Set LEN to zero */
+    j = len + bctu;			/* Length of data + block check */
+    if (j+2 > MAXPACK) {		/* Long packet? */
+        sndpkt[lp] = dopar(tochar(0));	/* Yes, set LEN to zero */
         sndpkt[i++] = dopar(tochar(j / 95)); /* High part */
         sndpkt[i++] = dopar(tochar(j % 95)); /* Low part */
         sndpkt[i] = '\0';		/* Header checksum */
@@ -163,14 +172,14 @@ spack(type,n,len,d) char type, *d; int n, len; {
 	    break;
 	case 2:				/* 2 = 12-bit chksum */
 	    j = chk2(sndpkt+lp);
-	    sndpkt[i++] = dopar( (unsigned) tochar((j >> 6) & 077));
-	    sndpkt[i++] = dopar( (unsigned) tochar(j & 077));
+	    sndpkt[i++] = dopar((unsigned)tochar((j >> 6) & 077));
+	    sndpkt[i++] = dopar((unsigned)tochar(j & 077));
 	    break;
         case 3:				/* 3 = 16-bit CRC */
-	    j = chk3(sndpkt+lp);
-	    sndpkt[i++] = dopar(tochar(( (unsigned)(j & 0170000)) >> 12));
-	    sndpkt[i++] = dopar(tochar((j >> 6) & 077));
-	    sndpkt[i++] = dopar(tochar(j & 077));
+	    crc = chk3(sndpkt+lp);
+	    sndpkt[i++] = dopar((unsigned)tochar(((crc & 0170000)) >> 12));
+	    sndpkt[i++] = dopar((unsigned)tochar((crc >> 6) & 077));
+	    sndpkt[i++] = dopar((unsigned)tochar(crc & 077));
 	    break;
     }
     sndpkt[i++] = dopar(seol);		/* End of line (packet terminator) */
@@ -191,13 +200,13 @@ spack(type,n,len,d) char type, *d; int n, len; {
 
 CHAR
 dopar(ch) CHAR ch; {
-    int a;
+    unsigned int a;
     if (!parity) return(ch & 255); else a = ch & 127;
     switch (parity) {
-	case 'e':  return(partab[a]) & 255;	   /* Even */
-	case 'm':  return(a | 128);                /* Mark */
-	case 'o':  return(partab[a] ^ 128) & 255;  /* Odd */
-	case 's':  return(a & 127);                /* Space */
+	case 'e':  return(partab[a]);	    /* Even */
+	case 'm':  return(a | 128);         /* Mark */
+	case 'o':  return(partab[a] ^ 128); /* Odd */
+	case 's':  return(a);		    /* Space */
 	default:   return(a);
     }
 }
@@ -213,7 +222,7 @@ chk1(pkt) char *pkt; {
 
 /*  C H K 2  --  Compute the numeric sum of all the bytes in the packet.  */
 
-unsigned
+unsigned int
 chk2(pkt) CHAR *pkt; {
     long chk; unsigned int m;
     m = (parity) ? 0177 : 0377;
@@ -225,25 +234,19 @@ chk2(pkt) CHAR *pkt; {
 
 /*  C H K 3  --  Compute a type-3 Kermit block check.  */
 /*
- Calculate the 16-bit CRC of a null-terminated string using a byte-oriented
- tableless algorithm invented by Andy Lowry (Columbia University).  The
- magic number 010201 is derived from the CRC-CCITT polynomial x^16+x^12+x^5+1.
- Note - this function could be adapted for strings containing imbedded 0's
- by including a length argument.  Another note - Replacing this function by
- a table lookup version might speed things up.
+ Calculate the 16-bit CRC-CCITT of a null-terminated string using a lookup 
+ table.  Assumes the argument string contains no embedded nulls.
 */
-chk3(s) char *s; {
-    unsigned int c, q;
-    LONG crc = 0;
-
-    while ((c = *s++) != '\0') {
-	if (parity) c &= 0177;		/* Strip any parity */
-	q = (crc ^ c) & 017;		/* Low-order nibble */
-	crc = (crc >> 4) ^ (q * 010201);
-	q = (crc ^ (c >> 4)) & 017;	/* High order nibble */
-	crc = (crc >> 4) ^ (q * 010201);
+unsigned int
+chk3(pkt) CHAR *pkt; {
+    LONG c, crc;
+    unsigned int m;
+    m = (parity) ? 0177 : 0377;
+    for (crc = 0; *pkt != '\0'; pkt++) {
+	c = (*pkt & m) ^ crc;
+	crc = (crc >> 8) ^ (crcta[(c & 0xF0) >> 4] ^ crctb[c & 0x0F]);
     }
-    return(crc);
+    return(crc & 0xFFFF);
 }
 
 /* Functions for sending various kinds of packets */
@@ -312,12 +315,14 @@ sigint() {				/* Terminal interrupt handler */
 */
 rpack() {
     int i, j, x, try, type, lp;		/* Local variables */
+    unsigned crc;
     CHAR pbc[4];			/* Packet block check */
     CHAR *sohp = recpkt;		/* Pointer to SOH */
     CHAR e;				/* Packet end character */
 
     rsn = rln = -1;			/* In case of failure. */
     *recpkt = '\0';			/* Clear receive buffer. */
+    rdatap = recpkt;			/* Initialize this. */
     
     e = (turn) ? turnch : eol;		/* Use any handshake char for eol */
 
@@ -400,11 +405,13 @@ rpack() {
 	    }
 	    break;
 	case 3:
-	    x = xunchar(*pbc) << 12 | xunchar(pbc[1]) << 6 | xunchar(pbc[2]);
-	    if (x != chk3(recpkt+lp)) {
+	    crc = (xunchar(pbc[0]) << 12)
+	        | (xunchar(pbc[1]) << 6)
+		| (xunchar(pbc[2]));
+	    if (crc != chk3(recpkt+lp)) {
 		debug(F110,"checked chars",recpkt+lp,0);
 	        debug(F101,"block check","",xunchar(*pbc));
-		debug(F101,"should be","",chk1(recpkt+lp));
+		debug(F101,"should be","",chk3(recpkt+lp));
 		return('Q');
 	    }
 	    break;

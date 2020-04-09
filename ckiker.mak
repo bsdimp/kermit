@@ -6,7 +6,7 @@
 . This script expects the following logical defines:
 .    ASSIGN lc: <directory containing LC1, LC2, and ALINK commands>
 .    ASSIGN include: <directory include directories are rooted at>
-.    ASSIGN lib: <directory containing LC.LIB, AMIGA.LIB, and LSTARTUP.OBJ>
+.    ASSIGN lib: <directory containing LC.LIB, AMIGA.LIB, and C.O>
 .
 . The -v flag is used with LC2 to disable stack overflow checking in Kermit.
 . The temporary compiler quad files are created in RAM:.

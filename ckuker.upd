@@ -1,3 +1,143 @@
+C-KERMIT FOR UNIX, CHANGES FROM VERSION 4E(070) TO 4E(071), 18 Jan 89
+
+Maintenance release.  Fixes some major bugs, makes a few minor changes in
+functionality.
+
+1. In ckcfn2.c, function spack(), change the test for long packets from
+"if (j > 95)" to "if (j+2 > MAXPACK)".  When long packets were being sent by
+C-Kermit, and the final packet was 93-95 characters long, the packet would be
+erroneously sent as a short packet, with garbage would go into the LEN field.
+Thanks to Mike Brown, Purdue Univ Computing Center.
+
+2. In ckcfns.c, function rpar(), set data[1] (MAXL, maximum normal packet
+length) to 94 when using long packets, rather than inserting garbage into this
+field based on the requested long packet length.  Properly parenthesize the
+operations in setting data[10] (CAPAS).  Thanks to Chuck Hedrick at Rutgers
+and Joe Doupnik at Utah State University for this fix.  This fix should also
+allow C-Kermit to correctly process incoming initialization strings that have
+a second or subsequent CAPAS byte.
+
+3. In ckcfn2.c, function rdata(), initialize rdatap to null so a debug() call
+from rpack doesn't crash the program.  Thanks to Andy Tanenbaum at THE in
+the Netherlands for reporting these crashes.
+
+4. In ckutio.c, function ttopen(), change "if (*lcl == -1)" to "if (*lcl != 0)"
+because some compilers set this number (the result of a logical comparison) to
+some nonzero number other than -1.  This should allow the local/remote status
+to be sensed more accurately on some systems, like 4.3bsd.  Thanks to Ray
+Moody at Purdue for this one.
+
+5. Fix declarations ckcmai.c.  Four of them had semicolons where there should
+have been commas.  Luckily all were ints.  Thanks to Anton Rang for this.
+
+6. In ckuusr.c, in 'case XXSHE:', add a missing semicolon at the end of the
+line "while (((wstat = wait((int *)0)) != pid) && (wstat != -1))", to ensure
+that the following statement, "signal(SIGINT,istat);", gets executed at least
+once.  Otherwise, there can be foreground/background confusion.  Thanks to
+Robert Andersson in Norway.
+
+7. Also from Robert Andersson: "In ckutio.c in the function ttpkt().  If UXIII
+was set, ttraw.c_cc[4] was set to 200 and ttraw.c_cc[5] was set to 1. The idea
+here probably was to increase performance by reading chunks of 200 characters
+in one read().  However, the end result was that absolutely all reads took at
+least 1/10 of a second (due to cc[5] being 1).  The effect of this is a
+performance typically 1/3 of the 4D version.  I changed c_cc[4] to 1 and
+c_cc[5] to 0 and everything was fine.  Note that since the actual read() is
+done with a 256 character buffer it will return as many characters as it can,
+even with c_cc[4] and [5] set like this!!"
+
+8. Remove a couple of spurious "\" escapes from strings in ckuus2.c and
+ckwart.c, that were noticed by Gnu CC.  The latter may have prevented
+compilation of ckcpro.c by some C compilers.  John Gilmore at Berkeley.
+
+9. In ckutio.c, module ttlock(), replace ATT3BX code that writes the pid into
+the lockfile with a safer version.  Reportedly, the old way would cause core
+dumps if the dial command were executed many times.  John Zeeff, Ann Arbor, MI.
+
+10. Fix eighth-bit-prefixing negotiation so that it works for more than one
+SEND command.  Add "rqf = -1;" to tinit() in ckcfn2.c.  Gordon Scott, Micro
+Focus, Newbury, UK.  The symptom here was that files sent with the second and
+subsequent SEND command when parity was other than NONE could be corrupted
+(usually if they contained &'s).
+
+11. Attempt to fix ATT7300 UNIX PC support.  Code contributed by Joe Doupnik,
+Utah State Univ, Feb 88.  Large changes to ckutio.c and ckudia.c.
+
+12. When sending ACK for F-packet, encode the filename rather than sending it
+bare.  Change to ckcpro.w, entry "<rgen,rfile>F".  Doesn't jibe with MS-Kermit
+2.32, but that will be fixed in next MS-Kermit release.
+
+13. Add support for IBM/Siemens/Rolm dialing in ckudia.c.  Might not actually
+work, since the CBX is not really a modem and its modem signals do not behave
+like a real modem's.
+
+14. Have command parser (ckucmd.c) treat Ctrl-I as an ESC, rather than a space,
+in line with current C-Shell, K-Shell, GNU EMACS, etc, practice.  Also in same
+module, strip parity bit from any input characters.
+
+15. Change wart to use short, rather than int, as the datatype for the state
+transition array.  Saves several K.  Those who use wart to build programs with
+more than 127 actions should rebuild wart and define TBL_TYPE to be "int".  Or
+edit wart's output, changing "short" to "int".
+
+16. Replace clever CRC algorithm with a more mundane table-driven version,
+which works about 30% faster: function chk3(), module ckcfn2.c.  (This doesn't
+mean that file transfers go 30% faster, because other things are going on too.
+But they are faster, especially on systems with slow CPUs.)
+
+17. Add "hangup" command (ckuusr.c, ckuus2.c, ckuusr.h).  Tested in Ultrix,
+works there at least.  "Hangup" simply calls tthang() in ckutio.c, which is a
+confusing mess, especially for System-V-based systems.  Be sure to wear your
+special #ifdef glasses...  The new hangup command seems to clear up problems
+that previously caused C-Kermit to hang or give up with i/o errors upon
+connecting to an external line that had been previously escaped back from.
+
+18. Let users set speed to 19200, at their own risk.  ckutio.c: ttsspd();
+ckuus2.c: ('help set speed'); ckuus3.c: chkspd().  Tested in Ultrix, works
+there.
+
+19. Add 2.10 BSD entry to makefile (ckuker.mak), and to ckutio.c (Stan Barber,
+s0b%bcm.tmc.edu@tmc.edu).  Also Microport Sys V entry (Bernie Eiben, DEC).
+
+20. Fix up SCO Xenix entries in makefile (John Owens, john%jetson.uucp@uunet).
+
+21. Fix mtime() in ckutio.c to also work on 16-bit 2.10 BSD systems (just
+make sure we're using long arithmetic).  Jack Nelson, U of Pittsburgh.
+
+22. Avoid creation of zombie processes (e.g. under 4.3BSD) by not trying to
+kill processes that have already exited.  ckufio.c: zclosf().  Ray Moody,
+Purdue Univ.
+
+23. Allow for situation in which C-Kermit sends I-packet (packet 0), times out,
+resends I(0), gets ACK(0), sends R(0), gets another copy of the ACK to I(0)
+when it's expecting S(0) and exits with "unexpected packet type".  Normally,
+the input() function would catch this kind of thing, but in this case sequence
+number 0 is being reused (3 times!).  Thanks to Ted Medin for catching this
+one.  Fix is to add a state "<get>Y" in ckcpro.w.
+
+23. Some Ultrix-specific code added under "#if(n)def ultrix" for opening
+and closing tty line vs modem control, etc, in ckutio.c.  From Paul Vixie
+at DEC.
+
+24. Turns out SUNOS 4.0 and later use the Sys V R3 convention of declaring
+signal() to be void rather than int.  Change ckcdeb.h to take care of this,
+and add a corresponding entry to the makefile, "make sunos4".
+
+25. Add program heralds to ckutio.c and ckufio.c for SUNOS 4.x and VAX/Ultrix.
+
+26. Make ttoc() time out after 2 seconds if it can't write a character to the
+port.  This function is only used in connect mode for sending typed characters
+out the port, and in scripts and dial commands.
+
+27. In ckucon.c, if 'connect' gets an i/o error when reading from the
+port, make it try 3 times before giving up.  On each retry, have it execute
+the hangup function, tthang() from ckutio.c.
+
+28. In ckutio.c, tthang(), make BSD systems not only drop and raise DTR, but
+also close and open the line.  Without the close/open sequence, subsequent
+'connect' commands would hang.
+
+
 C-KERMIT FOR UNIX, CHANGES FROM VERSION 4E(069) TO 4E(070), 29 Jan 88
 
 ckuusr.c

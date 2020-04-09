@@ -1,4 +1,4 @@
-char *ckzv = "Amiga file support, 4D(003) 27 June 86";
+char *ckzv = "Amiga file support, 4D(004) 24 Jan 88";
  
 /* C K I F I O  --  Kermit file system support for the Amiga */
 
@@ -10,7 +10,7 @@ char *ckzv = "Amiga file support, 4D(003) 27 June 86";
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained.
  
- Modified for Amiga by Jack J. Rouse
+ Modified for Amiga by Jack J. Rouse, The Software Distillery
 */
 
 /* Includes */
@@ -195,13 +195,13 @@ zsoutx(n,s,x) int n, x; char *s; {
  
 /*  Should return 0 or greater on success, -1 on failure (e.g. disk full)  */
  
-zchout(n,c) int n; char c; {
+zchout(n,c) int n; CHAR c; {
     if (chkfn(n) < 1) return(-1);
     if (n == ZSFILE)
     	return(write(fileno(fp[n]),&c,1)); /* Use unbuffered for session log */
     else {				/* Buffered for everything else */
 	if (putc(c,fp[n]) == EOF)	/* If true, maybe there was an error */
-	    return(ferror(fp[n]));	/* Check to make sure */
+	    return(ferror(fp[n])?-1:0);	/* Check to make sure */
 	else				/* Otherwise... */
 	    return(0);			/* There was no error. */
     }
@@ -334,6 +334,13 @@ zhome() {
 
 zchdir(dirnam) char *dirnam; {
     return((chdir(dirnam) == 0) ? 1 : 0);
+}
+
+/*  Z G T D I R  --  Return pointer to user's current directory  */
+
+char *
+zgtdir() {
+    return("");
 }
 
 /*  Z X C M D -- Run a system command so its output can be read like a file */

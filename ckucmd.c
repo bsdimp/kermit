@@ -1,4 +1,4 @@
-char *cmdv = "Unix cmd package V2(022), 27 Jan 88";
+char *cmdv = "Unix cmd package V2(023), 13 Jan 89";
  
 /*  C K U C M D  --  Interactive command package for Unix  */
 
@@ -893,6 +893,7 @@ gtword() {
 /***		perror("ckucmd getchar");  (just return silently) ***/
 		return(-4);
 	    }
+	    c &= 127;			/* Strip any parity bit. */
 #endif
         } else ignore = 1;
  
@@ -919,7 +920,7 @@ gtword() {
 #endif
             }
  
-            if (c == HT) c = SP;        /* Substitute space for tab. */
+            if (c == HT) c = ESC;        /* Substitute ESC for tab. */
  
 /* cont'd... */
 

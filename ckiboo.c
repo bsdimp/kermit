@@ -25,17 +25,17 @@
 
 #include <stdio.h>
 #ifdef AMIGA
-#include <fcntl.h>
+   #include <fcntl.h>
 #else
-#endif
-#ifdef MSDOS
-#include <fcntl.h>
-#else
-#ifdef vax11c
-#include <file.h>
-#else
-#include <sys/file.h>
-#endif
+   #ifdef MSDOS
+      #include <fcntl.h>
+   #else
+      #ifdef vax11c
+         #include <file.h>
+      #else
+         #include <sys/file.h>
+      #endif
+   #endif
 #endif
 
 #define fixchr(x) ((x) -'0')
@@ -151,12 +151,12 @@ main(argc,argv) char **argv; {
         putc(((c*64)+d) & 255,ofp);
       }
     }
-#IFDEF AMIGA
+#ifdef AMIGA
     putc('\032',ofp);                   /* final ^Z for micros*/
-#ENDIF
-#IFDEF MSDOS
+#endif
+#ifdef MSDOS
     putc('\032',ofp);                   /* final ^Z */
-#ENDIF
+#endif
 
     fclose(ofp);			/* Close the files */
     fclose(ifp);

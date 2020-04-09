@@ -1,4 +1,4 @@
-char *versio = "C-Kermit, 4E(070) 29 Jan 88";
+char *versio = "C-Kermit, 4E(072) 24 Jan 89";
 
 /*  C K C M A I  --  C-Kermit Main program  */
 
@@ -8,12 +8,13 @@ char *versio = "C-Kermit, 4E(070) 29 Jan 88";
  plus several important bug fixes.
 */
 /*
- Author: Frank da Cruz,
- Columbia University Center for Computing Activities (CUCCA), 1984-88.
- Copyright (C) 1984, 1988, Trustees of Columbia University in the City of New 
- York. Permission is granted to any individual or institution to use, copy, or
+ Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+ Columbia University Center for Computing Activities.
+ First released January 1985.
+ Copyright (C) 1985, 1989, Trustees of Columbia University in the City of New 
+ York.  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained.
+ copyright notice is retained. 
 */
 /*
  The Kermit file transfer protocol was developed at Columbia University.
@@ -26,8 +27,10 @@ char *versio = "C-Kermit, 4E(070) 29 Jan 88";
  and to the following people for their contributions over the years:
 
    Larry Afrin, Clemson U
+   Robert Andersson, Oslo, Norway
    Stan Barber, Rice U
    Charles Brooks, EDN
+   Mike Brown, Purdue U
    Bill Catchings, formerly of CUCCA
    Bob Cattani, Columbia U CS Dept
    Howard Chu, U of Michigan
@@ -37,10 +40,12 @@ char *versio = "C-Kermit, 4E(070) 29 Jan 88";
    Joe R. Doupnik, Utah State U
    Glenn Everhart, RCA Labs
    Carl Fongheiser, CWRU
+   John Gilmore, UC Berkeley
    Yekta Gursel, MIT
    Jim Guyton, Rand Corp
    Stan Hanks, Rice U.
    Ken Harrenstein, SRI
+   Chuck Hedrick, Rutgers U
    Ron Heiby, Motorola Micromputer Division
    Steve Hemminger, Tektronix
    Randy Huntziger, NLM
@@ -52,12 +57,14 @@ char *versio = "C-Kermit, 4E(070) 29 Jan 88";
    Chris Maio, Columbia U CS Dept
    Leslie Mikesall, American Farm Bureau
    Martin Minow, DEC
+   Ray Moody, Purdue U
    Tony Movshon, NYU
    Dan Murphy, ???
    Jim Noble, Planning Research Corporation
    Paul Placeway, Ohio State U
    Ken Poulton, HP Labs
    Frank Prindle, NADC
+   Anton Rang, ???
    Scott Ribe, ???
    Jack Rouse, SAS Institute
    Stew Rubenstein, Harvard
@@ -65,6 +72,7 @@ char *versio = "C-Kermit, 4E(070) 29 Jan 88";
    Gordon Scott, Micro Focus, Newbury UK
    David Sizeland, U of London Medical School
    Bradley Smith, UCLA
+   Andy Tanenbaum, THE, Netherlands
    Markku Toijala, Helsinki U of Technology
    Dave Tweten, AMES-NAS
    Walter Underwood, Ford Aerospace
@@ -75,6 +83,7 @@ char *versio = "C-Kermit, 4E(070) 29 Jan 88";
    Lauren Weinstein
    Joachim Wiesel, U of Karlsruhe
    Dave Woolley, CAP Communication Systems, London
+   John Zeeff, Ann Arbor, MI
 
  and many others.
 */
@@ -137,8 +146,8 @@ int spsiz = DSPSIZ,                     /* Biggest packet size we can send */
     bctu = 1,                           /* Block check type used */
     ebq =  MYEBQ,                       /* 8th bit prefix */
     ebqflg = 0,                         /* 8th-bit quoting flag */
-    rqf = -1;				/* Flag used in 8bq negotiation */
-    rq = 0;				/* Received 8bq bid */
+    rqf = -1,				/* Flag used in 8bq negotiation */
+    rq = 0,				/* Received 8bq bid */
     sq = 'Y',				/* Sent 8bq bid */
     rpt = 0,                            /* Repeat count */
     rptq = MYRPTQ,                      /* Repeat prefix */
@@ -236,8 +245,8 @@ int deblog = 0,                         /* Flag for debug logging */
     fncnv  = 1,                         /* Flag for file name conversion */
     binary = 0,                         /* Flag for binary file */
     savmod = 0,                         /* Saved file mode */
-    cmask  = 0177;			/* Connect byte mask */
-    fmask  = 0377;			/* File byte mask */
+    cmask  = 0177,			/* Connect byte mask */
+    fmask  = 0377,			/* File byte mask */
     warn   = 0,                         /* Flag for file warning */
     quiet  = 0,                         /* Be quiet during file transfer */
     local  = 0,                         /* Flag for external tty vs stdout */

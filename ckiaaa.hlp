@@ -5,11 +5,7 @@ Documentation:
         CKUKER.DOC      Unix C-Kermit documentation
         CKIAAA.HLP      the file you are reading
         CKIKER.BWR      list of current problems
-
-BOO format executable and decoding
-        CKIKER.BOO      Kermit executable in BOO format
-        CKIBOO.BAS      BOO file decoder in Basic
-        CKIBOO.C        BOO file decoder in C
+        CKIKER.UPD      list of changes to Amiga Kermit
 
 Compilation support:
         CKIKER.BLD      instructions for compiling C-Kermit

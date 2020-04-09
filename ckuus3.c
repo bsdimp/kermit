@@ -1,12 +1,13 @@
 /*  C K U U S 3 --  "User Interface" for Unix Kermit, part 3  */
  
 /*
- Author: Frank da Cruz (SY.FDC@CU20B),
- Columbia University Center for Computing Activities, January 1985.
- Copyright (C) 1985, Trustees of Columbia University in the City of New York.
- Permission is granted to any individual or institution to use, copy, or
+ Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+ Columbia University Center for Computing Activities.
+ First released January 1985.
+ Copyright (C) 1985, 1989, Trustees of Columbia University in the City of New 
+ York.  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+ copyright notice is retained.
 */
  
 /*  SET and REMOTE commands; screen, debug, interrupt, and logging functions */
@@ -443,23 +444,10 @@ chkspd(x) int x; {
 	case 2400:
 	case 4800:
 	case 9600:
-#ifdef apollo
         case 19200:
-#else
 #ifdef AMIGA
-        case 19200:
 	case 38400:
 	case 57600:
-#else
-/* #ifdef B19200       (this high speed stuff needs much more work...)
-/*      case 19200:    (have to make corresponding changes in ckuus2, ckutio)
-/* #else
-/* #ifdef B38400
-/*      case 38400:
-/* #endif
-/* #endif
-*/
-#endif
 #endif
 #endif
 

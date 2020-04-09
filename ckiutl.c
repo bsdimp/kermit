@@ -1,12 +1,23 @@
-/*  C K I U T L --  Utility functions for C-Kermit on the Amiga */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* |_o_o|\\ Copyright (c) 1986 The Software Distillery.  All Rights Reserved */
+/* |. o.| || This program may not be distributed without the permission of   */
+/* | .  | || the authors.                                                    */
+/* | o  | ||    Dave Baker     Ed Burnette  Stan Chow    Jay Denebeim        */
+/* |  . |//     Gordon Keener  Jack Rouse   John Toebes  Doug Walker         */
+/* ======          BBS:(919)-471-6436      VOICE:(919)-469-4210              */ 
+/*                                                                           */
+/* Contributed to Columbia University for inclusion in C-Kermit.             */
+/* Permission is granted to any individual or institution to use, copy, or   */
+/* redistribute this software so long as it is not sold for profit, provided */
+/* this copyright notice is retained.                                        */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/*  C K I U T L -- July 17, 1986
+ * Utility functions for C-Kermit on the Amiga
+ */
  
 /*
- Author: Jack Rouse
- Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1986, Jack J. Rouse, 106 Rubin Ct. Apt. A-4, Cary NC 27511
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+ Author: Jack Rouse, The Software Distillery
 
  The file status routines assume all file protection modes are real, instead
  of just delete protection on files and write protection on disks.
@@ -21,9 +32,9 @@
 #define fh_Interact fh_Port
 #define fh_Process  fh_Type
 #define ACTION_CLOSE 1007
-#ifdef LAT304
-#include "lattice/fcntl.h"
-#include "lattice/signal.h"
+#ifdef LAT310
+#include "fcntl.h"
+#include "signal.h"
 #else
 #include "lattice/ios1.h"	/* defines ufbs structure */
 #endif
@@ -69,7 +80,7 @@ LONG WaitForChar();
 /* portable library */
 char *malloc();
 
-#ifdef LAT304
+#ifdef LAT310
 /* translate Unix file handle (0, 1, or 2) to AmigaDOS file handle */
 #define DOSFH(n) fileno(&_iob[n])
 /* translate Unix file handle (0, 1, or 2) to Lattice file handle */
@@ -129,6 +140,10 @@ char *cmd;
 		if (fh)
 		{
 			Execute("", fh, (BPTR)NULL);
+
+			/* fix 'endcli' bug */
+			((struct FileHandle *)BADDR(fh))->fh_Pos = 0;
+
 			Close(fh);
 		}
 	}
@@ -136,7 +151,6 @@ char *cmd;
 		Execute(cmd, (BPTR)NULL, DOSFH(1));
 }
 
-#ifndef LAT304
 /*
  * getcwd -- get current working directory text
  */
@@ -288,6 +302,7 @@ char *name;
 	return(0);
 }
 
+#ifndef LAT310
 /*
  * print an error message with explanation
  * (no explanation currently)

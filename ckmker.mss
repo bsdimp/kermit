@@ -1,28 +1,28 @@
-@comment[	-*-Text-*-	]
-@Part(CKMKER,root="KER:KUSER")
-@string(-ckmver="@q<0.8(34)>")
-@define(exx=example,above 2,below 1)
+@Part(CKMKER,root="kuser")
+@string(-ckmver="@q<0.9(40)>")
+
 @Chapter<MACINTOSH KERMIT>
+
+@case(device,file="@*--------@*
+This document is formatted as an ordinary, plain text ASCII disk file, from
+SCRIBE text formatter source.  Typeset copies are available from Columbia
+University.@*--------@*")
 
 @Begin<Description,spread 0>
 @i(Program:)@\Bill Catchings, Bill Schilit, Frank da Cruz (Columbia
-University),@*Davide Cervone, University of Rochester
+University),@*
+Davide Cervone (University of Rochester),@*
+Matthias Aebi (ECOFIN Research and Consulting, Ltd., Zuerich),@*
+Paul Placeway (Ohio State University).
 
-@i(Language:)@\C (SUMACC)
+@i(Language:)@\C (MPW)
 
-@i(Documentation:)@\Frank da Cruz, Bill Schilit
+@i(Documentation:)@\Christine Gianone, Frank da Cruz, Paul Placeway
 
 @i(Version:)@\@value(-ckmver)
 
-@i(Date: )@\March, 1986
+@i(Date: )@\May 26, 1988
 @end<Description>
-
-@index<Macintosh Kermit>
-@index<CKMKER>
-Macintosh Kermit, or @qq[MacKermit], is an implemtation of the Kermit file
-transfer protocol for the Apple Macintosh (and Macintosh-XL) computer,
-developed at Columbia University, based on C-Kermit (which also forms the
-nucleus of Unix Kermit).
 
 @subheading<MacKermit Capabilities At A Glance:>
 @begin<format,leftmargin +2,above 1,below 1>
@@ -32,7 +32,8 @@ Remote operation:@\Yes (server mode only)
 Login scripts:@\No
 Transfer text files:@\Yes
 Transfer binary files:@\Yes
-Wildcard send:@\No
+MacBinary transfers:@\No
+Wildcard send:@\Yes (whole HFS folders)
 File transfer interruption:@\Yes
 Filename collision avoidance:@\Yes
 Can time out:@\Yes
@@ -40,420 +41,695 @@ Can time out:@\Yes
 Repeat count prefixing:@\Yes
 Alternate block checks:@\Yes
 Terminal emulation:@\Yes (VT100,VT102)
-Communication settings:@\Yes
+Communication settings:@\Yes (Speed, Parity, Echo)
+XON/XOFF:@\Yes
 Transmit BREAK:@\Yes
-Support for dialout modems:@\No
 IBM mainframe communication:@\Yes
-Transaction logging:@\No
-Session logging:@\No
+Transaction logging:@\Yes
+Session logging:@\Yes
 Debug logging:@\No
 Packet logging:@\No
 Act as server:@\Yes
 Talk to server:@\Yes
-Advanced server functions:@\No
+Advanced server functions:@\Yes
 Local file management:@\Yes
-Command/Init files:@\Yes
+Command/Init files:@\No
+Key redefinition/macros:@\Yes
 File attributes packets:@\No
 Command macros:@\No
 Raw file transmit:@\No
+Long packets:@\Yes
+Sliding windows:@\No
 @end<format>
 
-The main differences between MacKermit and other Kermit programs are:
-@Begin(Itemize)
-In MacKermit you are always connected via a terminal emulator (VT102).
+@section(Introduction)
+@index<Apple Macintosh>
+@index<Macintosh Kermit>
+@index<CKMKER>
+ Macintosh Kermit, or "MacKermit", is an implementation of the Kermit file
+transfer protocol for the Apple Macintosh family of computers. It was
+developed at Columbia University, based on C-Kermit (which also forms the
+nucleus of Unix Kermit and many other Kermit programs).  Version 0.9 of
+MacKermit runs on the Macintosh 512, XL (Apple Lisa running MacWorks), 512e,
+Plus, SE, and II, under the regular Finder and the Multifinder, with which it
+can transfer files in the background@index<Background>.  MacKermit 0.9
+probably does not run on a 128k (original, classic) Macintosh, due to lack of
+sufficient memory, but should run OK on a "fat Mac" (a 128K Mac upgraded to
+512K).  Version 0.8 should be retained for 128K Macs.
 
-MacKermit commands are issued by means of pull-down menus that overlay
-your terminal session.  
-@End(Itemize)
+This manual assumes you are acquainted with your Macintosh, and that you are
+familiar with the general ideas of data communication and Kermit file transfer.
+A very brief overview is given here, but for details consult the early chapters
+of the @i<Kermit User Guide> (of which this document is a chapter), or the book
+@ux<Kermit, A File Transfer Protocol>, by Frank @w<da Cruz>, Digital Press
+(1987).  For further information about Kermit documentation, updates, lists of
+current available versions, and ordering information, write to:
+@begin<example,use r,need 5>
+Kermit Distribution
+Columbia University Center for Computing Activities
+612 West 115th Street
+New York, NY  10025  (USA)
+@end<example>
 
-The major menus are @b(File), @b(Settings), @b(Remote), and @b(Transfer).  The
-@b(File) menu invokes Kermit's file transfer functions, allows settings to be
-saved and restored, and like most Macintosh applications, includes a "quit"
-selection for leaving the program.
+@Section<Installation>
 
-The @b(Settings) menu provides dialog boxes for file, communications, and
-protocol settings.  The @b(Remote) menu has the commands that can be
-sent to Kermit servers, as well as an option to turn Macintosh Kermit itself
-into a server.  The @b(Transfer) menu gives you a standard Macintosh file box,
-allowing you to transfer directly to the selected application.
+Before you can use Macintosh Kermit or any other communication program on your
+Mac, you must have a way to connect it to the other computers you wish to
+communicate with.  This means either a direct cable connection (usually using
+a "null modem" cable), or a modem connected to your Mac and to a telephone.
+The Macintosh poses two special problems at this level.  First, its connectors
+are not the standard 25-pin RS-232 style, but either 9-pin or 8-pin special
+connectors which you need special adapters for.  Second, the Macintosh does
+not supply a Data Terminal Ready (DTR@index<DTR>) signal, which is required by
+most modems before they will operate.  To use your Mac with a modem that is
+not designed specifically for the Mac, you have to either (a) configure the
+modem to ignore the DTR signal, or (b) feed some other active signal into the
+modem's DTR input.  The former is usually done with DIP switches on the modem,
+the latter can be done in the connector that plugs into the modem by
+installing a jumper wire between DTR (pin 20) and DSR (pin 6), or by
+connecting the Mac's +12V output (pin 6 on the Mac's 9-pin connector) to DTR
+(pin 20) on the modem end.
+
+If you have received a Macintosh Kermit diskette from Columbia University,
+there's no special software installation procedure -- just insert the
+diskette, double-click on the appropriate start-up file, or on MacKermit
+itself, and go.  If all the communication and other settings agree with your
+requirements, there's nothing else you need to do.  This process is
+illustrated in the next section, just below.
+
+MacKermit is not copy-protected, and nothing out of the ordinary is required
+to make copies onto other diskettes, or onto your hard disk if you have one.
+Just use the ordinary Macintosh methods of copying files, folders, etc.
+
+Later, you may wish to create settings files tailored to your communication
+environment, and you might also want to customize the keyboard configuration.
+Use the various Settings options for this, and then select Save Settings from
+the File menu.  Settings and settings files are explained in Sections
+@ref<-macset> and @ref<-macsfile>.
+
+@section(Getting Started)
+@label<-macstart>
+
+Kermit programs perform two major functions, terminal emulation and file
+transfer.  Before transferring files between two systems you must establish a
+terminal connection from your system to the other one, either direct or else
+dialed up using a modem.  Then to transfer files, login to the remote system
+if necessary, start up a Kermit program there, and then tell the two Kermit
+programs which files to transfer, and in what direction.
+
+Most Kermit programs present you with a prompt, in response to which you type
+a command, repeating the process until you exit from the program.  If you want
+to establish a terminal connection to another system, you must give the
+CONNECT command.  Unlike these programs, MacKermit is @i<always> connected,
+and whatever keystrokes you type are sent to the other system.  To give
+commands to MacKermit itself, you must use the mouse@index(Mouse) to pull down
+menus from the menu bar that overlays your terminal session, or type special
+Command-key equivalents.
+
+The following example shows how to transfer a file with MacKermit.  The remote
+computer is a Unix system, but the method is the same with most others.
+@begin(itemize)
+First insert the MacKermit diskette.  It should appear on the screen as a
+diskette icon titled @b<Kermit 0.9(40)>.  Click on it twice to open if it did
+not open automatically when you inserted it in the drive.
+
+Once the disk is opened, you will see three MacKermit icons across the top of
+the screen.  For the Unix system and most others you can use the "@b(Normal
+Settings)" icon -- to start the Kermit program click twice on it.  For linemode
+connections to IBM mainframes, you would click twice on the "@b(IBM Mainframe
+Linemode Settings)" icon.
+
+You will see a white backround with menus stored under the headings @b(File),
+@b(Edit), @b(Settings), @b(Remote), and @b(Log).
+
+Move the mouse pointer to the @b(Settings) menu and select
+@b(Communications...) by clicking on it once.
+
+MacKermit normally sets the communication speed to 9600 bits per second.
+Click on the circle in front of 1200 (or whatever speed you need to match the
+baud rate of your modem and/or remote system).  Check to see that the other
+communication settings like parity are as required, and make any necessary
+changes.
+
+Click on the "@q<OK>" box to accept the settings.
+
+If you have a Hayes-like dialout modem, follow the next two steps:
+@begin<enumerate>
+Type AT (uppercase) and then press the Enter key.  The modem should respond
+with "OK" or the digit "0" (zero).  If it doesn't, check the cable, the modem,
+etc (consult your modem manual for details).
+
+Now type ATDT 7654321 followed by Enter (replace 7654321 by the actual phone
+number).  If the connection succeeds, you'll get a message like CONNECT (or the
+digit "1"), otherwise you'll see an error message like NO CARRIER, ERROR, etc,
+or a digit like 3 or 4 (see your modem manual).
+@end<enumerate>
+For non-Hayes-compatible modems, follow the instructions in your modem manual.
+For direct connections, skip this step altogether.
+@end<itemize>
+Now you should be talking to the Unix system.  Type a carriage return to get
+its attention, and it will issue its login prompt.  In the examples below,
+underlining is used to show the parts that you would type.
+@begin<example>
+@tabclear()@tabset(2.5inches)
+Login: @ux<christin>@\@i(Login to the host.)
+password:@ux<      >@\@i<(Passwords normally don't echo.)>
+
+% @ux<kermit>@\@i(Run Kermit on the host.)
+
+C-Kermit>@ux<receive>@\@i(Tell it to receive a file.)
+@end<example>
+
+Now tell MacKermit what file to send:
+@begin<itemize>
+Use the mouse to point to the @b(File) menu and select the @b(Send File...)
+option.  You can either type in the name of the file (if you know the name) or
+select the alternate drive to see what files are on the disk.  Once you see
+the file you want to send, click on the filename and then click on the SEND
+option (or you can just click twice on the filename).
+
+A "File Transfer Status" box will appear to report the progress of the
+transer.  @i(NOTE:) If the number of retries is increasing but not the number
+of packets, you should check your @b(Communications...) settings under the
+@b(Settings) menu.
+
+When the file transfer is completed, the "File Transfer Status" box should
+disappear and the C-Kermit prompt should reappear.  
+@end(itemize)
+
+You have just transferred a file from the Macintosh to the Unix system.  To
+transfer a file in the other direction, use the "@q(send )@i<filename>"
+command on Unix instead of "@q(receive)", and click on "@b(Receive File...)"
+from the Mac's @b(File) menu, instead of "@b(Send File...)".
+
+After the file is transferred, your terminal connection is automatically
+resumed.  Once your Unix session is complete, you can log out, and then
+exit from MacKermit:
+@begin<example>
+@tabclear()@tabset(2.5inches)
+C-Kermit>@ux<exit>
+
+% @ux<^D>@\@i(Logout from Unix by typing Ctrl-D.)
+@end<example>
+
+@begin<enumerate,spread 0.5>
+Select the @b(Quit) option in the @b(File) menu by clicking on it.
+
+Select the @b(Close) option in the @b(File) menu by clicking on it (assuming
+you want to close the current folder).
+
+Select the @b(Eject) option in the @b(File) menu by clicking on it (assuming
+you ran Kermit from a diskette that you want to eject).
+@end<enumerate>
+That's the easiest and quickest way to use Kermit.  If this simple scenario
+does not work for you, look for any obvious incorrect settings (speed, parity),
+fix them, and try again.  Otherwise, read on.
 
 @Section(The Macintosh File System)
 
 The Macintosh file system consists of one or more disks, each disk containing
-files.  All files on a disk must have a unique name.  Files may be
-collected together into @qq[folders], but folders are not analogous to
-directories on other file systems, and no two folders on the same disk may
-contain files of the same name.  Macintosh file names may contain practically
-any printable characters, including space and punctuation -- but colon (@qq[:])
-should be avoided because it is used in device names.
+files.  There are actually two Macintosh file systems, which work slightly
+differently.
+
+Disks formatted for the older Macintosh File System (MFS)@index<MFS> are
+essentially "flat".  All files on one of these disks must have a unique name.
+Files may be collected together into "folders"@index<Folder>, but folders are
+not analogous to directories on other file systems, and no two folders on the
+same disk may contain files of the same name; the folders exist only to make
+things look nicer in the Finder.  All Macintoshes have support for MFS.
+
+Disks formatted with the newer Hierarchical File System (HFS)@index<HFS> are
+not "flat"; each folder is a directory.  There may not be more than one file
+with the same name in a single folder, but there may be identically named
+files in different folders.
+
+Macintosh file names may contain practically any printable characters,
+including space and punctuation -- but colon (@qq[:]) may not be used; it is
+used in device names and as the HFS path element separator.
+
+@section(Menus)
+
+The major menus are @b(Apple), @b(File), @b(Edit), @b(Settings), @b(Remote),
+and @b(Log).  The @b(Apple) menu gives some information about the program,
+including the MacKermit version number and the C-Kermit protocol mudule version
+number (useful in reporting bugs).  It also shows statistics about the most
+recent file transfer.
+
+The @b(File) menu invokes Kermit's file transfer functions, @b(Send), @b(Get),
+and @b(Receive).  It also allows settings to
+be saved and restored, and like most Macintosh applications, includes a "quit"
+entry for leaving the program, and a "transfer" entry for transferring to
+another program without going through the Finder.
+
+The @b(Edit) menu provides support for Macintosh desk accessories that need to
+have this menu to do cut and paste.  This menu does not currently do anything
+in MacKermit.
+
+The @b(Settings) menu provides dialog boxes for file, communications, and
+protocol settings; these will be discussed below.
+
+The @b(Remote) menu has the commands that can be sent to Kermit servers, as
+well as an option to turn Macintosh Kermit itself into a server (also
+discussed below).
+
+The @b(Log) menu contains commands to start and stop session and transaction
+logging.  It also has an entry to dump the current screen image to the session
+log, which is only enabled when the session log is open.
+
+@Section<Terminal Emulation>
+
+Before you can transfer files, you have to establish a terminal connection
+with the other computer.  You don't have to give MacKermit any special command
+to do this, just start the program.  Assuming you have a physical connection,
+then the software will use it.  If you think you have a physical connection,
+but don't see any results, click on the @b(Settings) menu and select
+@b(Communications) to make sure you have the right speed and parity.  If you
+have to dial out to make the connection, you must do this yourself -- Mac
+Kermit won't do it for you.  Depending on the type of modem, you must either
+type dialing commands to it directly (like the Hayes ATDT command in the
+example in section @ref<-macstart>), or else dial the phone manually, wait for
+an answer and a carrier tone, and then put the modem in data mode.
+
+Once you've made the connection, you can use MacKermit's terminal emulator,
+@index<VT102 Emulation>
+which conforms to ANSI standard X3.64, providing a subset of the features of
+the DEC VT102 terminal (a VT100 with line and character insert and delete
+functions added).  The functions provided are sufficient to allow MacKermit to
+act as a terminal for the EMACS full-screen editor as it exists on most
+timesharing systems, and for most host-@|resident display-oriented applications
+that expect to do cursor positioning and editing on the VT100 or VT102 screen,
+such as VAX TPU.  MacKermit does not currently support the following VT100/102
+functions:
+@Begin(Itemize,spread 0)
+Double height or double width lines
+
+Blinking
+
+132 columns
+
+DEC-style line wrapping
+
+Control characters embedded in escape sequences
+
+VT52 mode
+@End(Itemize)
+(this is not an exhaustive list)
+
+The keyboard is set up by default as follows: If your Macintosh has a Control
+key (ie. an SE or II), Kermit uses it, and the Command (Fan, Cloverleaf) key
+can be used for keyboard equivalents for menus.  If your Mac does not have a
+Control key, then the Command key is used as the Control key.  The CAPS LOCK
+key forces all alphabetic characters to upper case.  The terminal emulator
+sends ESC (escape) when the @qq(`) (accent grave) key is pressed unshifted
+(even if your keyboard has an ESC key).  The character @qq(`) can be sent by
+typing Control (or Command) and the same key.  The Backspace key sends a
+Delete (Rubout) and Control-@|Backspace sends a Backspace.  On the original
+Mac keyboards, the main keypad Enter key sends a "short" (250ms) BREAK signal.
+The Mac+, Mac SE, and Mac II do not have a main keypad Enter key, so the BREAK
+function must be reassigned to another key.
+
+@index<Key Redefinition>
+You can modify the keyboard layout any way you like, defining keyboard macros,
+defining or moving the Control and Escape keys, etc., using MacKermit's
+built-in key configuration features.  Older MacKermits (version 0.8 and
+earlier) came with a separate key configuration program called CKMKEY.  This
+should not be used, because it does not understand the format of the 0.9 and
+later keyboard configuration software.
+
+MacKermit includes a mouse-controlled@index<Mouse> cursor positioning feature
+for use during terminal emulation.  If the "Mouse -> Arrow Keys" feature is
+turned on (via the @b[Terminal] entry of the @b[Settings] menu), then when the
+mouse button is pressed, the program acts as if you typed the VT100 keypad
+arrow keys to move the terminal cursor to where the mouse cursor is.
+MacKermit does this by sending the absolute strings for arrow keys,
+independant of what is bound to the actual arrow keys of the keyboard.
+
+MacKermit sets the Mac hardware to do 8-bit data communication with no
+parity@index(Parity), and then correctly sets the parity bit of each character
+itself in software, as requested in the @b<Communication> settings menu.  This
+has the benefit of avoiding the problem of a machine which requires a
+different input parity than it sends back.  MacKermit will correctly receive
+all of the characters sent to it, no matter which parity they are.
+
+To allow useful coexistence of desk accessories and Kermit, the terminal
+emulation window may be dragged using the drag bar.  If a desk accessory
+overlays the emulation window, the emulation window can be clicked upon to move
+it in front of the DA, and later dragged to reveal the hidden desk accessory so
+that it can be restored to the foreground.  The same thing can be done with
+Kermit's own remote response window as well.  Note that Kermit's terminal
+emulation window does not accept input when any other window is in the
+foreground.
+
+MacKermit uses XON/XOFF (control-Q and control-S) flow control during
+terminal emulation and file transfer.  If the other system does not
+understand XON/XOFF, problems may result at high speeds.  The terminal
+emulator can normally keep up at 9600 baud, and has a very large input
+buffer, but after several continuous scrolling screens at this speed, some
+characters may be lost.  When running at high baud rates on a system that
+does not understand XON/XOFF flow control, either keep your terminal in
+page mode, use a text paging program such as Unix "more", or view text with
+a non-@|scrolling screen editor.  Also, don't drag the terminal emulation
+window while characters are arriving; if you do, the characters may be lost
+and the display may become confused.
+
+@index(Session Log)@index(Raw Download)
+During terminal emulation, the characters displayed on the screen may also
+be saved on the disk.  This allows you to record interactions with the
+remote system, or to "capture" files that you can't transfer with Kermit
+protocol, for example when the remote system does not have a Kermit program.
+Use the @b<Log> menu, and choose session logging to activate this feature.
+The result goes into a file called "Kermit Session" in the current folder,
+which is always appended to, rather than overwritten.  To create a new session
+log, delete or rename the old one first.
+
+The following features are missing from the MacKermit terminal emulator,
+and may be added in subsequent releases:
+@Begin(Itemize,Spread 0)
+Restoration of character attributes such as underlining or highlighting.
+
+Cutting text from screen to clipboard.
+
+Transmission of raw text to host (e.g. pasting to screen).
+
+Screen rollback.
+
+Screen resizing.
+
+Explicit modem or dialer control.
+
+Login scripts.
+
+Printer support.
+
+Ability to use the printer port for terminal emulation.
+
+A way to disable XON/XOFF flow control, or select other flow controls.
+@End(Itemize)
 
 @Section(File Transfer)
 
-@i<Glossary>:
-
+Like most Kermit programs, MacKermit allows you to send and receive text or
+binary files singly or in groups.  It will interact with a remote Kermit
+server, and it can act as a server itself.  However, due to the unique nature
+of the Macintosh file system, there are some special considerations:
 @Begin(Itemize)
-@u<Mode> - Text or Binary.  Binary means the data is sent or stored without
-modification. Text means that every carriage return character (CR) in a
-Macintosh file is translated to a carriage-return-linefeed (CRLF)
-sequence when sending, and every CRLF in an incoming file is turned into
-a CR when stored on the Mac disk.  A text file is produced when you
-save a file from MacWrite using the "text only" option; text files are
-not associated with any particular Macintosh application and can be
+@begin<multiple>
+@u<Mode> - Text or Binary@index<Binary Files>.  Binary means the data is sent
+or stored without modification.  Text means that every carriage return
+character (CR) in a Macintosh file is translated to a carriage-return-linefeed
+(CRLF) sequence when sending, and every CRLF in an incoming file is turned
+into a CR when stored on the Mac disk.  A text file is produced when you save
+a file from MacWrite or other applications using the "text only" option; text
+files are not associated with any particular Macintosh application and can be
 sent in a useful fashion to other kinds of computers.
 
-@u<Fork> - Data or Resource.  Macintosh files may have two "forks".  The data
-fork contains data for an application; the resource fork contains icons,
-strings, dialog boxes, and so forth.  For instance, a MacWrite document
-contains text and formatting information in the data fork, and fonts in
-the resource fork.  For applications, the executable code is stored in the
-resource fork.
+A word of caution about Macintosh text files: The Macintosh supports an
+extended version of ASCII@index<Extended ASCII>, with characters like accented
+and umlauted vowels in the 128-255 range.  These characters allow
+representation of Roman-based languages other than English, but they do not
+follow any of the ISO standards for extended character sets, and thus are only
+useful on a Mac.  When transferring text files, you should ensure that either
+there are no extended characters in the file, or that the other system can
+understand the Mac's 8-bit characters.
+@end<multiple>
+
+@u<Fork> - Data or Resource.  Macintosh files may have two
+"forks"@index(Fork).  The data fork contains data for an application; the
+resource fork contains icons, strings, dialog boxes, and so forth.  For
+instance, a MacWrite document contains text and formatting information in the
+data fork, and fonts in the resource fork.  For applications, the executable
+code is stored in the resource fork.
 @End(Itemize)
 
-Macintosh Kermit supports the standard Kermit commands for transferring
-files -- Send, Receive, and Get.  Invocation of any of these commands
-produces a MacKermit file dialog box in which you specify the file name, the
-mode, and the fork.  Defaults are determined from the selected file or
-taken from the current file settings, described below.
+File transfer is initiated when you select @b(Send file...), @b(Receive
+File...), or @b(Get file from server...) from MacKermit's @b(File) menu.
 
-When you select the Send command, you get a MacKermit file open box, which
-includes the standard Macintosh dialog items -- a file list, Disk and
-Eject buttons, etc.  You can only send one file at a time, by clicking on
-its name in the file list.  Clicking the Disk button will switch the file
-list to another physical disk.  If desired, you can type an alternate name
-to send the file under.  When you select a file, MacKermit examines its
-type; if the type is APPL, then MacKermit expects to send the resource fork
-in binary mode, otherwise the data fork in text mode.  The Mode and Fork
-radio buttons will display these choices; you may change them before clicking
-the Send button.  
-
-You can receive or get multiple files, providing the opposite Kermit is
-capable of sending multiple files in a single transaction (most are).  As
-files arrive, they will be decoded according to the current mode (text or
-binary), and stored in the default fork (data or resource) under either the
-name they arrive with (overwriting existing files of the same names) or
-under new unique names (when name conflicts occur), according to the current
-default for name collisions.  You may also elect to perform an "attended"
-receive, in which you have an opportunity to override all file defaults on a
-per-file basis.  But this option must be used with caution -- if you take
-too long (more than about a minute) to execute an incoming file's dialog
-box, the opposite Kermit could time out and terminate the transaction.
-
-The folder for new files is the same as the location of the settings file,
-or if no settings file was used then the new files appear on the desktop.
-If you are transferring a lot of files and want to keep them together,
-create a folder, drag the settings file into it, and double click on the
-settings file; all created files will appear in that folder.
-
-File transfers can be cancelled by clicking on the Cancel File or Cancel
-Group buttons.  These will always work when sending.  When receiving, they
-will work if the opposite Kermit honors this (optional) feature of the
-protocol.
-
-In any case, an "emergency exit" from any protocol operation can be taken at
+File transfers can be canceled by clicking on the Cancel File or Cancel Group
+buttons.  These will always work when sending.  When receiving, they will work
+if the opposite Kermit honors this (optional) feature of the protocol.  There
+is also an "emergency exit" from any protocol operation, which can be taken at
 any time by typing "Command-@q(.)" -- that is, hold down the Command (Fan,
 Cloverleaf) key and type period.
 
+The progress of file transfer operations can be logged into a Macintosh file
+called a "transaction log".  This log will show the names of the files
+transferred, the date and time, and the completion status.  This feature is
+useful with long unattended transfers -- you can come back later and read the
+transaction log to find out what happened.  The transaction log is called
+"Kermit Log".
+
+The current version of Mac Kermit can only send one fork of a file at a time.
+When a file has two forks, there is no provision for sending both forks
+together.  This restriction may be lifted in future releases of MacKermit, for
+example by converting applications to MacBinary@index<MacBinary> format during
+transmission.
+
+@subsection(Sending Files)
+To send files, first put the remote Kermit in server mode, or else give it the
+RECEIVE command.  Then use the mouse to select @b(Send file...) from the
+@b(File) menu.  This will give you a MacKermit file-open box, which includes
+the standard Macintosh dialog items -- a file list, Disk and Eject buttons,
+etc.  You can either send one file at a time, by clicking on its name in the
+file list, or send the entire contents of the current HFS folder (for HFS
+disks only, of course).  Clicking the Disk button will switch the file list to
+another physical disk.  If desired, you can type an alternate name to send the
+file under.  When you select a file, MacKermit examines its type; if the type
+is APPL, then MacKermit expects to send the resource fork in binary mode,
+otherwise the data fork in text mode.  The Mode and Fork radio buttons will
+display these choices; you may change them before clicking the Send button.
+
+@subsection(Receiving Files)
+You can receive or get multiple files, providing the opposite Kermit is
+capable of sending multiple files in a single transaction (most are).  To
+receive files, first give the remote Kermit a SEND command and then select
+@b(Receive file...) from the @b(File) menu.  To get files from a server,
+first put the remote Kermit into server mode, then select the @b(Get file from
+server...) option from the @b(File menu), and type in the name of the file you
+want to get, or a wildcard designator for multiple files, in the remote
+system's filename syntax.
+
+As each file arrives at the Mac, it will be decoded according to the current
+mode (text or binary), and stored in the default fork (data or resource).  The
+file names will be either the names the files arrive with (overwriting
+existing files of the same names) or new unique names (when name conflicts
+occur), according to the current default for name collisions.  You may also
+elect to perform an "attended" receive, in which you have an opportunity to
+override file defaults on a per-file basis (do this in the @b(Protocol)
+section of the @b(Settings) menu).  But attended operation must be used with
+caution -- if you take too long (more than about a minute) to execute an
+incoming file's dialog box, the opposite Kermit could time out and terminate
+the transaction.  If this happens, tell the opposite Kermit to send again and
+try again with the receive dialog.
+
+The folder for new files is the same as the location of the settings file, or
+if no settings file was used then the new files appear on the desktop.  If you
+are transferring a lot of files and want to keep them together, create a
+folder, drag the settings file into it, and double click on the settings file;
+all created files will appear in that folder.
+
 @section(Remote Commands)
 
-The @b(Remote) menu allows you to send commands to a Kermit server.  The
-response from these commands (if any) is displayed in a special pop-up
-window.  Responses to multiple Remote commands are separated by a dashed
-line.  The response window can be scrolled, sized, and positioned, and can
-be hidden by clicking the menu item "Hide Response" or the window's go-away
-box; all text remains intact and will be appended to the next time you do a
-Remote command; it can also be brought to the foreground by clicking the
-Show Response menu item.  Note that typein to the terminal emulator will not
-take effect when the response window -- or any other window -- is up front.
+When connected to a Kermit server, MacKermit is capable of issuing special
+file management and other commands to it.  The @b(Remote) menu contains these
+commands.  You may request directory listings, you can delete files, change
+directories, etc, on server's machine.  The response from these commands (if
+any) is displayed in a special pop-up window.  Responses to multiple Remote
+commands are separated by a dashed line.  The response window can be scrolled,
+sized, and positioned, and can be hidden by clicking the menu item "@b(Hide
+Response)" or the window's go-away box; all text remains intact and will be
+appended to the next time you do a Remote command; it can also be brought to
+the foreground by clicking the @b(Show Response) menu item.  Note that typein
+to the terminal emulator will not take effect when the response window -- or
+any other window (such as a desk accessory) -- is up front.  This is not a
+bug, but a feature of the Macintosh user interface guidelines.
 
-If the response window gets too full (i.e. fills up the free memory
-available to the MacKermit application), the program will probably bomb.
+If the response buffer gets too full (greater than 30,000 characters),
+MacKermit will remove enough text from the beginning of the buffer, in 512 byte
+chunks, to make it less than 30,000 characters again.
 
-If the remote Kermit server is in binary mode, its responses to Remote
-commands may look strange.  For instance, a Unix Kermit server
-in binary mode will send lines of text separated by only linefeeds,
-rather than CRLFs.
+A Remote command can be canceled by taking the Emergency Exit (Command-@q<.>).
+To disengage from the remote Kermit server, click on @b(Bye) or @b(Finish) in
+the @b(Remote) menu.
 
-A Remote command can be cancelled by taking the Emergency Exit (Command-@q<.>).
+@section(Server Operation)
+
+MacKermit may itself act as a Kermit server.  Just set the desired parameters
+in the @b(Settings) menu, then click on @b(Be a Server) in the @b(Remote)
+menu.  The MacKermit server can respond to SEND, GET, REMOTE DIRECTORY,
+FINISH, and BYE commands.  You can send single or multiple files to a
+MacKermit server, and you can get a single file from it by name.  You can also
+get all the files in the current folder by using a colon (@qq<:>) as the file
+specification in the GET command:
+@example<GET :>
+If you give the FINISH command, MacKermit will return to terminal mode.  If
+you give the BYE command, the Macintosh will reboot itself.
+
+You can take MacKermit out of server mode from the Mac keyboard by typing the
+emergency exit sequence, Command-dot.
 
 @section(Settings)
+@label<-macset>
 
-You can change File, Communications, and Protocol settings by using the
-Settings pull-@|down menu.  You can save and restore these settings by
-invoking the appropriate selection in the File menu.  If the bundle bit
-has been correctly set on your version of MacKermit you can double-@|click
-on the resulting document to start MacKermit with those settings.
+You can change File, Communications, Protocol, Terminal, Keyboard macros, and
+Keyboard modifier settings by using the @b(Settings) pull-@|down menu.  You can
+save and load these settings by invoking the appropriate selection in the
+@b(File) menu.  If the "bundle bit" has been correctly set on your version of
+MacKermit (it should be), then you can double-@|click on the resulting document
+to start MacKermit with those settings.
 
-The File settings establish the defaults for file transfer:
+The @b(File) settings establish the defaults for file transfer:
 @Begin(Itemize)
+@u<Attended> versus @u<Unattended> operation for incoming files.
+
+@u<Naming>: When doing @u(unattended) file reception, whether incoming
+files should supersede existing files of the same name, or a new
+unique name should be assigned to them.  If the latter, the new name
+is formed by adding a dot and a number to the end.  For instance, if a
+file called FOO exists and a file called FOO arrives, MacKermit will
+store the arriving file as FOO.1; if FOO.1 exists, then FOO.2, etc.
+
 @u<Mode>: text or binary.  Used for received files only.  When sending,
 MacKermit tries to figure out an appropriate mode for the file being
 sent (but then lets you override it the Send File dialog).
 
 @u<Fork>: which fork -- data or resource -- to send, or to store an incoming
 file into.
-
-@u<Naming>: Whether incoming files should supersede existing files of the same
-name, or a new unique name should be assigned to them.  If the latter, the
-new name is formed by adding a dot and a number to the end.  For instance,
-if a file called FOO exists and a file called FOO arrives, MacKermit will
-store the arriving file as FOO.1; if FOO.1 exists, then FOO.2, etc.
-
-@u<Attended> versus @u<Unattended> operation for incoming files.
 @End(Itemize)
 
-The Communications settings allow you to set the baud rate (anywhere
-between 300 baud and 57@q<.>6K baud), parity (odd, even, mark, space, or none),
-and duplex (full - remote echo, half - local echo).
+The @b<Communications> settings allow you to set the baud rate (anywhere
+between 300 baud and 57@q<.>6K baud, except 38@q<.>4K baud), and parity (odd,
+even, mark, space, or none).  When the parity is set to @u(none) the Macintosh
+uses an 8-bit-wide connection.  All other parity settings tell the Macintosh
+to use a 7-bit-wide connection, and to request 8th-bit prefixing@index<8th-bit
+Prefixing> when transferring 8-bit data.  If the remote host or the
+communication path uses any kind of parity, then you won't be able to transfer
+files successfully unless you tell MacKermit (and in most cases also the
+Kermit on the other end) about it.  Duplex is selected in the @b(Terminal)
+settings.
 
-The Protocol settings allow you to set packet parameters for both incoming
-and outbound packets.  These include the block check type (1 or 2
-character checksum, 3-character 16-bit CRC-CCITT), line turnaround handshake
-character (for file transfer with half duplex systems), packet start and end
-characters, padding, packet length, timeout interval, and so forth
-(Refer to Kermit User Guide).  Characters are specified by entering their
-ASCII value in decimal, e.g. 1 for Control-A, 13 for Control-M (Carriage
-Return), etc.
+The @b<Protocol> settings allow you to set packet parameters for both incoming
+and outbound packets.  These include the block check type (1 or 2 character
+checksum, 3-character 16-bit CRC-CCITT), line turnaround handshake
+character (for file transfer with half duplex systems), packet start and
+end characters, padding, packet length, timeout interval, and packet length.
+Characters are specified by entering their ASCII value in decimal, e.g. 1
+for Control-A, 13 for Control-M (Carriage Return), etc.  The RECEIVE
+parameters are conveyed by MacKermit to the other Kermit.  For instance,
+if you set the receive-packet-length to 500, MacKermit will tell the other
+Kermit to send 500-character packets.  The SEND parameters are used to
+override negotiated values, and need rarely be used.
 
-@Section<Terminal Emulation>
+@index<Long Packets>
+Long packets are selected by setting the RECEIVING packet length between 95
+and 1000.  Normally, you should not change the sending length because
+MacKermit, and most other Kermits, will configure themselves correctly.
+Note also that the fastest file transfers will happen with long packets in
+the range of 300-500.  Very long packets actually end up being much slower,
+because the operating systems in both the Mac and the other machine have to
+do more work to cope with such long inputs, and, under noisy conditions,
+the probability is higher that a longer packet will be struck by noise, and
+will take longer to retransmit.
 
-MacKermit provides a subset of the features of the DEC VT102 terminal; the
-VT102 is a VT100 with line and character insert/@|delete
-functions added.  The functions provided are sufficient to allow MacKermit
-to act as a terminal for EMACS as it exists on the DEC-20, VAX (CCA EMACS on
-VMS or UNIX), and for most host-@|resident display-oriented applications that
-expect to do cursor positioning and editing on the VT100 screen.  MacKermit
-does not currently support the following VT100/102 functions:
-@Begin(Itemize,spread 0)
-double height or double width lines
+The @b<Terminal> settings let you modify the characteristics of the VT102
+emulator, such as auto-linefeed, autowrap, autorepeat keys, block vs underline
+cursor, blinking vs steady cursor, inverted screen (reverse video), and smooth
+scrolling.  There is also a "visible bell@index<Bell>" for those who can't
+hear the audible bell produced upon receipt of a Control-G, and an option to
+display control characters visibly by showing their numeric ASCII values (in
+decimal) in a single character cell.  If local echo is needed, as in
+half-duplex connections, that must be specified here also.
 
-smooth scrolling
+@Section(Settings Files)
+@label<-macsfile>
 
-132 columns
+@index(Settings Files)@index(MacKermit Settings Files)
+ You can start MacKermit with all its "factory settings" by double clicking on
+the MacKermit icon.  Factory settings are designed for direct communication
+with most other microcomputers, DEC minis and mainframes, etc: 9600 bps, no
+parity, XON/XOFF, remote echo, etc.  You can change the communication,
+protocol, file, keyboard, and terminal settings by going through the options
+in the @b(Settings) menu.  Once you have set all parameters as desired, you
+can save your settings in a "MacKermit settings file" by selected "@b(Save
+Settings...)" from the @b(File) menu.  A settings file is, in Macintosh
+terminology, a "MacKermit document".  You'll recognize it because it looks
+like a dog-eared piece of paper with the MacKermit icon superimposed.  You can
+have more than one settings file.
 
-Interpretation of multiple parameters in a single escape sequence
+There are two ways to use a settings file.  First, you can double-click on it,
+just as you can double-click on a MacWrite document to start up MacWrite to
+edit a particular file.  This method starts up MacKermit with all the saved
+settings.  The other method is to click on the "@b(Load Settings...)" option
+in the @b(File) menu from inside MacKermit.  This lets you change settings
+without leaving and restarting the program.  @b(Load Settings...)  shows all
+MacKermit settings files in the selected folder.  Opening one of them loads
+all its settings, removing all current settings.
 
-etc
-@End(Itemize)
-(this is not an exhaustive list)
+You can "edit" a MacKermit settings file by loading it, going through the
+@q(Settings) menu, and then saving the settings either in a new file, or
+overwriting the same file.
 
-The keyboard is set up by default as follows: The COMMAND (Fan, Cloverleaf) key
-is used as the Control key.  The CAPS LOCK key forces all alphabetic characters
-to upper case, and causes keys on the numeric keypad to send VT100 keypad
-escape sequences.  The OPTION key is "Control-Meta" (explained below).  The
-terminal emulator sends ESC (escape) when the @qq(`) key is pressed unshifted.
-The character @qq(`) can be sent by typing Control (Command) and the same key.
-The Backspace key sends a Delete (Rubout) and Control-@|Backspace sends a
-Backspace.  The main keypad Enter key sends a "short" (250ms) BREAK signal.
-The Mac+ does not have a main keypad Enter key, so the BREAK function must
-be reassigned to another key.  Use CKMKEY (see below) to do this.  The
-short break is F126 (function number 126) and long break is F127.
+As distributed by Columbia, Mac Kermit comes with two settings files.  One is
+called "Normal Settings", and is pretty much identical to Mac Kermit's factory
+settings.  The other is "IBM Mainframe Linemode Settings".  It selects mark
+parity, local echo, XON half-duplex line turnaround handshake.  You can
+use these files as-is, customize them for your own environment, or create new
+settings files for all the different kinds of systems that you use.
 
-MacKermit (V0.8 and later) comes with a separate key configuration program,
-CKMKEY, which lets you change the behavior of the keys, define function keys,
-and so forth.  CKMKEY is described in detail below.
+@Section<Reconfiguring the Keyboard>
 
-MacKermit (V0.8(43A) and later) includes a mouse-controlled cursor postioning
-feature for use during terminal emulation.  When the mouse button is pressed
-while the Option and Command keys are held down, the program acts as if you
-typed the keypad arrow keys to move the terminal cursor to where the mouse
-cursor is.  You must have already defined the keypad arrow keys to send the
-appropriate character sequences for your host application.  The Catch-22 here
-is that if you don't have a keypad, there's no way for you to define the keypad
-keys using MacKermit's keyboard configurator.  In that case, you can use the
-VT100 startup file provided with MacKermit, which assigns the normal VT100
-arrow key sequences to the keypad arrow keys, and therefore also to the
-mouse-cursor feature.
+@index(Key Redefinition)
+Beginning with version 0.9, MacKermit has keyboard configuration functions
+built in.  These are accessed through the @b[Set Key Macros] and the @b[Set
+Modifiers] entries in the @b[Settings] menu.
 
-MacKermit honors your parity communications setting by using built-in
-functions of the Mac's serial i/o chip.  Unfortunately, the chip has an
-unpleasant quirk -- arriving characters that do not have the specified
-parity are discarded rather than passed to the requesting application.
-Thus, if you are connected as a terminal using MacKermit to a device that
-requires, say, odd parity on characters sent to it, but does not put odd
-parity on characters it sends to you, then many incoming characters will
-not appear on your screen.
+The Macintosh keyboard is composed of normal keys and modifier keys.
+Modifier keys are those keys that, when held down, change the meaning of
+other keys.  On the Mac these are: SHIFT, CAPS LOCK, OPTION, CONTROL (only
+on the Mac II and SE), and COMMAND (also known as APPLE, CLOVER, or FAN).
+Normal keys are the letters, numbers, special symbols, arrow keys, space
+bar, and function keys.  Only one normal key can be typed at a time, but
+one or more modifier keys can be pressed down along with it.
 
-To allow useful coexistence of desk accessories and Kermit, the terminal
-emulation may be dragged using the drag bar.  A desk accessory that overlays
-the Kermit window can be clicked upon to move it behind the Kermit window,
-and then the Kermit window can be dragged to reveal the hidden desk accessory
-so that it can be restored to the foreground.  The same thing can be done
-with Kermit's own remote response window.  Note that Kermit's terminal
-emulation window does not accept input when any other window is in the
-foreground.
+When you type a key, Kermit reads both the ASCII value, and the
+keyboard-independent scan code for that key.  Kermit looks in its table of key
+macros to see if there is a macro for this combination of key and modifiers,
+and if so sends the macro.  If there is no macro, Kermit then looks in its
+modifier table to see if any of the modifiers do special things to the
+character; if so, it does these to the character.  Finally, Kermit sends the
+character.  In the normal case when there is no macro and no modifiers apply,
+the character sent is simply the ASCII value for that character.
 
-The following features are missing from the MacKermit terminal emulator,
-and may be added in subsequent releases:
-@Begin(Itemize,Spread 0)
-capturing text from the screen (e.g. cutting to clipboard, saving off top)
+It is important to keep in mind that if the parity setting is something other
+than @u[none], the high (8th) bit will be stripped off of the characters when
+they are transmitted.  Since most systems do not understand characters in the
+range 128 -- 255 (decimal), you should avoid using the Apple extended
+characters (accented vowels, for example) during terminal connection.
 
-screen rollback, sizing
+@SubSection<Defining Key Macros>
 
-modem or dialer control
+To define a new key macro, select the @b[Key Macros] entry.  A dialog window
+will appear, asking you to press the key to define.  Type the key (including
+any of the modifiers).  A new dialog will appear, with an editable text field
+in it.  Enter the definition for the key here.  Your definition may be up to
+255 characters long, and can include all of the control characters (including
+NUL).  Special characters can be included in the macro by entering a @qq<\>
+(backslash), followed by up to 3 @i<octal> (base 8) digits for the value (just
+like in the C programming language).  For example, an ASCII NUL (value 0)
+would be written as @qq<\000>, carriage return (ASCII 13) would be written
+@qq<\015> (1 x 8 + 5 = 13).  Also, control characters may be entered with a
+backslash, followed by a caret (or circumflex, @qq<^>), followed by the
+corresponding letter.  Thus a Control-G (value 7) could be entered as
+@qq<\007>, @qq<\^G>, or @qq<\^g>.  To include a literal backslash in a
+definition, type in two of them: @qq<\\>.
 
-login scripts
+@index<BREAK>
+BREAK conditions are also programmable as macros.  If the entire macro the
+string is @qq<\break>, then typing the defined key will send a short (1/4
+second) break.  A long (3.5 second) BREAK is defined with @qq<\longbreak>.
+Note that a macro can define either a BREAK, or a string of normal characters,
+but not both.
 
-transmission of raw text to host (e.g. pasting to screen)
-
-printer support
-@End(Itemize)
-
-MacKermit does not use XON/XOFF flow control during terminal emulation or file
-transfer.  The terminal emulator can normally keep up at 9600 baud, but after
-several continuous scrolling screens at this speed, some characters may be
-lost.  In the present version, when running at high baud rates keep your
-terminal in page mode, or use "more", or view text with a non-@|scrolling
-screen editor.  Also, don't drag the terminal emulation window while characters
-are arriving; if you do, the characters will be lost and the display will
-become confused.
-
-@Section<Installation>
-
-MacKermit is distributed in source form for building on Unix (or VMS/Eunice)
-systems that have the Stanford SUMACC Macintosh cross-@|development tools, in
-@index<Binhex>
-@q(.HQX) "binhex" form, and sometimes also as a binary resource file.  Those
-who want to work from the source are referred to the file @q(CKMKER.BLD) for
-instructions.
-
-If you have the binary resource file available (its name will be
-@q(CKMKER.RSRC), @q(ckmker.rsrc), @q(CKMKER.RSR), @q(ckmker.rsr), or some
-variation on these, depending on what system it's stored on and how it got
-there), AND if you have "MacPut" on your system and MacTerminal on your Mac,
-AND if you have an 8-bit-wide (no parity) data path between your Mac and your
-system, use MacPut to download the binary resource file to MacTerminal's XMODEM
-@index<Setfile>
-option on your Mac.  After doing this you must use SetFile on the Mac to set
-the author to KERM, the type to APPL, and turn on the bundle bit.  For CKMKEY,
-the author should be KERK.
-
-If you have an earlier release of Columbia MacKermit, you may use Kermit in
-place of MacTerminal and MacPut.
-
-If you don't have the binary resource file available, you can download
-the @q(CKMKER.HQX) file in the same manner, then run "binhex" (version 4) on
-it.
-
-@Section<CKMKEY - Macintosh Kermit's Keyboard Configurator>
-
-This describes CKMKEY V0.8(0), May 1985.
-
-@index<CKMKEY>
-The version number of CKMKEY indicates compatability with the like version of
-CKMKER -- Macintosh Kermit, referred to simply as "Kermit" from now on.
-Edit numbers (within parentheses) may differ.  If Kermit is used with a
-settings file containing a key configuration produced by an incompatible
-version of CKMKEY, then that configuration will be ignored.
-
-@SubSection<What is CKMKEY?>
-
-CKMKEY is a keyboard configurator program for use with Macintosh Kermit
-(versions 0.8 and greater). CKMKEY allows:
-@Begin(Itemize)
-Redefinitions of keys
-
-Definitions of multicharacter function keys
-
-Selection of long and short BREAK keys
-@End(Itemize)
-
-CKMKEY is a separate program from Kermit.  It may be thought of as an editor
-for Kermit's terminal emulator key definition resource, which is kept in a
-Kermit settings file.  Before you can use CKMKEY, you must already have used
-Kermit to create a settings file to operate on.
-
-The reason CKMKEY is separate from Kermit is that there is not enough room in
-the memory of a 128K Macintosh to hold a program that can do both.  CKMKEY
-displays and changes key settings, Kermit uses them.  Once you have started
-Kermit with a given set of key definitions, there is no way to examine or
-change them.
-
-Some familiarity with the ASCII alphabet is assumed in the following
-discussion.
-
-@SubSection<Modifier vs Normal Keys>
-
-The Macintosh keyboard is composed of normal keys and modifier keys.  Modifier
-keys are SHIFT, CAPS LOCK, OPTION, and COMMAND (also known as APPLE, CLOVER, or
-FAN).  Only one normal key can be selected at a time, but one or more modifier
-keys can be depressed along with it.
-
-@subSection<Key Maps>
-
-When a key on the keyboard or numeric keypad is depressed the result is a scan
-code -- a number between 0 and 127 (see Inside Mac Event Manager for details if
-you're interested).  A table indexed by scan code resulting in the character to
-be displayed or transmitted will be referred to as a "keymap" or "key mapping."
-
-On the standard Mac many keymaps exist -- the modifier keys (such as SHIFT)
-specify which keymap is selected.  For example, when no modifer keys are
-depressed the keymap contains the lowercase alphabet, numbers and some
-punctuation.  The keymap in use when the SHIFT modifer is depressed contains
-the capital letters and special characters.
-
-All in all it is possible to select 16 different keymaps by depressing from
-zero to four modifier keys.  Normally however, 6 or so distinct keymaps will
-suffice.
-
-CKMKEY allows you to redefine 6 keymaps: shifted and unshifted combinations of
-keymaps named "normal", "capslock", and "control".  These keymaps are
-predefined with the expected values -- the control map is preloaded with
-control codes, the capslock preloaded with the unmodifed keymap but with all
-letters uppercase.
-
-In this document modifier keys are written in capital letters and key map names
-are written in lowercase.  SHIFT, CAPS LOCK, COMMAND, and OPTION are
-modifier keys, "normal" "capslock" and "control" are key maps internal to
-CKMKER.  Since one of the major functions of CKMKEY is to change maps
-invoked by modifier keys, it is important to keep this distinction in mind.
-
-@SubSection<What's in CKMKEY's Keymaps>
-
-A keymap is a list of 128 numbers.  Which keymap is selected depends upon which
-modifier keys are depressed, and the entry within the key map is determined by
-the scan code.  A keymap entry is an 8-bit quantity:  if the high order bit is
-0, then the entry is the 7-bit ASCII character to be transmitted through the
-serial port; if the high bit is 1, then the remaining 7 bits
-are an index into the function-key table.
-
-Notice that only single 7-bit values can be directly translated through the
-CKMKEY keymap.  If you want a single key to transmit multiple characters, then
-you can designate that key to be a "function key", and the key map will contain
-an indirect reference to the function-key table.  If you want a key to transmit
-an 8-bit value, assign the "meta" operation to one of the modifier keys and use
-the meta key together with the desired key (see below).
-
-Functions are numbered 0-127 with the highest few being reserved for special
-use.  Currently functions 126 and 127 send a short 250 millisecond BREAK signal
-and a long 3.5 second BREAK respectively.  In the future more special functions
-may be allocated so (since it is arbitrary anyway) please use low numbered
-functions when defining your own.
-
-@subSection<Menus>
-
-CKMKEY has two menus, @b{File} and @b{Set}.  First you must use the @b{File}
-menu to select and open a Macintosh Kermit settings file, which in turn has
-been created using the Kermit Save Settings option from its own File menu.
-Then use the @b{Set} menu to establish or alter key definitions, then use the
-@b{File} menu again to save the settings file back for Kermit.  A variety of
-Kermit settings files can be kept, each with its own collection of settings and
-key definitions; Kermit can be started with the desired settings by double
-clicking on one of these settings files from the Macintosh desktop.
-
-Menus consist of options.  If an option is followed by an ellipsis (three
-dots...) then clicking it will produce a dialog box of some kind; otherwise,
-clicking it causes the indicated action to be performed immediately.  If an
-option is dimmed then it is not available for some reason -- for instance, you
-can't set any keys until you open a settings file.
-
-@SubSection<MENU: Set>
-
-The @b{Set} menu includes dialogs for setting keys, defining functions, and
-reassigning modifier keys.
-
-@Paragraph<DIALOG: Set Modifer Keys>
-
-@i<Background>:
+@SubSection<Defining Key Modifiers>
 
 Skip ahead to the next section if you already know about things like SHIFT,
 CAPS LOCK, CONTROL, and META.
@@ -465,288 +741,217 @@ SHIFT depressed selects an uppercase letter or the character printed on the
 upper face of the keytop (say, a dollar sign).  Some keyboards also have a
 SHIFT LOCK key, which stays down once pressed and pops up the next time it's
 pressed; its operation is equivalent to holding down SHIFT.  And some keyboards
-have a CAPS lock key which operates like SHIFT LOCK, but only upon letters.
+have a CAPS LOCK key which operates like SHIFT LOCK, but only upon letters.
 
 Computer terminals also have a modifier key called CONTROL (or CTRL).  Its
 function is a little less obvious: it is intended to produce one of the 33
-characters in the "control range" of the ASCII alphabet.  Control characters
-are not graphic -- they are intended for use as format effectors (like carriage
-return, formfeed, tab, backspace), for transmission control, or for device
-control.  The remaining 95 characters -- letters, digits, and punctuation --
-are the graphic characters.  When a character is typed with the CONTROL
-modifier pressed, its "control equivalent" is transmitted.  By convention,
-the control equivalent of A is Control-A, B is Control-B, etc, and there
-are also seven special control characters generally associated with
-punctuation characters or special keys.  For the "alphabetic" control
-characters Control-A through Control-Z, SHIFT or CAPS LOCK modifiers are
-ignored; for the others, operation varies from terminal to terminal.
+characters in the "control range" of the ASCII alphabet.  Control
+characters are not graphic -- they are intended for use as format effectors
+(like carriage return, formfeed, tab, backspace), for transmission control,
+or for device control.  The remaining 95 characters -- letters, digits,
+punctuation, and space -- are the graphic characters.  When a character is
+typed with the CONTROL modifier pressed, its "control equivalent" (if any) is
+transmitted.  By convention, the control equivalent of A is Control-A, B is
+Control-B, etc, and there are also seven special control characters
+generally associated with punctuation characters or special keys.  For the
+"alphabetic" control characters Control-A through Control-Z, SHIFT or CAPS
+LOCK modifiers are ignored; for the others, operation varies from terminal
+to terminal.
 
-The SHIFT and CONTROL modifiers allow all 128 ASCII characters to be sent from
-a normal typewriter-like keyboard that has about 50 keys.  However, certain
-host-resident computer applications -- notably the full screen text editor
-EMACS and its descendents -- can be used to greater advantage with a 256
-character alphabet (EMACS responds to single-character commands, and the more
-characters a terminal can send, the more commands are directly available).
+The SHIFT and CONTROL modifiers allow all 128 ASCII characters to be sent
+from a normal typewriter-like keyboard that has about 50 keys.  However,
+certain host-resident computer applications -- notably the full screen text
+editor EMACS and its descendents -- can be used to greater advantage with a
+256 character 8-bit alphabet (EMACS responds to single-character commands,
+and the more characters a terminal can send, the more commands are directly
+available).
+
 @index<META Key>
 For this purpose, some terminals also provide a META modifier key.  This key
-simply causes the high-order ("8th") bit of the selected ASCII value to be
-set to 1 upon transmission.  META characters can only be transmitted when the
-communication path allows all 8 bits to pass transparently; when this is not
-possible, software like EMACS allows a sequence of two 7-bit ASCII characters
-to represent a single meta character.  The advantage of having a real META
-modifier key is that it can be held down while the actual key is struck
-repeatedly or even autorepeats, whereas a use of a "meta prefix" requires much
-more typing.  To illustrate, suppose META-F is the command to go forward one
-word.  If you want to execute this operation repeatedly, just hold down META
-and F and let it autorepeat.  If you don't have a META key, then you have to
-use a "meta prefix" character (usually escape), and to enter META-F repeatedly
-in this case, you'd have to type <escape>F<escape>F<escape>F...etc.
+simply causes the high-order ("8th") bit of the selected 7-bit ASCII value to
+be set to 1 upon transmission.  This can only work when the connection is
+8-data-bits-@|no-parity.  When parity is in use, EMACS allows a sequence of
+two 7-bit ASCII characters to represent a single meta character.  The
+advantage of having a real META modifier key is that it can be held down while
+the actual key is struck repeatedly or even autorepeats, whereas a use of a
+"meta prefix" such as <escape> requires much more typing.  To illustrate,
+suppose META-F is the command to go forward one word.  If you want to execute
+this operation repeatedly, just hold down META and F and let it autorepeat.
+If you don't have a META key, then you'd have to type
+<escape>F@|<escape>F@|<escape>F..., etc.
 
-@i<Macintosh Kermit Modifier Keys>:
+A common problem faced by computer users who switch from one terminal or PC
+to another is the placement of the modifiers and other special keys.
+DEC, IBM, Apple, and other manufacturers consistently move these keys
+around on new models of their keyboards.  MacKermit allows you to assign
+any of various functions to any of the Mac's modifier keys, and to assign
+any desired character or character sequence to the regular keys, so that
+you can tailor the layout of your Mac's keyboard to suit your taste.
 
-You can define the modifier key to keymap correspondence in CKMKEY by selecting
-the "Modifer Keys..." menu item under SET, or by double clicking on a modifier
-key while in the SET KEYS dialog.
+@subsection<Modifiers Dialog>
 
-The SET MODIFIERS dialog lets you define what map OPTION, CAPS LOCK and COMMAND
-refer to.  Notice that SHIFT is missing -- SHIFT always references the shifted
-equivalents to the normal, control and caps lock maps.
+To change the action of any of the modifier keys, select @b[Modifiers]
+from the @b[Settings] menu.  A dialog will appear that looks roughly
+like the one in Figure @ref<-macmkey> (the @qq(%) represents
+the Apple or Clover key).
 
-The dialog is layed out in columns with the three modifier keys as column
-headings and the three map names below.  Also under each column is a "pseudo"
-key map for "meta."
-
-Meta is not a map, but an operation: it augments the value being transmitted
-after it has been read from its map.  Meta can either be set to send a prefix
-string before the character or to turn the high order (8th) bit on in the
-transmitted character.  The default prefix for meta is set to be 033 (escape).
-If a meta modifier key is depressed and the key results in a function reference
-then no modification occurs; functions are not "metized".  However, functions
-can be defined to include 8-bit values.
-
-Notice that meta can be set in conjunction with a key map.  Since meta is an
-operation as described above there is no ambiguity.  Consider for example
-setting OPTION to reference the "control" map and selecting "meta" for this
-modifier key as well.  The result is a control-meta key.  
-
-@Begin(Quotation)
-@i<@u(CAUTION)>: If you have used Kermit's communications settings menu
-to select any parity other than "none", then any high order bits
-that may be set by CKMKER's key mapping will be superseded when
-Kermit applies the selected parity to outbound characters.
-@End(Quotation)
-
-The SET MODIFIER KEYS dialog also lets you select your meta preferences:
-whether you want to use the 8th bit toggled on, or a prefix string.  The prefix
-string is entered in the same manner as a function definition (backslash
-followed by 3 octal digits for non-printable characters, see below).
-
-Note that it is possible to cause ambiguities when selecting and using
-modifier keys.  For example say you set OPTION to refer to the control map,
-and you set CAPS LOCK to refer to the caps map; at this point if you hold
-both OPTION and CAPS LOCK down it is unclear which map you want your
-character to come from.  To try to prevent this type of ambiguity the SET
-KEY dialog will beep when you are holding down or mousing an ambigous set
-of modifier keys.
-
-The Kermit code itself references maps in this precendence: if a control map
-modifier is depressed then use control map, else if a capslock modifier is
-depressed use capslock, otherwise use the normal map.
-
-A sample modifier key configuration is shown in Figure @ref<-macmkey>.
-@Begin(Figure, Use Example)
+@Begin(Figure)
 @bar()
 @blankspace(1)
-                 OPTION          COMMAND         CAPS LOCK
+@begin(example,group)
+     Modifier Pattern:  -->   Modification:
 
-                 o  Normal       *  Normal       o  Normal
-                 *  Control      o  Control      *  Control
-                 o  Caps         o  Caps         o  Caps
-                [X] Meta        [X] Meta        [ ] Meta
-@caption(Macintosh Kermit Modifier Key Dialog)
+  Ctrl Opt Lock Shift  %      Unmodify Caps Ctrl Meta Prefix string:
+                                                       ____________
+  [X]  [ ] [ ]  [ ]   [ ]   |   [ ]    [ ]  [X]  [ ]  [____________]
+  [ ]  [ ] [ ]  [ ]   [X]   |   [ ]    [ ]  [X]  [ ]  [____________]
+  [ ]  [X] [ ]  [ ]   [ ]   |   [x]    [ ]  [ ]  [ ]  [@ux<\033        >]
+  [ ]  [ ] [ ]  [ ]   [ ]   |   [ ]    [ ]  [ ]  [ ]  [____________]
+
+                (Cancel)   (Help)   ( OK )
+@end(example)
+@caption(MacKermit Key Modifier Dialog)
 @tag<-macmkey>
 @bar()
 @End(Figure)
-Here the CAPS LOCK key is used to reference "control", the COMMAND key to do
-the "meta" operation, and OPTION is "control-meta".  Holding down COMMAND and
-CAPS LOCK together will also result in control-meta.
 
-@Paragraph<DIALOG: Set Function Definitions>
+The check boxes are divided into rows, each one describing a modification.
+The left half of each row describes the modifier combination to look for; a
+checked box means that this key is down, and an unchecked box means "don't
+care".  Note that there is no way to specify a key being up, and lines with
+nothing checked on the left side will be ignored; the character will be
+modified in the normal Macintosh way.
 
-@i<Background>:
+The right half describes what modification to do to the characters.  The
+Unmodify modification says "make this the character that would be sent from the
+same key with no modifer keys pressed".  In other words, un-Option, un-Caps,
+un-Control, and un-Shift this character.  The Caps modification translates all
+letters to upper case, Ctrl makes the letter a contol character, Meta sets the
+high (8th) bit on the character, and if a Prefix string is present, it is sent
+before the character is.
 
-Skip to next section if you know what function keys are.
+@i<Hints about modifiers:>
+@begin<itemize>
+Beware of the Option key.  It changes the value of any characters you use with
+it.  If you type Option-F, the Mac will send a D, if you type Option-B, the
+Mac will send a @qq(:), etc.  If you want to use the option key as a modifier,
+be sure to check the "Unmodify" box.
 
-Many popular terminals have "function keys" in addition to the alpabetic,
-numeric, punctuation, and modifier keys described above.  Function keys are
-usually labeled F0, F1, F2, ..., or PF1, PF2, ...  On some terminals, like the
-DEC VT100, the function keys send predefined sequences of characters -- for
-instance PF1 sends three characters: ESCAPE (ASCII 033), followed by "O", and
-"P".  On others, the function keys may have arbitrary strings assigned to them.
-For instance, if you find yourself typing "Aaaarrrgggghhh!!! Sigh..." a lot,
-you can assign this string to function key F1, and then pressing the F1 key
-will cause this entire character string to be transmitted.
+To use MacKermit with a version of EMACS that does not accept 8-bit Meta
+characters, define a key, like Option, to be unmodified, with a prefix string
+of @q(\033) (ASCII Escape), as in Figure @ref<-macmkey>.  Then you can hold
+down Option and type F (or any other key) repeatedly, or let it autorepeat,
+and MacKermit will send the correct prefix-Meta sequence.
 
-@i<Macintosh Kermit Function Keys>:
+When interpreting a keystoke, MacKermit checks the list of modifiers from
+top to bottom, applying the first one that matches.  This means that if you
+want a different modifier for Command-Option and just plain Command, you
+must put the definition for Command-Option first in the list.
+@end<itemize>
 
-The Macintosh has no physical function keys -- no keys are marked F0, F1,
-F2, etc.  However, any key (modified by any combination of modifier keys) may
-be designated as a "soft" function key.
+@section<Bootstrapping>
+@index<Bootstrapping MacKermit>
+This section applies if you do not have a MacKermit diskette, but MacKermit is
+available for downloading from some other computer.
 
-Selecting "Function Definitions..." from the SET menu brings you to the SET
-FUNCTIONS dialog (it would be nice if you could double click on a function
-key in the SET KEYS dialog but that is not yet available).
+MacKermit is distributed in source form for building on a Macintosh,
+running Apple's Macintosh Programmers Workbench (in MPW C), in
+@index<Binhex> @q(.HQX) "BinHex 4" form, and sometimes also as a binary
+resource file.  Those who want to work from the source are referred to the
+file @q(CKMKER.BLD) for instructions.
 
-Use SET FUNCTIONS to declare a function definition string.  Scroll through the
-function definition list and select a function to define, preferably starting
-with F0, though this is not required (high numbered functions are reserved for
-special uses).  Type in the function definition; non printable characters must
-be entered with a backslash ("\") followed by exactly (yes exactly) three octal
-characters representing the ASCII value, for instance "\015" for carriage
-return.  A backslash itself is entered as "\134".  The function definition has
-to fit in the box.
+If you're downloading, it's best to work with @q<CKMKER.HQX>, a textual
+encoding of the MacKermit application.  Download this using any technique
+available to you -- an old release of Kermit, an Xmodem implementation, even
+raw screen capture.  Then run @index<BinHex> BinHex (version 4) to convert it
+into a working application (select @b(Upload -> Application) from the @b(File)
+menu).  Eveything will be set up correctly -- icons, forks, etc.
 
-Having defined a function, you must use SET KEYS to actually associate it with
-a key.  Note that it is possible to associate a function with more than one
-key.
+If you don't have the @q<.HQX> file available, but you do have access to the
+binary resource file (its name will be @q(CKMKER.RSRC), @q(ckmker.rsrc),
+@q(CKMKER.RSR), @q(ckmker.rsr), @q(%ckmker) or some variation on these,
+depending on what system it's stored on and how it got there), AND if you have
+"MacPut" on your system and MacTerminal on your Mac, AND if you have an
+8-bit-wide (no parity) data path between your Mac and your system, then you
+can use MacPut to download the binary resource file to your Mac using
+MacTerminal's "MacBinary" format (a variant of XMODEM).  After doing this you
+must use a program such as @index<Setfile> SetFile or @index<ResEdit> ResEdit
+on the Mac to set the author to KR09, the type to APPL, and turn on the bundle
+bit.  Do not bother with the CKMKEY program, as it is not used with newer
+MacKermits.  If you have an earlier release of MacKermit, you may use it in
+place of MacTerminal and MacPut.
 
+@section(Differences Between Versions 0.8 and 0.9)
 
-@Paragraph<DIALOG: Set Keys>
+MacKermit 0.8(34) runs on the 128K Mac, the 512K Mac, and the Mac Plus,
+but not on the Macintosh II or SE.  MacKermit 0.9(40) runs on all Macs except
+the 128K original.  You should use version 0.9 unless you have a 128K Mac.
 
-Selecting the "Keys..." menu item under SET initiates the SET KEYS dialog
-for redefining individual keys.
+The second major difference is that the program is has been translated into
+Apple MPW C, so that it can be edited, compiled, and built on the Macintosh
+itself.  This was done originally by Jim Noble of Planning Research
+Corporation, who converted MacKermit from SUMACC C (which had to be cross
+compiled on a UNIX system) to Megamax C.  Jim's version was converted to MPW
+C by Matthias Aebi, who also added most of the new features listed below.
+Paul Placeway integrated the program with the current (long packet) version
+of C-Kermit and added additional new features.
 
-SET KEYS displays a picture of the keyboard.  You can either hold down the
-modifier and key you wish to define or click on the displayed picture with the
-mouse (double clicking on one of the modifier keys brings up the SET MODIFIER
-KEYS dialog).  Once a key is selected, it and any modifiers are highlighted,
-the name of the key and its value are displayed in the lower portion of the
-dialog.  You may enter the new value in the little box by selecting the box
-with the mouse and then typing a DECIMAL (yes decimal) number from 0 to 127.
-Then you should click on either SET KEY or else SET FUNCTION KEY.  Clicking on
-SET KEY means that the key should transmit the ASCII character corresponding to
-the given value (subject to modification by the meta key); clicking SET
-FUNCTION KEY means the number you entered in the box is a function number and
-that the key should transmit the character string associated with that
-function.
+Besides these important differences, there were many other changes from version
+0.8 to version 0.9, including:
+@begin<itemize,spread 0.2>
+The Cursor with open desk accessories now works correctly
 
-SET KEYS does not display a picture of the numeric keypad, but may be used with
-the keypad anyway -- just select the desired key by pressing it and then define
-it as above.
+Long packet support
 
+New program icon
 
-@SubSection<MENU: File>
+New settings files are no longer TEXT
 
-The File menu must be used to Open a Kermit settings file before CKMKEY will
-allow you do perform any other operations.  You may also Quit from CKMKEY
-through the File menu, and you can save your work.  The Save option allows
-you to save the settings file back under its own name, replacing the previous
-copy.  If you need to make copies of settings files, you can use Kermit itself
-to save them under different names, or else you can use the Finder.
+Settings can now be written back to an already existing settings file
 
-There is also a Decompile option, that is of use only to programmers working
-on Macintosh Kermit -- it decompiles the key definition resource into a form
-that can be included in a C program.
+Key redefinition function built in to Kermit, no more CKMKEY
 
-@subSection<CKMKEY Known Limitations, Restrictions, Bugs>
+Server mode directory listing feature
 
-@Begin(Itemize)
-There is no picture of the numeric keypad in Set Keys.
+Multifile (folder) send
 
-In Set Keys, when you strike a key on the numeric keypad, its name is not
-displayed.  You can still make assignments to the key.
+Server "Delete" file command
 
-There is no way to define a key from the numeric keypad unless you actually
-have a numeric keypad.
+Server "Space" command
 
-You can't save from CKMKEY under a different name.  Use the Finder or Kermit
-to do that.
+Get whole folder content from the server with filename @qq<:>
 
-You must use decimal numbers in the SET KEY dialog, and backslash followed
-by 3 octal digits in function definitions, which can be confusing.
+Recognition of all the different Mac keyboards
 
-You may have problems on a 128K mac if you define many long functions.
+Support of menu command keys (key macros)
 
-CKMKEY doesn't deal with write protected diskettes very well.
-@End(Itemize)
+Terminal settings dialog separated from communication settings
 
-@subSection<Unlocking CAPS LOCK>
+Non-transparent terminal mode
 
-(Adapted from directions posted by David Chase @q(<rbbb@@rice>) on
-@q(INFO-MAC@@SUMEX-AIM), Friday 14 December 1984.  Follow these instructions at
-your own risk.  Not the authors, nor David Chase, nor Columbia University, nor
-Rice University provide any warranty, nor acknowledge any liability or
-responsibility for damage, injury, inconvenience, or loss of Apple or other
-service warranty sufferred as a result of the publication of these directions.)
+Display of statistics and protocol version to "About Kermit" dialog.
 
-A major impediment to using the Macintosh as a terminal is that the CAPS LOCK
-key is where you would normally expect to find the CONTROL key.  A key
-redefinition package, such as CKMKEY, can assign the CONTROL function to the
-COMMAND or OPTION keys but these keys are not easy to reach.  CONTROL can
-also be assigned to the CAPS LOCK key using software, but the CAPS LOCK key
-includes a mechanical locking device.  The following directions tell how to
-remove the locking device so that the CAPS LOCK key will go up and down
-like the other keys.  PROCEED AT YOUR OWN RISK.
+Parity problems fixed
 
-Tools you'll need:
-@Begin(Itemize,spread 0.25)
-Phillips screwdriver for screws on bottom of the keyboard.
+Session logging
 
-Solder sucker/wick.
+Transaction logging
 
-Soldering iron.
+Multifinder support
 
-Small prying tools (jewelers screwdrivers, small knife blade, etc).
+Additions to the VT102 emulator (smooth scrolling, etc)
 
-Tweezers/small needlenose pliers.
+Rearrangement of menus and displays
 
-Some paper clips or straight pins.
-@End(Itemize)
+Program no longer hangs if remote response window gets too full
 
-Now follow these steps:
-@Begin(Enumerate)
-Remove the five screws.  The keyboard should fall into three pieces.
+Program now works correctly on 64K ROM machines
 
-GENTLY pry off the Caps Lock keycap.  This takes a little patience.
-
-Remove the restoring spring so it doesn't get in the way.
-
-Locate the two connections to the Caps Lock key on the back of the PC
-board, and remove all solder from them using wick or sucker.  Be
-careful not to overheat the solder pads, since they can be damaged
-(come loose from the PC board).
-
-Pry back the plastic locking clips holding the key in, and remove it.
-(All the keys are clipped into a metal frame.  Removing the metal frame
-is not possible, since all the keys are soldered to the PC board, and
-clipped to the frame.  The clips are located "north" and "south" of the
-key, where the number row is "north" and the space bar "south".)
-There are four clips holding the bottom of the key on; pry these back,
-and, WHILE HOLDING THE KEY BOTTOM UP, remove the bottom of the key.
-You may have to use some makeshift tools, like a couple of unbent paper clips,
-to hold the four clips open.
-
-Two pieces should be ready to fall out; a small piece of PC-board-like
-material (about 7/16 by 3/32 inch, with two notches on one edge and a
-tiny hole in the center), and a tiny piece of wire (a small, beefy
-staple with short legs).  Let them fall out. (It may help to toggle the
-key).  These two pieces are the locking device, they should be removed
-and left out of the reassembly.
-
-Replace the restoring spring, snap the key back into place, resolder
-the two leads, screw the keyboard back together, and replace the key
-cap.  You may wish to experiment with the spring to reduce the key's
-springiness (this can be done with the keyboard assembled, though
-removing the cap is more difficult).
-@End(Enumerate)
-
-For those who want to map the CAPS LOCK key to CTRL, but don't want to alter
-the keyboard as described in the manual, but still want to inhibit the locking
-function, the following suggestion is offered:
-
-Pry off the key using a small screwdriver.  There is a spring whose end
-goes through the plastic support.  Stick a very small wad of paper or soft
-putty between the tip and the bottom of the keyboard.  This will prevent the
-key from depressing all the way and locking, but still allow contact of the
-key.  Eventually, the paper will work loose and you will need to find it
-and repeat the procedure.
+A new manual
+@end<itemize>
+This manual applies in large part to version 0.8(34), except that the
+older version is missing the new features listed above, and it comes in two
+pieces: CKMKER and CKMKEY.  The CKMKEY program is used to program the
+keys, like the @b(Set Key Macros...) and @b(Set Modifiers) described in
+this manual, and creates a settings file which Kermit itself uses.  The old
+version only works well with early Macintosh keyboards.

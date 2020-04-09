@@ -1,41 +1,38 @@
 COMPILING KERMIT
 
-Kermit has been compiled with the Lattice 3.03 compiler.  Some support has
-been added for the Lattice 3.04 compiler (I have a beta-test copy).  The
-3.04 runtime has additional AmigaDOS support functions and differences in
-low level file I/O.  When compiling for 3.04, you should use define the
-preprocessor symbol LAT304, but Kermit has not been recently recompiled
-under 3.04.
-
-The 3.03 executable is currently 116696 bytes without debug logging.  STRIPA
-will remove about 1500 bytes of symbol tables.  I am not very happy about
-the size of Kermit.  Since Lattice currently uses the AmigaDOS object code
-format, it can not save space by assuming the data segment is less than 64K
-and using data segment relative addresses instead of absolute long addresses
-for accessing globals.  I do not have the Manx compiler, so I have not tried
-compiling Kermit with it.  However, I have tried to write portable code.
-Since C-Kermit has to run on PDP-11's it should work with 16-bit ints.
+The Kermit objects on this disk have been compiled with the Lattice 3.10
+C compiler using the -b and -r options, and linked with BLink using the
+SMALLCODE and SMALLDATA options.  This reduces the executable size by
+25K when compared to 3.03.  When compiling for Lattice 3.10, define the
+preprocessor symbol LAT310 with -DLAT310.  The 3.10 executable is
+currently about 92000 bytes without debug logging.
 
 Three files are provided for compiling Kermit on the Amiga.  CKIMAK.MAK
-contains a sample makefile.  Since many Amiga users do not have a version
-of make, an execute script to compile Kermit is in CKIKER.MAK.  CKIKER.LNK
-contains the Alink WITH file for linking Kermit.
+contains a sample makefile for 3.10.  Since many Amiga users do not have
+a version of Make, an execute script to compile Kermit is in CKIKER.MAK,
+which is set up for the 3.03 compiler.  CKIKER.LNK contains the linker
+WITH file for linking Kermit.  If you are using developer's version of
+the Lattice compiler distributed by Commodore/Amiga, you may need to
+modify the CKIKER.LNK to include LIB:LSTARTUP.OBJ instead of LIB:C.O.
 
 To compile Amiga Kermit with CKIKER.MAK, you must first make the following
 logical assigns:
-   ASSIGN lc: <directory containing LC1, LC2, and ALINK commands>
+   ASSIGN lc: <directory containing LC1, LC2, and (A|B)LINK commands>
    ASSIGN include: <directory include directories are rooted at>
-   ASSIGN lib: <directory containing LC.LIB, AMIGA.LIB, and LSTARTUP.OBJ>
+   ASSIGN lib: <directory containing LC.LIB, AMIGA.LIB, and C.O>
 Since CKIKER.MAK takes a parameter, you must have a directory :T for
 EXECUTE to create the instantiated version in.  To compile Kermit normally,
 change the current directory to the directory containing the C source files
 and enter
    EXECUTE CKIKER.MAK
+For Lattice 3.10, this can be modified to
+   EXECUTE CKIKER.MAK "-DLAT310"
 To create a version of Kermit with debug and transaction logging available,
 enter:
    EXECUTE CKIKER.MAK "-DDEBUG -DTLOG"
-Compilation will produce a fairly large number of warning messages.  They
-can normally be safely ignored.
+Compilation will produce a fairly large number of lint-style warning
+messages, usually about potentially uninitialized auto variables.  These
+cannot be turned off but they can be ignored.
 
 On a two disk system, Kermit takes 35 minutes to compile.  I generally work
 with a boot disk containing the include files, library files, both passes

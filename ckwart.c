@@ -1,8 +1,4 @@
-/* Jim Noble at Planning Research Corporation, June 1987.  Fixes for */
-/* miscellaneous bugs found when reformatting state transititon code in */
-/* CKCPRO.W. */
-
-char *wartv = "Wart Version 1A(005) Jan 1988";
+char *wartv = "Wart Version 1A(006) Jan 1989";
 
 /* W A R T */
 
@@ -26,6 +22,15 @@ char *wartv = "Wart Version 1A(005) Jan 1988";
 #include "ckcdeb.h"			/* Includes */
 #include <stdio.h>
 #include <ctype.h>
+
+/*
+ The following "short" should be changed to "long" if your wart program
+ will generate more than 255 states.  Since wart is used mainly with C-Kermit,
+ which has less than 50 states, "short" is adequate.  This keeps the program
+ about 3K-4K smaller.
+*/
+
+#define TBL_TYPE "short"		/* C data type of state table */
 
 #define C_L 014				/* Formfeed */
 
@@ -68,7 +73,7 @@ char tokval[MAXWORD];
 
 int tbl[MAXSTATES*128];
 
-
+char *tbl_type = TBL_TYPE;
 
 char *txt1 = "\n#define BEGIN state =\n\nint state = 0;\n\n";
 
@@ -79,7 +84,11 @@ char *fname = FNAME;		/* function name goes here */
 char *txt2 = "()\n\
 {\n\
     int c,actno;\n\
-    extern int tbl[];\n\
+    extern ";
+
+/* Data type of state table is inserted here (short or int) */
+
+char *txt2a = " tbl[];\n\
     while (1) {\n\
 	c = input();\n\
 	if ((actno = tbl[c + state*128]) != -1)\n\
@@ -87,7 +96,7 @@ char *txt2 = "()\n\
 
 /* this program's output goes here, followed by final text... */
 
-char *txt3 = "\n	    }\n    }\n\}\n\n";
+char *txt3 = "\n	    }\n    }\n}\n\n";
 
 
 /*
@@ -304,8 +313,8 @@ Trans t;
 		fprintf(stderr,"state %s undefined\n",tokval);
 		fatal("undefined state");
 	   }
-        setstate(sval,t);
-	curtok = gettoken(fp);
+        setstate(sval,t);	
+ curtok = gettoken(fp);
    }
 }
 
@@ -385,7 +394,7 @@ int act,state,chr;
 writetbl(fp)
 FILE *fp;
 {
-  warray(fp,"tbl",tbl,128*(nstates+1));
+  warray(fp,"tbl",tbl,128*(nstates+1),TBL_TYPE);
 }
 
 
@@ -393,13 +402,14 @@ FILE *fp;
  * write an array to the output file, given its name and size.
  *
  */
-warray(fp,nam,cont,siz)
+warray(fp,nam,cont,siz,typ)
 FILE *fp;
 char *nam;
 int cont[],siz;
+char *typ;
 {
   int i;
-  fprintf(fp,"int %s[] = {\n",nam);
+  fprintf(fp,"%s %s[] = {\n",typ,nam);
   for (i = 0; i < siz; ) {
 	fprintf(fp,"%2d, ",cont[i]);
 	if ((++i % 16) == 0) putc('\n',fp);
@@ -462,9 +472,11 @@ prolog(outfp)
 FILE *outfp;
 {
   int c;
-  while ((c = *txt1++) != '\0')  putc(c,outfp);
-  while ((c = *fname++) != '\0') putc(c,outfp);
-  while ((c = *txt2++) != '\0')  putc(c,outfp);
+  while ((c = *txt1++)     != '\0') putc(c,outfp);
+  while ((c = *fname++)    != '\0') putc(c,outfp);
+  while ((c = *txt2++)     != '\0') putc(c,outfp);
+  while ((c = *tbl_type++) != '\0') putc(c,outfp);
+  while ((c = *txt2a++)    != '\0') putc(c,outfp);
 }
 
 epilogue(outfp)

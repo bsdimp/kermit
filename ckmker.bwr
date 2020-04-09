@@ -1,577 +1,770 @@
-Columbia Macintosh Kermit version 0.8(34): Known problems and Limitations
--------------------------------------------------------------------------
+Date: Wed 8 Jun 88 21:43:05-EDT
+From: Frank da Cruz <SY.FDC@CU20B.CC.COLUMBIA.EDU>
+Subject: Mac Kermit
+To: paul@TUT.CIS.OHIO-STATE.EDU
 
-     Last update to this file: 27 July 87
+I got a report that it doesn't compile under MPW 2.0.2, which is the latest
+release, and that a major reworking will be required for MPW 3.0, sigh...
+What version of MPW are you using?  I also heard that the file ckmkr2.r was
+missing.  Did you send it to me?   - Frank
 
+------------------------------
 
-The biggest problem with Mac Kermit is installing it on your Mac if you
-don't have it on a diskette already.  For tape distribution, the program is
-encoded in Binhex Version 4 (.HQX) format, and you need (a) a way of getting
-the .HQX file onto your Mac in the first place, and (b) a copy of Binhex
-Version 4 to convert it into a runnable application.  It is assumed that
-most sites receiving Kermit tapes that are interested in running Macintosh
-Kermit will have some method of initially downloading the .HQX file, and
-will have a copy of Binhex.  To alleviate the problem, MacKermit has been
-submitted to a number of user groups for wider diskette distribution, and
-Columbia itself is now distributing Mac Kermit on diskette.
+Date: Thu, 9 Jun 88 10:19:42 EDT
+From: paul@morganucodon.cis.ohio-state.edu (Paul Placeway)
+To: SY.FDC@CU20B.CC.COLUMBIA.EDU
+Subject: Mac Kermit
+Reply-To: paul@tut.cis.ohio-state.edu
 
------
+D*mn.  Maybe I'll port it to LightSpeed C and be done with it; LSC
+doesn't seem to change radically with each rev.  Mumble...
 
-Occasionally, files transferred to the Mac with apparent success will be
-empty.  This happens very rarely and cannot be reproduced.  It has only been
-reported twice, once on a Hyperdrive system, and once on a Mac with a Tecmar
-disk after the screen had been dumped to the printer.  (this problem may be
-rectified in edit (33), which now terminates on failure to close, attempting
-to report an appropriate error.)  One user claimed to be able to reproduce
-the problem by using Mac Kermit to GET any file whose name starts with X from
-the Unix Kermit server (yet others can't reproduce it this way).
+I'm using MPW 2.0d4 (developer pre-release), which probably explains
+the incompatibility.  We have been trying to get a real MPW for about
+a year, with no real success (LSC is sounding better and better...)
 
------
+I thought you picked up ckmkr2.r, but since it's short, here it is:
 
-Certain VT100/102 functions are not supported, including:
- . Double-height lines
- . Double-width characters
- . VT102 printer port commands
- . etc
-(See CKMVT1.DOC for a complete list)
+		--P
 
------
+[Ed. - Moved to its rightful place...]
 
-Character attributes (bold, inverse, etc) are not preserved when restoring the
-screen after it has been overlaid by another window.  The program does not have
-code (or buffer space on a thin Mac) to do this.
+------------------------------
 
------
+Date: Thu, 9 Jun 88 10:49:46 EDT
+From: Charlie C. Kim <cck@cunixc.cc.columbia.edu>
+To: paul@tut.cis.ohio-state.edu
+Subject: Re: Mac Kermit
 
-When mapping the OPTION key to CTRL, certain characters (notably CTRL-v, where
-v is any lowercase vowel) have to by typed twice in order to send them.  This
-is a feature of the Mac, sort of like Command-Shift-1...9, but unlike
-Command-Shift-1...9, MacKermit doesn't have a command to disable this feature.
+APDA has MPW 2.0.2 C as an upgrade... I think it was 100 dollars.
 
------
+The only thing that caused problems (as I remember) was the fact that
+you had "environs.h" which isn't there anymore -- it's included in
+systypes.h (i believe).  I'll poke in the resource file and see if a
+working copy comes out.
 
-When a Settings file is saved, it does not store the Command-Shift-1...
-Command-Shift-9 flag, so it has to be set every session if it is to be active.
+The main changes, supposed, will make mpw "more" compatible with other
+Cs.  Basically (re: a posting on comp.sys.mac.programmers), the trap
+names will change so pascal mode is "mixed case" and c mode is all
+lower case.  There will be a set of Canon directives to help people
+convert. I noticed you used the c mode, but if you watch out for the
+int=2 bytes in lsc, and int=4 bytes in mpw (by using defines or always
+using for short=2, long=4 bytes in both), then your LSC port should
+work with MPW 3.0 without too much more work.
 
------
+Just don't port it to megamax :-)
 
-After a file transfer, successful or otherwise, the mouse cursor does not turn
-from a watch back into an arrow.  An appropriate message is printed, however.
+Charlie
 
------
+------------------------------
 
-Reportedly, Kermit will die during terminal emulation when certain things
-happen at the bottom of the screen, e.g. when using the VAX/VMS TYPE/PAGE
-command, and typing ^Y or ^C instead of CR at the bottom of a page; may have
-something to do with trying to write on the 25th line in reverse video...
-A similar problem was reported by a user typing a command into the EMACS echo
-area (again, at the bottom of the screen) when a "send" came in.
+Date: Thu, 9 Jun 88 11:00:52 EDT
+From: Charlie C. Kim <cck@cunixc.cc.columbia.edu>
+To: paul@morganucodon.cis.ohio-state.edu
+Subject: macker
 
------
+Two other problems.
 
-Various other (nonfatal) problems are reported to occur at the bottom of the
-screen, involving status lines or "wholines", forced scrolling in EMACS, etc.
+First, link tries to link in glueenviron.a.o
 
------
+Second, you used the special characters in ckmker.r (high order bits
+on).  They should changed to corresponding \ooo format so the files
+can be xfered properly.
 
-Switching between Mac Kermit and MacTerminal may result in repeated errors if
-Macterminal closes the serial port.
+Seems to work (launches) other than that.
 
------
+Charlie
 
-Starting up MacKermit when there is output going to the port can result in
-an address error.
+------------------------------
 
------
+Date: Thu, 9 Jun 88 11:11:49 EDT
+From: paul@morganucodon.cis.ohio-state.edu (Paul Placeway)
+To: cck@cunixc.cc.columbia.edu
+Cc: sy.fdc@cu20b.cc.columbia.edu
+Subject: macker
+Reply-To: paul@tut.cis.ohio-state.edu
 
-Reportedly, the program can be made to hang getting retries and no packet
-transmission if an earlier file transfer was terminated using Command-dot.
-(Since Command-dot doesn't send any notification - e.g. an Error packet - to
-the remote Kermit, the latter is probably going through its timeout/retry
-cycle.  If you experience this symptom, wait for the remote Kermit to exceed
-its maximum retries.)
+Thanks.  I'll go and change things...
 
------
+I've been waiting for OSU to send the $100 (a trivial amount) to APDA,
+but at the rate things are going I might as well buy it myself.  8-(
 
-Reportedly, if you receive a file (interactive), toggle disk drives and insert
-a new disk, the program may bomb during initialization (the only reported
-instance of this occurred using RAM Disk "RamStart" from net.sources.mac.)
+If MPW 3.0 is supposed to be more compatible with everyone else, I may
+very well take a stab at a port...
 
------
+I don't know what real MPW links in to get the glueenviron.a.o stuff.
+If it is allready in the normal library, fine.  If not, the other
+MacKermit hackers will need to know.
 
-The responses to REMOTE commands come in the small SHOW RESPONSE window.  The
-window might need to be stretched in order to view the entire width of the
-response (this may not be obvious to the user).
+		whatever...
+			--P
 
------
+------------------------------
+
+Date:     Tue, 14 Jun 88 14:00:58 EDT
+From:     Dick Atlee <ATLEE%UMDC.BITNET@CUVMA.CC.COLUMBIA.EDU>
+Subject:  MacKermit
+To:       Frank da Cruz <SY.FDC@CU20B.COLUMBIA.EDU>
+
+The mouse feature does not work on our system.  After a go-round about Ted
+Medin's Apple Kermit in VT100 mode, which worked on some machines and not on
+others, we found a problem with the cursor keys.  The VT100 has a set/reset
+mode governing the cursor keys -- when Cursor Key Mode is RESET (default) the
+sequence is ESC [ A/B/C/D, while when SET it is ESC O A/B/C/D.  Our IBM 7171
+here is programmed to RESET this mode as part of the initialization and then
+expect the ESC-[ pattern from the cursor keys.  Ted's Kermit was not responding
+properly to the RESET command.  If the mouse driver for MacKermit is not
+sensitive to the RESET command, and sends the ESC-O pattern, it won't work on
+a lot of machines.  Any info on this?
+
+------------------------------
+
+Date: Sun, 19 Jun 88 21:53:42 +0100
+From: Eamonn McManus <emcmanus@csvax1.tcd.ie>
+Subject: Bug in Macintosh Kermit Version 0.9(40)
+Keywords: MacKermit 0.9(40)
+
+> This is to announce Macintosh Kermit 0.9(40), by Paul Placeway of Ohio State
+> University and Matthias Aebi of ECOFIN Research and Consulting, Ltd, Zuerich.
+> MacKermit 0.9(40) runs on all Macs except the 128K original.
+
+There is a trivial but annoying bug in Mac Kermit 0.9(40), as released to
+comp.binaries.mac on Usenet.  (The version says it is Kermit version 0.9(40),
+04/05/88 11:51.)  The default settings for tab stops place the last one at
+column 71 (zero-origin) rather than 72 as it should be.  Most of the time
+this doesn't show up (which is presumably why the bug hasn't been fixed so
+far) but it is quite noticeable in editors like vi that attempt to optimise
+cursor motion, frequently by using tabs.
+
+Here is a patch that fixes the bug.  The version of ckmcon.c is that from
+0.9(36)b4 but I assume it hasn't changed.
+
+*** ckmcon.c.orig       Wed Jun  8 17:03:27 1988
+--- ckmcon.c    Sun Jun 19 20:56:06 1988
+***************
+*** 85,91
+  /* (UoR) do tapstops via an array: 0 means no tab, 1 means tab at that column
+*/
+  short tabstops[MAXCOL+1] = {0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+     0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+!    0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1};
+
+  #define USA_SET  0                      /*  (UoR) VT100 character set numbers
+*/
+  #define UK_SET   1
+
+--- 85,91 -----
+  /* (UoR) do tapstops via an array: 0 means no tab, 1 means tab at that column
+*/
+  short tabstops[MAXCOL+1] = {0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+     0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,
+!    0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1};
+
+  #define USA_SET  0                      /*  (UoR) VT100 character set numbers
+*/
+  #define UK_SET   1
+
+
+Since I don't have the 0.9(40) sources, I've had to patch the binary.  This
+involves editing block 132(dec) and changing byte 0x19c to a 0, and byte
+0x19e to a 1.
+
+Eamonn
+
+------------------------------
+
+(reported by many, and observed to be true...) MacKermit often reports the
+block check type to be 0 when sending a file with block check type 1.
+
+------------------------------
+
+Date:     Sat, 13 Aug 88 23:44:22 EDT
+From: Dick Atlee <ATLEE%UMDC.BITNET@cuvmb.cc.columbia.edu>
+Subject:  MacKermit bugs
+
+I wrote to Paul a while back about the fact that, while the cursor keys will
+respond to a VT100 "reset" command to change their output from ESC-O-x to
+ESC-[-x (necessary on our IBM CMS 7171 front end), the mouse will not, making
+the mouse useless on our system.  He said it was a relatively simple job to fix
+it.  I'm interested in getting it fixed in time for distribution to incoming
+students this September.
+
+While I was preparing settings files for this distribution, I stumbled on
+another aspect of bizarre behavior, which, after playing around with a data
+monitor, I sent him a copy of on Thursday.  I'll pass it along to you, but it
+still needs confirmation by someone else....
+
+I have been having trouble using the Option key as an ESC-prefixer.  In the
+Modifiers setup I have Opt checked for Unmodify with a prefix string of \033.
+However, the same problem occurs (ignoring references below to ESC) when the
+setting is for Meta with no parity and no prefix.
+
+The ESC prefixing works fine for the majority of the characters on the
+keyboard.  However, there are 5 exceptions (left column below):
+
+                           e     +
+   TABLE 1:                i     ^
+    Oddball Opt-chars      n     ~
+     and "replacements"    u     ,
+                           `     `
+
+(NOTE: the problem I'm about to describe does not happen when the Shift key or
+CapsLock key is down, although in both these and the non-shifted cases, the
+character produced when the option key is held down is a lower-case character.)
+
+Normally, when you hold down the Option key and type a character, an ESC is
+generated, followed by the character.  If you type the character twice, you get
+ESC <char> ESC <char>, just as you'd expect (I have been checking this with
+a data monitor hooked up to the Mac).
+
+However, when you hold down the Option key and type one of the above five
+characters, nothing is generated immediately.  Subsequent repeats of this
+process produce the normal ESC <char> sequence.  The fascinating part of the
+problem occurs when you press Option followed by anything other than those
+five characters.  You get a double output of the new character!.  For instance,
+the following hold:
+
+   1    Opt-e                  produces      nothing
+   2*   Opt-e Opt-e            produces      ESC e
+   3    Opt-e Opt-a            produces      ESC a ESC a
+   4    Opt-e Opt-e Opt-a      produces      ESC e ESC a ESC a
+
+   * In case 2, although only one sequence was produced, an instability
+     exists which affects the next keypress (as shown in #s 3 and 4)
+
+However, the truly bizarre behavior happens when you use one of the five
+oddball Opt-<char>s, followed by a non-Opt-<char>.  In most cases, when you
+press Option plus one of the characters in Table 1's left-hand column, followed
+by a non-Opt character, you produce instead the corresponding right-hand column
+character followed by the non-Opt character -- e.g.
+
+                 Opt-e               produces      nothing (unstable)
+                 Opt-e b             produces      +b
+
+The accent grave produces itself as the prefix-character, but this is not
+trivial.  In all 5 cases, the two resulting characters only appear AFTER both
+characters are typed.
+
+Strange though it is, this odd situation begins to look "normal" compared to
+what happens when the "second character" is one of a select group. For example:
+
+                 Opt-e e      produces a single    ^N
+                 Opt-e o      produces a single    ^W
+                 Opt-i e      produces a single    ^p
+
+A fairly exhaustive series of tests shows the following  (these have been
+arranged so as to show the pattern of increasing values of the resulting
+character, although I haven't figured out how the mapping works.......):
+
+                          Second |  ----Initial Opt-char---
+                           Char  |   e    `    i    u    n
+                          ------ |  ---  ---  ---  ---  ---
+                            A    |       (K)       ^@   (L)
+                            E    |  ^C
+        TABLE 2             N    |                      ^D
+                            O    |                 ^E   (M)
+    Results of typing       a    |  ^G   ^H   ^I   ^J   ^K
+    one of the oddball      e    |  ^N   ^O   ^P   ^Q
+    Opt-chars followed      i    |  ^R   ^S   ^T   ^U
+    by the indicated        n    |                      ^V
+    second character        o    |  ^W   ^X   ^Y   ^Z   ^[
+                            u    |  ^\   ^]   ^^   ^_
+                            `    |       (``) (``) (``) (``)
+                            ~    |  (~~) (~~) (~~) (~~) (~~)
+                          space  |  (+)  (`)  (^)  (,)  (~)
+                           tab   |  **   **   **   **   **
+                           del   |  **   **   **   **   **
+                          ctl-chr|  [^K] [^@] [^^] [^L] [^^]
+
+       an empty space indicates the "normal" behavior described above.
+    () enclose literal characters that appear after both chars have been typed
+    [] indicate a character which appears with the "second character" following
+         it after both the Opt and second characters have been typed.
+    ** indicates the second character appears twice, after both the Opt and
+         second characters have been typed.
+
+This behavior on the part of the oddball characters makes using the Option key
+almost useless (ESC-e and ESC-i and ESC-` are all used in our IBM CMS ful-
+screen environment).  I have mapped these sequences to other keys, but there
+are times when it would be nice to have access to them in this form.  (By the
+way, the keys with direct mapping show none of the above behavior.)
+
+------------------------------
+
+Date: Fri, 15 Jul 88 22:52:11 EDT
+From: mholden@ajpo.sei.cmu.edu
+Subject: Re: Transferring application via MacKermit 0.9(40) 
+Keywords:
+
+The underlying problem I have is that I have no control over the encoding
+of the original file I am trying to download. The scenario as I understand
+it is as follows:
+	The Mac file is compressed with Stuffit 
+	The stuffed file is uploaded to a DEC-20 using Red Ryder Kermit
+	The uploaded file is ftp'd (using TENEX binary) to a UNIX VAX
+	I then try to download to my Mac over TELENET
+	I tried MacKermit with no luck
+	After a kind soul put XMODEM up on the UNIX host, I downloaded the
+file using MacTerminal MacBinary and the stuffed file was reconstituted
+	I then proceeded to unstuff and all was well
+Is there some place in this scenario for the use of MacKermit with BinHex
+5.0 (which I have). I have no documentation although I did send in a shareware
+fee. I confess that I am somewhat naive about the arcane structure of Mac 
+files.
+
+Since I am now operational with XMODEM, the problem is not urgent, but I 
+would like to know a little more about what is going on and how to use my
+available options.
+
+- Maretta
+
+------------------------------
+
+Date: Mon, 8 Aug 88 16:21:05 EDT
+From: mates%applga.uucp@umix.cc.umich.edu (Valerie Mates)
+Subject: Re: MacKermit question
+
+My copy of MacKermit, version 0.9(40) often tells me it is using block
+check type 0 and window size 00 during a file transfer.  Is this just a
+cosmetic problem, or is MacKermit really using no checksum?  Files often
+arrive garbled on the Mac.  I'm using a Mac II.
+
+Thanks! 
+    -Valerie Mates
+    (if reply mail bounces, try popcorn@caen.engin.umich.edu
+     or Valerie_Mates@ub.cc.umich.edu)
+
+------------------------------
+
+Date: Tue, 16 Aug 88 21:15:29 IST
+From: "Jonathan B. Owen" <GDAU100%BGUVM.BITNET@cuvmb.cc.columbia.edu>
+Subject: MacKermit Key Escape Sequences
+
+    Mike O'rourke has asked about using an IBM with a VT100 (by emulation).
+Well, I am no IBM expert.  But if the port in question is connected to
+a 7171 terminal server and if this server works the same when connected
+to a "VT100" then the following applies:
+
+    Switch between VM and CP mode            <ESC> <,>
+    Clear Screen (when prompted with MORE... <ESC> <.>
+    F1 thru F12                              <ESC> <1> thru <ESC> <=>
+    Screen refresh                           <CTRL> <G>
+
+All of the above was found by expermentation.  I have not found and am
+not sure that a squence exists for switching between INSERT mode and
+OVERSTRIKE mode.  After all, the real VT100 terminal does not have such
+keys...
+
+    If you are planning to define a setup with the above sequences,
+the following might be of help (extracted from the VT100 manual):
+
+    Cursor Up        <ESC> [ A
+    Cursor Down      <ESC> [ B
+    Cursor Right     <ESC> [ C
+    Cursor Left      <ESC> [ D
+
+    The reason I did not define such a setup is because I miss being
+able to switch between Insert and Overstrike mode.  Therefore, I
+defined a setup which contains the VT220 sequences for the above plus
+the sequences for switching betwen the above two modes.  This works fine,
+if you define yourself to the IBM as a VT220 with the exception that
+during a screen refresh, a few scribbles flash on the screen.
+The setup file conta8ins key macros which are mapped to an Apple
+Extended Keyboard.  F1 thru F12 act as the twelve function keys.
+F15 acts as CLEAR.  Also, the arrow keys, ins and del keys are defined.
+If anyone is interested in this file, I will gladly upload it provided
+I told how by the Moderator...
+
+                         Hope this is of help...
+                                                JB
+
+P.S. Oddly enough, I did not find the proper escape sequence that the VT220
+     is expected to send in order to switch between VM and CP mode.  Maybe
+     you know?...
+
+  (--)    /--)     /-(\                 Email: gdau100@bguvm (bitnet)
+  \ /    /--K      | \|/\   /\/) /|-\   Snail: 55 Hovevei Zion
+  _/_/o /L__)_/o \/\__/  \X/  \_/ | |_/        Tel-Aviv, 63346  ISRAEL
+ (/        Jonathan B. Owen             Voice: (03) 281-422
+
+ Point of view:  A chicken is the means by which an egg reproduces an egg.
+
+------------------------------
+
+Date: Thu, 08 Sep 88 08:34:30 EDT
+From: Bob Rahe <CES00661%UDACSVM.BITNET@cuvmb.cc.columbia.edu>
+Subject: MacKermit visible control chars
+Keywords:
+
+  Well, just spent some time debugging a problem that wasn't a problem
+at all(!).  We were having a problem with a concentrator, it
+seemed to be (and actually is) eating the SOH for start of packet.
+While running some tests on it with MacKermit, I put the terminal
+emulator into 'visible control character' mode and found what seemed to
+be extraneous characters at the end of lines coming from the host.
+Characters '13' and '10'.  I read these as DC3 and DLE. WRONG! They
+aren't hex representations but DECIMAL!
+
+  Is this the way a VT100 does it?  I've used a lot of terminals and/or
+line monitors in my day and either they display the character in a
+pseudo-mnemonic ( CR, DL, LF, etc.) or the put out the character in HEX.
+Decimal may be useful for BASIC  programmers etc. but I wouldn't expect
+many datacomm hackers to be expecting it.  Anyone got a different
+version of the font that puts the characters in (IMHO) the more
+reasonable hex format?  Or alternatively, in mnemonics?
+
+If nobody else will/has I'll volunteer.  Which should it be? Objections?
+
+       Bob
+
+------------------------------
+
+Date: Mon, 19 Sep 88 14:03:39 PDT
+From: lulue@manta.nosc.mil (Dan Lulue )
+Subject: Macintosh Kermit and vi strangeness.
+Keywords: MacKermit 0.9(40)
+
+I do some user consulting here at NOSC in San Diego.  I recently received
+this message from a person who used. 9(40) with vi and experienced
+dropped characters (message follows):
+
+-----Start-----
+Message-Id: <8809191813.AA19986@cod.nosc.mil>
+To: lulue
+Subject: The letters come in here, and then they go around and around
+Status: RO
 
-The SHOW RESPONSE window accumulates everything that has been sent to it;
-you can always scroll back to the beginning.  That's nice, but there's no way
-to make space when it fills up.  And when it does fill up, it will probably
-crash the program.
-
------
-
-Reportedly, the lower right corner of the SHOW RESPONSE window is "dead";
-clicking on it will not bring the window to the front.
-
------
-
-Reportedly, the Mac will hang if the ScreenSaver DA blanks the screen during a
-file transfer.  Not clear whether fault is Kermit's or ScreenSaver's.
-
------
-
-Reportedly, the TRANSFER command will crash the Mac with error ID = 26 when
-used to launch an application from a different disk.
-
------
-
-The VT102 emulator may overflow after a few screens of continuous scrolling at
-9600 baud.
-
------
-
-When sending files in TEXT mode, Mac Kermit does not strip the high order
-bit.  This would not normally be a problem, since text files aren't supposed
-to have high-order bits anyway, but reportedly some applications (like
-MacWrite) leave a few high bits on even when you instruct them to save
-"text only".
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~THINGS TO DO~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Fix bugs listed above.
-
------
-
-The following changes should help the terminal emulator keep up with continuous
-input from the port at 9600 baud (or higher):
-
-. Use arithmetic instead of calling the routines fndrel, fndprev, and fndabs.
-
-. Zeroline could be improved by using a blockmove, or munger.
-
-. Tabs could be improved by using an array, indexed by current position which
-  results in the count of spaces until the next stop.  This would cost
-  MAXCOL*(sizeof short) but that's not much.
-
-Since no matter what we do will probably be insufficient we should allow the
-user to set a parameter saying whether to use XON/XOFF.  After all, the VT100
-can't keep up either, it just XOFFs the host.  As long as we can guarantee that
-we can handle one screen's worth we won't have any problems from EMACS and
-other non-scrolling full screen applications.
-
------
-
-SFGetFile should be called with the numTypes argument equal to -1 instead of,
-it zero; apparently 0 doesn't find all files (check this).
-
------
-
-Make the program as small as possible by compressing anything you can get your
-hands on!  It must always be able to run on a 128 K Mac.
-
------
-
-Make the autowrap setting on the communications menu work.
-
------
-
-Many system calls do not check the error codes.  This could be a problem.
-Look especially in ckmfio.c and ckmtio.c.
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~SUGGESTIONS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Translate to a native Macintosh C compiler (which one is best?).  Preferably
-do it in such a way that it can be easily ported to other compilers, and still
-built by SUMACC.  This is desirable not only so that people without VAX Unix
-systems can work on the program, but also because SUMACC does not generate
-segmented code, which imposes a strict limitation on the size of the program,
-preventing the addition of many desirable features, like the ones below.
-(On the other hand, segmented code means lots of disk accesses...)
-
------
-
-Include the ability to log a terminal session to a file (save lines scrolled
-off top, and/or save screen, cut and paste, etc).  Similarly for transmitting
-raw text (a la MacTerminal pasting onto the screen).
-
------
-
-When a file of type RSRC is downloaded add it to the "Launch" menu.
-
------
-
-Allow both ports.  Also allow two windows open at once, one for each port.
-
------
-
-Add the ability to clear the screen from a menu.
-
------
-
-Allow cutting and pasting in the remote response window, or at least a way
-to reclaim the memory it's using.
-
------
-
-Add missing VT100/102 functions.
-
------
-
-Add some kind of login script facility.
-
------
-
-UNDIGESTED:
 -------
+...and then they????
 
-Date: Sat, 22 Feb 86 02:23:04 EST
-From: "Michael C. Adler" <MADLER@MC.LCS.MIT.EDU>
-Subject: MockWrite under HFS
+Well, I am using Kermit, as you requested, and all *&?#@!! is breaking
+loose when I use 'vi.'
 
-The MockWrite editor desk accessory (version 4.0) does not work under HFS.
-For reasons beyond my comprehension, bit 9 of all the file I/O traps was set.
-This causes the OS to interpret standard file traps as HFS traps.  Although
-I have patched a version that works, I hesitate to upload it since it is not
-my software.  However, if you have a suitable hex file editor, you can use
-the following patch list.  At each of the offsets specified, change the value
-A2xx to A0xx.  The offsets are into the DRVR resource.  If you are editing
-the resource file as a byte stream, search for the hex sequence:
-	24 00 00 08 01 6a ff 35.
-The offsets are from the beginning of this sequence.
+To wit:
 
-Offset		Current value
-6d6		a208
-6f4		a20c
-716		a20d
-726		a200
-758		a203
-75a		a218
-766		a212
-768		a201
-772		a213
-a4c		a200
-a4e		a211
-ae4		a202
-af0		a201
-b22		a201
+I was editing a line which ended with the word "modeltly".  The cursor
+was on the first column, and I wanted to move to the last word to change it
+to "modestly."  Okay.  I typed $ to jump to the end of the line.
+Instead, here is what happened (underline indicates position of cursor):
 
-Good luck,
--Michael
+               -- -- -- -- says    modellly
+                                      -
+Next, I did some other stuff until the word was "modelsty."  Then I
+attempted to remove the "l" by using 'x'.  The results:
 
-------------------------------
+	       -- -- -- -- says    mode
 
-Date: 14 Apr 86 18:55 EDT
-From: (David HM Spector) <SPECTOR@NYU-ACF7.ARPA>
-Subject: Macintosh Kermit Recieve Dialog Box.
+Next, I tried to complete the word by adding "stly."  With the cursor
+on the final letter of "mode," I pressed 'a' for append.  Results:
 
-The Recieve-file dialog box in the current (and previous) versions of Macintosh
-Kermit needs to be increased to the size of the send-file dialog box (or
-larger).  Currently, the dialog box is mal-formed and won't work with HFS too
-well.  That is not to say that Macintosh Kermit doesn't work with HFS,
-as far as I can tell it works very well, just the dialog box is too small.
+	       -- -- -- -- says    mods
 
-                        David
+Next, I moved the cursor to the "s" of "mods" and successfully removed the
+"s."  Then I again tried to use 'a' for append.   Results:
 
-------------------------------
+	       -- -- -- -- says    moe
 
-Date: Wed, 25 Jun 86 16:55:34 cdt
-From: Peter Wu <pwu@unix.macc.wisc.edu>
-Subject: CKMKER 0.8(34) bug
+Now, I'm a peaceful, quiet, easy-going guy as you know.  You do know that,
+right?  Anyway, by this time I was getting annoyed as what looked to like
+a consistent pattern of weird behavior.  Okay, onward...
 
-When using Macintosh kermit ckmker 0.8(34) with the note-pad window
-opened and the cursor inside the note-pad window, note-pad changes the
-cursor to an ibeam and kermit changes it back to an arrow, resulting in
-an alternating cursor of ibeam and arrow.
+Next, I decided to delete the word "moe" entirely, so I used 'h' to move
+the cursor left of the offending word.  Results:
 
-peter
+	       -- -- -- -- saysmmoe
+                               -
+Somehow I got the final word in that line down to "says."  To try to finish the
+line, I used 'a' while the cursor was on final "s" of "says."  Results:
 
-------------------------------
+	       __ __ __ __ say 
+                               - (underline indicates cursor position)
 
-Date: Sun, 7 Dec 86 11:29:35 pst
-From: gould9!joel@nosc.ARPA (Joel West @ Western Software Technology)
-Subject: Uploading Macintosh Binhexes with Kermit
-Keywords: UNIX, MacKermit, hqx
+Well, that's it for me.  Enough of this research.  I sincerely hope I have
+provided you with more information than you every wanted on this topic.
 
-I've been meaning to send this along for a while, but I wasn't sure anyone
-was interested.  A query on INFO-MAC prompted this posting.
+Bill
 
-It is a UNIX csh script (MACKERM) that I use to upload binhexes using
-kermit.  If for a file foo.hqx, it first sends the header (before the
-binhex) as 'About foo', then sends foo.hqx.  I use the header to later note
-the origin on the final unhexed file.
+PS: please fix this, somebody, anybody!!!
 
-To make this work, you need to take the first file (usually a short About...
-file) manually, selecting the target directory.  Then place your MAC in
-server mode, since each 'kermit' command at the UNIX side is a separate
-session, and the Mac would otherwise quit file transfer mode.
-
-Oh yeah, it also works on ordinary files, preserves actual names ('FooBar'
-instead of 'FOOBAR') and NEVER transfers a directory.  So it's real useful
-to type
-	mackerm *
-place the Mac in server mode, and walk away.
-
-	Joel West
-	joel%gould9.UUCP@NOSC.MIL	ihnp4!gould9!joel
-
-==File =====
-
-	#!/bin/csh
-	# by Joel West, ihnp4!gould9!joel, 11/14/86
-	# Script to send binhexes and other files
-	# Also preserves exact upper/lower case name
-	set noglob
-	foreach f ($*)
-	    if (-d $f) continue
-	    set typ=$f:e
-	    switch ($typ)
-	      case hqx:
-	      case hex:
-		set r=$f:r
-		set T1=/tmp/kermdat_$$
-		set T2=/tmp/kermhqx_$$
-		rm -f $T1 $T2
-		cat $f | cutat '(This' $T1 $T2
-		kermit -s $T1 -a "About $r"
-		kermit -s $T2 -a $f
-		rm -f $T1 $T2
-		breaksw
-	      default:
-		kermit -s $f -a $f
-	    endsw
-	end
-
-== EOF ==
-
-[Ed. - Thanks.  This hint has been added to the Macintosh Kermit .BWR 
-file, CKMKER.BWR.]
-
-------------------------------
-
-Date:         Fri, 06 Feb 87 09:22:45 ULG
-From:         Andre PIRARD <A-PIRARD@BLIULG12>
-Subject:      MacKermit CMS TAKE file
-To:           Frank da Cruz <SY.FDC@CU20B.COLUMBIA.EDU>
-
-I told you some time ago of national characters and an emerging IBM EBCDIC
-set called "table 500" to support them. I've composed an according conversion
-table to be TAKEn on CMS KERMIT for use with MacKermit.
-Pittifully, it's only useful in file transfer mode.
-I see no way in terminal mode (on the 7171) that would not involve screen
-codes translation on the Mac.
-By the way, there is still the problem of the "OPTION dot" key that is
-nowhere to find on our national keyboards. We have : (colon) where you have
-. (dot) and our dot is the shifted key to the right of your M (which is our
- (dot) and our dot is the shifted key to the right of your M (which is our
-",?" (isn't that easy?)). Neither OPTION : nor . (which needs the shift key)
-nor others yield the interrupt. Do you have a hint? Or wouldn't there be
-a more "international" choice to be chosen in a future version?
-Here goes my file for anyone it can help:
-
-* CMS KERMIT TAKE file to convert Apple Macintosh extended ascii
-* international characters to their EBCDIC IBM table 500 equivalent.
-* use: TAKE KERMAC
-* within CMS KERMIT connected to a Mac before file transfer.
-* Andre Pirard
-* Service General d'Informatique
-* Universite de Liege
-* Belgique
-*
-SET ATOE 128 099
-SET ATOE 129 103
-SET ATOE 130 104
-SET ATOE 131 113
-SET ATOE 132 105
-SET ATOE 133 236
-SET ATOE 134 252
-SET ATOE 135 069
-SET ATOE 136 068
-SET ATOE 137 066
-SET ATOE 138 066
-SET ATOE 139 070
-SET ATOE 140 071
-SET ATOE 141 072
-SET ATOE 142 081
-SET ATOE 143 084
-SET ATOE 144 082
-SET ATOE 145 083
-SET ATOE 146 085
-SET ATOE 147 088
-SET ATOE 148 086
-SET ATOE 149 087
-SET ATOE 150 073
-SET ATOE 151 206
-SET ATOE 152 205
-SET ATOE 153 203
-SET ATOE 154 204
-SET ATOE 156 222
-SET ATOE 157 221
-SET ATOE 158 219
-SET ATOE 159 220
-SET ATOE 161 144
-SET ATOE 162 176
-SET ATOE 163 177
-SET ATOE 167 089
-SET ATOE 174 158
-SET ATOE 180 178
-SET ATOE 190 156
-SET ETOA 099 128
-SET ETOA 103 129
-SET ETOA 104 130
-SET ETOA 113 131
-SET ETOA 105 132
-SET ETOA 236 133
-SET ETOA 252 134
-SET ETOA 069 135
-SET ETOA 068 136
-SET ETOA 066 137
-SET ETOA 066 138
-SET ETOA 070 139
-SET ETOA 071 140
-SET ETOA 072 141
-SET ETOA 081 142
-SET ETOA 084 143
-SET ETOA 082 144
-SET ETOA 083 145
-SET ETOA 085 146
-SET ETOA 088 147
-SET ETOA 086 148
-SET ETOA 087 149
-SET ETOA 073 150
-SET ETOA 206 151
-SET ETOA 205 152
-SET ETOA 203 153
-SET ETOA 204 154
-SET ETOA 222 156
-SET ETOA 221 157
-SET ETOA 219 158
-SET ETOA 220 159
-SET ETOA 144 161
-SET ETOA 176 162
-SET ETOA 177 163
-SET ETOA 089 167
-SET ETOA 158 174
-SET ETOA 178 180
-SET ETOA 156 190
-
-------------------------------
-
-Date: Fri 20 Mar 87 11:01:04-EST
-From: MacIntosh User Group <UG.CUMUG@CU20B.COLUMBIA.EDU>
-Subject: Kermit on the Macintosh II
-
-     While in California for the AppleWorld sideshow I was left alone for
-two hours with a Mac II during which time I had opportunity to pop a
-Kermit disk into its gaping maw . . . You may be happy to know that, as 
-far as I could tell, the program seemed to run just fine.  According to
-Didier Diaz, the Mac II project coordinator, about 30 to 40% of the programs
-written for the Mac don't run on the II due to their not following "Inside
-Macintosh" stringently enough.  He was happy to see Kermit faring so well
-by comparison.
-                                   Father Mack +
-                           (a.k.a.:  Fr. Larry D. McCormick,
-                                     President, CUMUG)
 -------
+----Stop----
 
-Date: Wed, 1 Apr 87 22:23:12 pst
-From: uw-apl!apl-em!dunlap@beaver.cs.washington.edu
-Subject: MacKermit 34 on 128K
-Keywords: MacKermit
+I checked this user's communication parameters (no parity, 8 bits, 1
+stop/start) and flow control (xon) and they are the standard settings
+for our Sytek network.
 
-> Date: Sun, 15 Feb 87 11:58 EST
-> From: Mark B. Johnson <CDTAXW%IRISHMVS.BITNET@wiscvm.wisc.edu>
-> Subject: MacKermit on a 128K Machine?
-> Keywords: Mac Kermit
->
-> Is anyone successfully using MacKermit V0.8(34) on a 128K machine?  I am sure
-> we had done it here sometime back, but I have tried it recently with several
-> different versions of the Finder and System and keep getting system crashes
-> when trying to Send files.  We are sure it is the System and Finder, and are
-> wondering if anyone who might be doing it successfully could send us their
-> configuration.  Thanks again.
+He is using .9(40) on a Mac Plus, System 4.2, Finder 6.0.  Red Ryder,
+and MacTerminal seem to work fine.
 
-I think MacKermit V0.8(34) is too big for a 128K Mac.  I have experimented a
-bit by taking out the VT100 fonts and the "blank cursor" which had been
-added using the Resource Mover according to Davide Cervone.  Without those
-it gets a bit farther in sending and receiving files.  In the receive cases
-where three dialog boxes are overlaid it bombs.  And when sending it bombs
-when trying to display the files to chose in a dialog box.  I have tried
-this with slightly different results (but not good) using both the original
-(Summer 1984) system and finder as well as the March 1985 update which
-includes finder version 4.1.
+It sounds like the cursor positioning control sequences that vi
+transmits are being misinterpreted or dropped.
 
-John Dunlap	Applied Physics Lab, University of Washington
-dunlap%apl-em%uw-apl%uw-beaver@washington.edu
+Has anyone else seen this behavior?  If not, the problem must be ours
+somehow.  Any suggestions would be most welcomed.
+
+Thanks, Dan.
+
+lulue@nosc.mil
 
 ------------------------------
 
-Date: 10-JUN-1987 17:35:59
-From: DB_WILSON@UK.AC.OPEN.ACS.VAX
-Subject: Bug in Mac Kermit 0.8(034) Using 2-byte Checksums
-Keywords: MacKermit
+Date: Sat, 15 Oct 88 04:37:40 -0700
+From: Alastair Milne <milne@ics.uci.edu>
+Subject: MacKermit Bugs
+Keywords: MacKermit 0.9(40)
 
-I have found a problem using Macintosh Kermit with two byte checksums when the
-data packet can have bytes with the eighth bit set. The resulting checksum is
-consistent with such bytes being negative in the range -128 to -1, i.e. bytes
-are treated as signed -128..127 rather than unsigned 0..255. The Kermit book
-makes it clear (c.f. page 224) that the latter is correct.
+I have been running MacKermit 0.9(40) on a 2 meg full-colour Mac II under
+Multifinder.  It has been of great use to me; it has been working very well,
+and besides being my terminal emulator of choice for daily work, has succeeded
+in populating a fair part of my hard disc with distribution list shareware.  I
+particularly enjoy its ability to transfer in the background: it saves a lot
+of time at 2400 baud when I can work in WriteNow or Word, while Kermit is
+cheerfully churning away in the background.
 
-The workaround is easy - don't use two byte checksums for binary files.
+I have encountered one or two oddities, which I thought you might like to know
+about.  I just checked the ckmker.bwr file to see if they had been reported.
+I don't see them there, so here they are:
 
-Regards,
-David.
+- in Getting files from a remote server Kermit (on UNIX): the * wildcard 
+  when requesting files works fine, but the other UNIX wildcard generators
+  ( [...], {one,two,three}) do not.  I get back an alert dialogue saying
+  the file wasn't found.  
 
-[Ed. - Thanks for the report.  The same bug exists in Unix Kermit, which
-is built on the same code.  The problem will be fixed in the next
-release of C-Kermit.]
+[Ed. - This is because Unix Kermit does not interpret the other wildcard
+characters.]
+
+Looks as if either MacKermit is manipulating the file name string before
+sending it, or C-kermit under UNIX isn't correctly handling the wildcard
+resolution (I presume the method is to pass the received string to the shell).
+
+[Ed. - No, C-Kermit does the wildcard matching itself.]
+
+- When the Init called HierDA (activates the Mac II's "walking" submenu 
+  feature) is installed, Kermit launches, shows and clears its terminal
+  window, then aborts with system error 1.  It seems to happen under both
+  Multifinder and Finder.  The emulator VT100-Maculator does the same 
+  thing, so it may be a general serial port problem.  I'll try to pass it 
+  on to HierDA's author, too (if I can find his address), but I thought 
+  you'd be interested in knowing.
+
+This is more a wish than a bug: there are several server commands listed in
+the menu, but the remote Kermit setting command seems to be missing.  This is
+important, for instance, to be able to turn UNIX Kermit's "image" mode on or
+off.
+
+Finally, can we look forward to Attribute packets for MacKermit?  It would be
+useful to know the sizes of incoming files, and very useful to preserve file
+dates.
+
+Thanks for a fine program.
+
+   Alastair Milne
 
 ------------------------------
 
-Date: Mon, 20 Jul 87 14:09:03 EDT
-From: Charlie C. Kim <cck@cunixc.columbia.edu>
-Subject: Mac Kermit and Mac II
-Keywords: MacKermit
+Date: Sat, 12 Nov 88 18:35:44 EST
+From: Maretta Holden <mholden@ajpo.sei.cmu.edu>
+Subject: Mac Kermit 0.9(40) vs Extended Keyboard
+Keywords: MacKermit 0.9(40)
 
-MacKermit works on a Mac II; however, the Sumacc C compiler runtime
-library does not.  Unfortunately, the current version of MacKermit is
-built with the Sumacc C compiler.  The problem is the traps and calls
-to various in-rom/ram packages on the Macintosh are built in-line, on
-the stack as I remember, by the Sumacc C compiler runtime libraries.
-This doesn't work too well on a 68020 based system like the Mac II
-because the 68020 has an instruction cache.
+I am using Mac Kermit 0.9(40) to access a DEC microVAX from a Mac II with
+an extended keyboard. I occasionally need to use the EDT editor on the VAX.
+Although the cursor control keys work as expected, Kermit does not appear
+to emulate the numeric keypad so that it can be understood by EDT. I assume
+I could compensate by using the key macro capability but I suspect I do
+not have enough information to do it without help. Are there any available
+macro definitions for this purpose? [Or is Mac Kermit going to be updated
+to handle the extended keyboards more completely?]
 
-If you are willing to live with a (moderate) performance degradation,
-simply turn off the instruction cache with following MPW asm program:
-		Machine MC68020
-	nocache main
-		clr.l d0
-		movec d0,cacr
-		rts
-		ENDP
-		end
+Thanks for any help,
+Maretta Holden
+mholden@ajpo.sei.cmu.edu
 
-Simply "restart" your machine to turn the cache back on.
+------------------------------
 
-Charlie C. Kim
-User Services
-Columbia University
+Date: Wed, 30 Nov 88 16:40:43 EST
+From: Bob Rahe <CES00661%UDACSVM.BITNET@cuvmb.cc.columbia.edu>
+Subject: Visible control chars in MacKermit
+Keywords:
 
-Here's the corresponding compiled program in binhex 4.0 format:
- ---------------- CUT HERE ----------------
-(This file must be converted with BinHex 4.0)
+  I sent this to info-kermit in Sept, but.... anyway here goes again:
 
-:#@j[)'PMB@0SC3""8&"-2j!%!*!)!@qqk!#3"!%!N!-",!#3!b`!N!0$!4JQEJ!
-@)'hkZL*Z!!J`%8'm(rrP3#K`!!!H&!*(!2m#H#i!!J#3!d&38%`rN!3!N!S*R`#
-3"N&38%`rN!3!N"LG*p!U!*!'!@m"DN(ZrIBI%$mm!2p1V3&53qlqpR"!)YK63'l
-k3QG"l[lf,`J[,J!12bi!$%KZrrj1Z[ib%"pR%MmZrri[,J!),bi!%NkY!(*J$%*
-R,bi!##m,6Ud!FNcI')"1AL"Ih[`!%Nl3d&*23d968dm!N!3,SJ9J!!j19[cq)'i
-!#%2Zr`#3""J!N!-S!!!#!*!%#!#3!b!!!$mm!!'Tm!#3!``!N!-"F!"1H`!#6R8
-!!!%!N!-",!#3!b`!N!0$!!,Sk!AL!*!$(!!q!!"$6d4&!!%!#J!!rrmJ!*!)!3!
-!&!!!(!!#k'`%6@&TE[M5!:
+  Well, just spent some time debugging a problem that wasn't a problem at
+all(!).  We were having a problem with a concentrator, it seemed to be (and
+actually is) eating the SOH for start of packet.  While running some tests on
+it with MacKermit, I put the terminal emulator into 'visible control
+character' mode and found what seemed to be extraneous characters at the end
+of lines coming from the host.  Characters '13' and '10'.  I read these as DC3
+and DLE. WRONG! They aren't hex representations but DECIMAL!
 
-[Ed. - Thanks Charlie.....]
+  Is this the way a VT100 does it?  I've used a lot of terminals and/or line
+monitors in my day and either they display the character in a pseudo-mnemonic
+( CR, DL, LF, etc.) or the put out the character in HEX.  Decimal may be
+useful for BASIC programmers etc. but I wouldn't expect many datacomm hackers
+to be expecting it.  Anyone got a different version of the font that puts the
+characters in (IMHO) the more reasonable hex format?  Or alternatively, in
+mnemonics?
+
+If nobody else will/has I'll volunteer.  Which should it be? Objections?
+
+       Bob
+
+------------------------------
+
+Date: 22 Dec 1988 16:18:59 EST
+From: Eric.Yang@ewt.mit.edu
+Subject: New Year's wish for Mac Kermit 
+
+Is there any plan to add port-selection support to Mac Kermit in the near
+future?  We have recently installed a network software that works only on the
+modem port.  But I also want to use Kermit to communication with our VAX
+through the printer port.  Really wish this feature incorporated like the
+other world of PCs.
+
+	Greetings and many thanks to the Mac Kermit developers! 
+
+------------------------------
+
+Date: Fri, 30 Dec 88 18:46 EST
+From: Peter Szolovits <psz@zermatt.lcs.mit.edu>
+Subject: Additional Features for MacKermit?
+
+I wonder if you know whether any of the following are being contemplated
+as future features for MacKermit, and (more importantly) if anyone is
+actually building things along these lines:
+
+1.  Support for RTS/CTS serial-line handshakes.  I find that at 9600
+baud, I must use ^S/^Q flow control now, or else I risk losing
+characters at times when my Mac II can't keep up (boo, hiss for the
+slowness of this code).  Alas, because I am a frequent Emacs user, this
+loss of two chars in Emacs' command set is quite inconvenient.  My other
+particular interest in this is to be able to use MacKermit with a pair
+of USRobotics 9600-baud modems, which are able to transmit at close to
+19,200 by using internal data compression/decompression, but to do so
+they must be set up to communicate with the machines at either end at
+19,200.  Because data compression can't always guarantee the factor of
+2, they must be able to stop the flow of bits.  Again, out-of-band
+signals are much preferable to stealing two of the character codes for
+this purpose.  Along the same lines, I wonder if Kermit couldn't take
+advantage of the MNP level 5 protocol said to be built into these modems
+to assure uncorrupted packet transmission.  I believe that the only
+reason I've seen bad packets is because Kermit can't keep up with the
+9600-baud stream and thus loses something that came through the modem
+ok.
+
+2.  Faster i/o handling.  I don't know if the bottleneck is the serial
+line control or screen display, but on a 16MHz 68020 it seems like 9600
+baud should be attainable.
+
+3.  In the absence of faster screen i/o, I'd like an option to turn off
+screen display while running with session logging on.  With error
+correction built into the modem (see above), I should be able to blast a
+file down and catch it in the session log without corruption.  I can't
+do this now because MacKermit must use flow control or else it just gets
+overrun.
+
+4.  Sliding windows, especially for Kermiting to hosts that live at some
+far corner of the Internet, so I'm not waiting all the time for packet
+handshakes.
+
+5.  The ability to stretch the VT100 window beyond 25x80 characters.  On
+a large display screen, many systems now support "large VT100's" that
+are just like a VT100 except with more lines and columns.  This would be
+a real boon.
+
+6.  Other things everyone wishes for: scripts, some way of shipping Mac
+files as a lump (e.g., Apple's "single" or "double" formats for storing
+Mac files on non-Mac machines).
+
+Thank you, and I look forward to hearing about progress.  
+--Pete Szolovits
+
+------------------------------
+
+Date: Tue, 3 Jan 89 14:06:31 EST
+From: bayer%zariski@harvard.harvard.edu (Dave Bayer)
+Subject: Large packets
+
+Thanks for your previous help.
+I am using Macintosh kermit 0.9(36) B4.osu with a recent vanilla
+kermit on a Sun 4 over a 2400 baud phone line. My mean time between
+errors is easily over an hour, and THAT is mostly my stupidly
+picking up the phone. Thus I calculate that I should increase packet
+sizes to the point where between packet overhead is <<1%. This is
+larger than 1024 bytes, the current limit.
+[1] Can you increase packet size to 64K max on all new versions
+without disturbing old versions? I would think so, and I would think
+that the time has come, given today's clean links.
+
+[Ed. - The technical limit to long packets is 9024 bytes.  There is
+an "extra long packets" option to the Kermit protocol, as yet unused by
+any Kermit implementation, that can extend the packet length to about
+800K bytes.]
+
+[2] For some reason I can't pin down, I can't go past 512 byte actual
+packet size without infinite retries, getting files from Sun server to
+Mac kermit. I set both sides to 512 send and receive, increased timeout
+limits, etc. to no avail. Is this a common problem? I am only at 70% of
+my line capacity for transfers at 512 byte packets.
+I know you're swamped (I support my own freeware to others!) so a
+succinct reply will be perceived as a warm reply!
+Regards, Dave Bayer
+bayer@huma1.harvard.edu
+
+[Ed. - Here we're running up against other bottlenecks -- processor speed,
+disk i/o & interaction between disk & comm port interrupts, and inefficiency
+in the code itself.]
+
+------------------------------
+
+
+Date: Sat, 17 Dec 88 09:54:07 EST
+From: CES00661%UDACSVM.BITNET@cunyvm.cuny.edu
+Subject: MacKermit and System 6.0.x
+Keywords:
+
+  I recently upgraded to System Tools 6.0.2 and noticed MacKermit seemed
+to run 'sluggishly' on my Mac+.  In fact, since I didn't make the
+connection originally, I went thru a major virus search(!).  Then I
+remembered that one of the 'problems' that had been seen in a number
+of programs with system 6.0.x was the test for WaitNextEvent as a way
+to tell if MultiFinder was running no longer worked since that trap would
+be present all the time.  So, taking out my tech notes and the source for
+Kermit found that that was exactly what he was testing so he was using the
+WaitNextEvent trap instead of GetNextEvent when not running under Multi-
+Finder, causing the slowdown.  I then added the following (per TN158):
+                                     (';' = TAB)
+Filename:  ckmasm.h
+
+124    #define num_WaitNextEvent    0x60
+125    #define num_UnknownTrap        0x9F
+
+Change to:
+
+124    #define num_WaitNextEvent    0x60
+125    #define num_JugglDispatch    0x8F    /* The Temp Memory calls (RWR) */
+126    #define num_UnknownTrap        0x9F
+
+And
+
+Filename:  ckmini.c
+
+435        if (NGetTrapAddress (num_WaitNextEvent, 1) !=
+436        NGetTrapAddress (num_UnknownTrap, 1))
+437        return TRUE;
+
+Change to:
+
+435        if (NGetTrapAddress (num_WaitNextEvent, 1) !=
+436                NGetTrapAddress (num_UnknownTrap, 1) &&    /* RWR  */
+437            NGetTrapAddress (num_JugglDispatch, 1) !=    /* RWR  */
+438                NGetTrapAddress (num_UnknownTrap, 1))    /* RWR  */
+439        return TRUE;
+
+  I'd be happy to Stuffit and BinHex the resulting code file for anyone
+who wants it.
+
+    Bob
 
 ------------------------------
 

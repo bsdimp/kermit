@@ -69,6 +69,7 @@
 #define XXDIAL 40	/* (Local) DIAL */
 #define XXLOGI 41	/* (Local) SCRIPT */
 #define XXCOM  42	/* Comment */
+#define XXHAN  43       /* HANGUP */
  
 /* SET parameters */
  

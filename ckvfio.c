@@ -1,4 +1,4 @@
-char *ckzv = "VMS file support, 1.0(008), 19 Mar 86";
+char *ckzv = "VMS file support, 1.0(010), 24 Jan 88";
 char *ckzsys = " Vax/VMS";
 
 /* C K V F I O  --  Kermit file system support for VAX/VMS */
@@ -18,6 +18,9 @@ char *ckzsys = " Vax/VMS";
  * 006  5-Jul-85 DS  handle version number in zltor, zrtol
  * 007 11-Jul-85 FdC fix zclose() to give return codes
  * 008 19-Mar-86 FdC Fix system() for "!", zopeni() for REMOTE commands.
+ * 008 17-Sep-87 FdC Define PWDCMD.
+ * 090 (???)
+ * 010 24-Jan-88 FdC Add zgtdir() function, even tho it doesn't work...
  */
 
 /* Definitions of some VMS system commands */
@@ -28,8 +31,8 @@ char *TYPCMD = "TYPE ";			/* For typing a file */
 char *SPACMD = "DIRECTORY/TOTAL";	/* Space/quota of current directory */
 char *SPACM2 = "DIRECTORY/TOTAL ";	/* Space/quota of current directory */
 char *WHOCMD = "SHOW USERS";		/* For seeing who's logged in */
+char *PWDCMD = "SHOW DEFAULT";		/* For seeing current directory */
 
-
 /*
   Functions (n is one of the predefined file numbers from ckermi.h):
 
@@ -394,8 +397,20 @@ char *
 zhome() {
     return(getenv("HOME"));
 }
-
 
+/*  Z G T D I R  --  Return pointer to user's current directory  */
+
+char *
+zgtdir() {
+/*    char *getcwd();
+/*    char cwdbuf[100];
+/*    char *buf;
+/*    buf = cwdbuf;
+/*    return(getcwd(buf,100));
+*/
+    return("");  /* Can't seem to make LINK find getcwd()... */
+}
+
 /*  Z X C M D -- Run a system command so its output can be read like a file */
 
 zxcmd(comand) char *comand; {

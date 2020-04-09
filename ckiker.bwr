@@ -19,14 +19,6 @@ Workbench, and the default window created by Lattice's _main is not
 eliminated.  This is easily fixed, but there are other problems with
 Workbench invocation.  See below.
 
-When Kermit is invoked from a CLI and spawns a CLI subprocess with '!',
-after ENDCLI is used to terminate the subprocess, the ENDCLI command
-line is written to the console window of the original CLI process, without
-a trailing newline.  This seems to be an AmigaDOS quirk, and is
-primarily an annoyance.  When Kermit is invoked from Workbench, however,
-the Amiga crashes immediately after the ENDCLI command (although the
-problem may be unrelated).
-
 The current directory name is constructed from the previous current
 directory name and a new relative name.  This is similar to the way the CD
 command operates, but it is subject to some peculiarities.  For instance,
@@ -63,61 +55,78 @@ would be nice.
 Kermit should support AmigaDOS wildcarding, especially for SEND's.  It can
 be argued that Unix wildcarding is often appropriate for remote GET's from
 the Amiga server, but AmigaDOS wildcarding should be optionally available.
- 5-Sep-86 01:52:03-EDT,1057;000000000001
-Return-Path: <CCPHIL%TUCC.BITNET@CUVMA.COLUMBIA.EDU>
-Received: from CUVMA.COLUMBIA.EDU by CU20B.COLUMBIA.EDU with TCP; Fri 5 Sep 86 01:52:00-EDT
-Received: from TUCC(MAILER) by CUVMA (Mailer X1.23b) id 4140;
-          Fri, 05 Sep 86 01:52:08 EDT
-Date:    Fri, 05 Sep 86 01:50 EDT
-To:      kermit@cu20b,fdccu@cuvma
-Reply-To:ccphil@TUCC
-From:    CCPHIL@TUCC
+12-May-89 15:23:18-GMT,3695;000000000001
+Return-Path: <@cuvmb.cc.columbia.edu:RCCSBLN@HDETUD1.BITNET>
+Received: from cunixc.cc.columbia.edu by watsun.cc.columbia.edu (4.0/SMI-4.0)
+	id AA04707; Fri, 12 May 89 11:22:52 EDT
+Resent-Message-Id: <8905121522.AA04707@watsun.cc.columbia.edu>
+Message-Id: <8905121522.AA04707@watsun.cc.columbia.edu>
+Received: from CUVMB.COLUMBIA.EDU (cuvmb.cc.columbia.edu) by cunixc.cc.columbia.edu (5.54/5.10) id AA09250; Fri, 12 May 89 11:22:37 EDT
+Received: from CUVMB.CC.COLUMBIA.EDU by CUVMB.COLUMBIA.EDU (IBM VM SMTP R1.2) with BSMTP id 3411; Fri, 12 May 89 07:49:19 EDT
+Received: from HDETUD1.BITNET by CUVMB.CC.COLUMBIA.EDU (Mailer R2.03B) with
+ BSMTP id 8378; Fri, 12 May 89 07:49:18 EDT
+Received: by HDETUD1 (Mailer X1.25) id 5799; Fri, 12 May 89 13:48:22 MET
+Resent-Date:  Fri, 12 May 89 13:42:46 MET
+Resent-From: "Boelen, Lodewijk J.M." <RCCSBLN%HDETUD1@cuvmb.cc.columbia.edu>
+Resent-To: Frank da Cruz <FDC@cunixc.cc.columbia.edu>
+Date:         Fri, 21 Apr 89 09:16:59 MET
+From: "Boelen, Lodewijk J.M." <RCCSBLN%HDETUD1@cuvmb.cc.columbia.edu>
+Subject:      Errors on compiling Kermit
+To: I-AMIGA@dearn.BITNET
 
-I have found the following kermit initialization file useful for the
-Amiga, when you want to emulate a standard ANSI terminal (like a VT100).
-I have used this with a PCI protocol converter and also a VAX VMS system.
-The PCI works well, but the VAX has problems in EDT when lines need to
-be scrolled up from the bottom of the screen.
+     Frank,
+Since I have got problems on compiling Kermit, I sent out the following
+message to I-AMIGA. Because I have not got any answer I turn up to you
+directly I hope you to help me.
+     Greetings,
+     Lodewijk.
+----------------------------Original message----------------------------
 
-Note that the Amiga Kermit will configure itself based on the settings in
-the Preferances screen for the serial line.  Insert the following lines
-into a file s:.kermrc  :
-%
-% Set up to 80 columns by 24 rows, position to (0,0), & clear screen
-%
-echo \\033[25t\\033[80u\\033[0x\\033[0y\\014
-%
-echo Kermit is initialized and 80x24 ANSI screen!
+     Lectori Salutem
 
-------------------------------
+In december I have got both the sources and a BOO-ed version of Kermit on my
+Amiga. By curiosity I compiled the sources with the Lattice 3.10 compiler to
+get acquainted with the software available on my new (second hand) AMIGA2000.
+I love that machine!
 
-Date: Sat, 25 Apr 1987 00:50 CST
-From: Ian Horstmeier <HORSTMIH@UREGINA1>
-Subject: Bug in Amiga C-Kermit
-Keywods: C-Kermit
+I remarked the following compiletime errors:
+  1.there are many warnings 89 on the variables "pid" and "D7Save" and others;
+  2. ckitio.c:
+    .1 error 71: formal declaration error "m";
+    .2 error 9: undefined identifier "m";
+    .3 error 63: duplicate declaration of item "m";
+  3. ckifio.c: error 57: semicolon expected;
+  4. ckuus3.c: error 25: invalid macro usage.
 
-I recently received this from a friend of mine regarding C-kermit for the
-Amiga.  Perhaps this information will be useful.
+The total time needed for compilation on my two diskette machine, with an
+adapted make-file, is 15 minutes. On scanning the sources near the marked
+lines I made some changes I will describe hereafter. All the compiletime
+errors were gone but the one in ckuus3.c.
+To get a Kermit program I had to attack the BOO-ed version I guessed to be in
+ckiker.upd. When anyone is interested I will mail my critics and the way I
+got a working Kermit program. I could emulate a terminal, that's all.
+I called for HELP but got no responses on the sources problems.
 
-Subject: Re: Using VT100/KERMIT and IBM systems
-Summary: The fix for C-Kermit
+So I waited for the newest version, announced in the meanwhile, hoping on the
+errors to be corrected. Before yesterday I compiled the newest sources the
+first time. I was sad to find the same errors as described above plus one:
+the version of HEARNs ckucmd.c is cut off. After receiving the TUVMA-version
+and applying the corrections, yesterday I got in the same situation as in
+january. So now my second call for HELP!
 
-The reason that C-kermit on the Amiga doesn't work with the IBM, is because
-the parity is not set!  I got my version of C-Kermit from kermserv@cuvma
-on BITNET, and it still contains this bug.  In the CKICON.C module, look
-in the connect mode function.  In about the middle of it, there is a call
-to the output a character function ttocq(c).  This needs to be changed to
-ttocq(dopar(c)).  There! It now works with IBM and sets parity correctly.
-According to the comments in the code, Kermit does its own parity checking
-and the serial.device is always in 8 bit no parity.  I always use kermit on
-the mainframe and the vax.  One thing you will notice is that the standard
-amiga keymap does not generate codes to be compatible with anything!  I am
-in the process of writing a keymap module for amiga c-kermit to make it look
-like a vt100.   Good luck!
-                                                              Walter Reed
+Here are the corrections on the lines of the actual version:
+  1. ckitio.c: all the errors are gone when you change line 692 from:
+    "int n, m;" into: "int n;" and insert after line 695: "int m;";
+  2. ckifio.c: a little above line 343 you can find: "return(...));". If you
+    change this line in "return(...);" (one ")" less!) all is well.
 
-UUCP :  ihnp4!umn-cs!ndsuvax!ncreed
-Bitnet: ncreed@ndsuvax  OR NU105451@NDSUVM1
+I don't know C though it looks very nice, but also a colleague could not find
+a solution on the error in ckuus3.c.
 
-------------------------------
+I wonder if the warnings are not harmful, but I don't know to correct them.
+
+Can anyone help me? I would be gratefull,
+
+      Lodewijk.
+<< It is my job to use computers in favour of the people who work with them >>
 

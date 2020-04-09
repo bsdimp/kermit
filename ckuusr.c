@@ -1,4 +1,4 @@
-char *userv = "User Interface 4E(059), 29 Jan 88";
+char *userv = "User Interface 4E(060), 13 Jan 89";
  
 /*  C K U U S R --  "User Interface" for Unix Kermit (Part 1)  */
  
@@ -6,10 +6,11 @@ char *userv = "User Interface 4E(059), 29 Jan 88";
  4E, support for Apollo Aegis, Data General added, July 87.
 */
 /*
- Author: Frank da Cruz (SY.FDC@CU20B),
- Columbia University Center for Computing Activities, January 1985.
- Copyright (C) 1985, Trustees of Columbia University in the City of New York.
- Permission is granted to any individual or institution to use, copy, or
+ Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+ Columbia University Center for Computing Activities.
+ First released January 1985.
+ Copyright (C) 1985, 1989, Trustees of Columbia University in the City of New 
+ York.  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained. 
 */
@@ -402,6 +403,7 @@ struct keytab cmdtab[] = {
     "%",    	   XXCOM, CM_INV,
     "bye",         XXBYE, 0,
     "c",           XXCON, CM_INV,
+    "cd",          XXCWD, 0,
     "close",	   XXCLO, 0,
     "connect",     XXCON, 0,
     "cwd",	   XXCWD, 0,
@@ -411,6 +413,7 @@ struct keytab cmdtab[] = {
     "exit",	   XXEXI, 0,
     "finish",	   XXFIN, 0,
     "get",	   XXGET, 0,
+    "hangup",      XXHAN, 0,
     "help",	   XXHLP, 0,
     "log",  	   XXLOG, 0,
     "quit",	   XXQUI, 0,
@@ -463,6 +466,7 @@ int nprm = (sizeof(prmtab) / sizeof(struct keytab)); /* How many parameters */
 /* Remote Command Table */
  
 struct keytab remcmd[] = {
+    "cd",        XZCWD, CM_INV,
     "cwd",       XZCWD, 0,
     "delete",    XZDEL, 0,
     "directory", XZDIR, 0,
@@ -756,7 +760,7 @@ case XXCOM:				/* comment */
 case XXCON:                     	/* connect */
     if ((x = cmcfm()) < 0) return(x);
     return(doconect());
- 
+
 case XXCWD:
 #ifdef AMIGA
     if (cmtxt("Name of local directory, or carriage return","",&s) < 0)
@@ -964,6 +968,9 @@ case XXHLP:				/* Help */
     x = cmkey(cmdtab,ncmd,"C-Kermit command","help");
     return(dohlp(x));
  
+case XXHAN:				/* Hangup */
+    if ((x = cmcfm()) > -1) return(tthang());
+
 case XXLOG:				/* Log */
     x = cmkey(logtab,nlog,"What to log","");
     if (x == -3) {
@@ -1122,7 +1129,7 @@ case XXSHE:				/* Local shell command */
 	istat = signal(SIGINT,SIG_IGN);	/* Let the fork handle keyboard */
 	qstat = signal(SIGQUIT,SIG_IGN); /* interrupts itself... */
  
-    	while (((wstat = wait((int *)0)) != pid) && (wstat != -1))
+    	while (((wstat = wait((int *)0)) != pid) && (wstat != -1)) ;
 	                                /* Wait for fork */
 	signal(SIGINT,istat);		/* Restore interrupts */
 	signal(SIGQUIT,qstat);

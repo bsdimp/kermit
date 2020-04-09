@@ -1,12 +1,21 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* |_o_o|\\ Copyright (c) 1986 The Software Distillery.  All Rights Reserved */
+/* |. o.| || This program may not be distributed without the permission of   */
+/* | .  | || the authors.                                                    */
+/* | o  | ||    Dave Baker     Ed Burnette  Stan Chow    Jay Denebeim        */
+/* |  . |//     Gordon Keener  Jack Rouse   John Toebes  Doug Walker         */
+/* ======          BBS:(919)-471-6436      VOICE:(919)-469-4210              */ 
+/*                                                                           */
+/* Contributed to Columbia University for inclusion in C-Kermit.             */
+/* Permission is granted to any individual or institution to use, copy, or   */
+/* redistribute this software so long as it is not sold for profit, provided */
+/* this copyright notice is retained.                                        */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 /*  C K I S T U  --  Stubs for functions not yet implemented on Amiga */
  
 /*
- Author: Jack Rouse
- Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1986, Jack J. Rouse, 106 Rubin Ct. Apt. A-4, Cary NC 27511
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+ Author: Jack Rouse, The Software Distillery
 */
 
 #include "ckcdeb.h"

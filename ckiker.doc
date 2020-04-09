@@ -4,14 +4,12 @@ This version of Amiga Kermit is a port of the Unix C-Kermit which attempts
 to reproduce as much of the functionality of Unix version as possible.  I
 had two main goals in porting C-Kermit:  I wanted a reliable remote file
 transfer utility, and I wanted to investigate the use of the AmigaDOS
-and Exec environments, hopefully adding to level of publicly held Amiga
-programming knowledge.
+and Exec environments.
 
-Amiga Kermit currently provides a line oriented user interface.  I am not
-a mouse and menu fanatic, but I have seen many programs which have been
-considerably enhanced by their use.  There are several places in Kermit
-where a menu interface would be an asset.  However, in this version of
-Kermit, I have concentrated on the functional aspects.
+Amiga Kermit currently provides a line oriented user interface.  I currently
+have no specific plans to implement menuing, but there are several places in
+Kermit where a menu interface would be an asset.  In this version of Kermit,
+I have concentrated on the functional aspects.
 
 As I have stated before, this is a port of the Unix C-Kermit.  The file
 ckuker.doc contains detailed documentation on the use of C-Kermit, and
@@ -22,9 +20,8 @@ specific features are noted below.
 
 INVOKING C-KERMIT
 
-Amiga Kermit is usually invoked from a CLI process.  Currently unresolved
-problems will cause it to crash under the Workbench, see ckiker.bwr for
-details.  From a CLI window, you generally enter:
+Amiga Kermit is usually invoked from a CLI process.  It currently can not
+be invoked from the Workbench.  From a CLI window, you generally enter:
    KERMIT
 or
    RUN KERMIT
@@ -108,39 +105,37 @@ in the current directory, providing that the disk containing each directory
 is present in the Amiga.  The ".kermrc" file contains C-Kermit commands
 which can be used to initialize the C-Kermit environment as desired.
 
-Amiga Kermit has certain peculiarities about its settings.  The line is
-always 'serial.device', the name of the device driver being used, and Kermit
-will not allow you to 'SET LINE' to anything else.  The modem control mode
-is currently selected by 'SET MODEM type', which has two choices: 'DIRECT',
-for 3-wire control, and 'GENERIC', for 7-wire control.  Because of the way
-the serial device operates, this setting only has an effect when the serial
-device is opened after previously being closed, which occurs only when
-Kermit starts or after '<escape>H' is used to hang up and exit connect mode.
+The line used by Amiga Kermit is always 'serial.device', the name of the
+device driver being used, and Kermit will not allow you to 'SET LINE' to
+anything else.  The modem control mode is currently selected by 'SET MODEM
+type', which has two choices: 'DIRECT', for 3-wire control, and 'GENERIC',
+for 7-wire control.  Because of the way the serial device operates, this
+setting only has an effect when the serial device is opened after previously
+being closed, which occurs only when the serial line is used after Kermit
+starts or after '<escape>H' is used to hang up and exit connect mode.
 
 Kermit allows you to set any baud rate between 110 and 292000 baud; however,
 it will complain if the baud rate is nonstandard (I added this feature after
 several attempts to use my modem at 12000 baud).  Rates of 110 and 111 baud
-are implemented as 112 baud.  Extremely high baud rates are of limited
-utility.  Rates above 38400 baud can be used for connect mode, but they
-result in high error retry rates during data packet transfer and require
-good cabling (plus who can you talk to at 57600 baud?).  Because
-of protocol overhead, 38400 baud between two Amigas will get an effective
-transfer rate of less than 6000 baud (still two times faster than a 1541
-disk drive).  Also, if a break is sent looped back to the Amiga while
-the serial device is set to a very high baud rate (>100K baud), the Amiga
-will hang up, apparently overwhelmed by framing errors.
+are implemented as 112 baud.  Rates above 38400 baud can be used for
+connect mode, but they are not very useful for file transfer.  The file
+transfer rate is limited by packet retries due to transfer errors, and the
+overhead time spent constructing packets.
 
 Amiga Kermit uses the serial device in shared mode.  This allows other
 programs, like dialers, to use the serial line at the same time, without
-exiting Kermit.  However, to avoid confusion, Kermit should not be in
-connect, server, or file transfer mode while another program is active.
-Note that Kermit always does its own parity generation and stripping, so
-it always sets the serial device to use eight bit characters with no parity.
+exiting Kermit.  This could also allow in theory a terminal emulator to be
+used simultaneously with Kermit.  However, if two programs are reading from
+the serial line at the same time, the results are unpredictable.  Any such
+program, therefore, would have to be disabled from reading while Kermit is
+performing file transfer or is in connect mode.  Note that Kermit since does
+its own parity generation and stripping, so it always sets the serial device
+to use eight bit characters with no parity.
 
 WILDCARDING
 
 Both the SEND command invoked from the Amiga and a GET sent to an Amiga
-in server mode use allow wildcarding, but in the Unix style.  Thus, '*'
+in server mode use allow wildcarding, in the Unix style.  Thus, '*'
 wildcard matches an arbitrary string while '?' matches an arbitrary
 character.  Therefore, to get all the C source files which begin with 'cki'
 from the Amiga server, you could use the command:
@@ -158,12 +153,14 @@ Amiga Kermit provides several ways to invoke AmigaDOS commands from within
 Kermit.  Entering '!' at the Kermit prompt will create a CLI process running
 in its own window, and wait for it to terminate.  The form '! command' will
 invoke the given command command with its output going to Kermit's window.
-However, there is currently no way to pause the output of commands invoked
-this way, other than the stopgap use of the right mouse button.  The form
-'REMOTE HOST command' can be sent to the Amiga server to execute the given
-command remotely on the Amiga.  There is also no input stream available for
-commands invoked in either the '! command' or 'REMOTE HOST command' forms,
-which can cause problems with some commands that expect input.
+There is currently no way to pause the output of commands invoked his way,
+other than the stopgap use of the right mouse button.  The form 'REMOTE
+HOST command' can be sent to the Amiga server to execute the given command
+remotely on the Amiga.  Because of the way AmigaDOS Execute() function
+works, commands invoked in either the '! command' or 'REMOTE HOST command'
+forms have NIL: as their standard input.  Some AmigaDOS commands that
+require input, such as DiskCopy and Format, do not recognize the immediate
+end of file that they receive under this condition, causing them to hang.
 
 In addition to the methods given above, various AmigaDOS commands are
 invoked by local Kermit commands, and generic remote commands.  These
@@ -225,13 +222,25 @@ while BYE exits Amiga Kermit altogether.
 CONNECT MODE
 
 Connect mode on Amiga Kermit currently provides you with a 23 line by
-77 column screen.  The Amiga console device is used to provide almost
-ANSI terminal emulation.  While you are in connect mode, you can give
+77 column screen.  The Amiga console device is used to provide ANSI
+terminal emulation.  While you are in connect mode, you can give
 single character commands which are prefixed by an escape character
 which can be set from within C-Kermit.  By default, the escape
 character is CTRL-\.  You can use '<escape>H' to close the serial device
 and exit connect mode, which makes the DTR line drop causing most modems
 to hang up the phone line.
+
+You can currently get a 25 by 80 screen in Kermit by means of a kludge.
+Entering the Kermit command line (backslashes will be echoed only once):
+     ECHO \\033[25t\\033[80u\\033[0x\\033[0y\\014
+activates console device private escape sequences that cause the console
+to use a 25 by 80 region, overwriting the borders of the Kermit window.
+Using window gadgets will cause the borders to be redisplayed, but the
+display can be cleaned up by typing ctrl-L in command mode.  To reset
+the window to its normal condition, allowing resizing, use:
+    ECHO \\033[t\\033[u\\033[x\\033[y\\014
+and then activate a window gadget to refresh the borders.  These commands
+can be placed into Kermit TAKE files.
 
 In addition to the standard connect mode commands, extra logging control
 has been added.  If a session log file is open, the '<escape>Q' sequence
@@ -253,13 +262,22 @@ characters are queued, connect status (accessed by '<escape>S') will
 indicate the number of queued output characters.
 
 
-I hope that you find Kermit a useful.  If you have problems or suggestions
-related to Amiga Kermit, please contact me at the address below.  I will
-be continuing to enhance Amiga Kermit, so new versions will be available
-from time to time.
+BLURB
+
+Amiga Kermit is a product of the Software Distillery group, which develops
+quality public domain software for the Commodore Amiga, including Hack and
+BLink.  The Software Distillery BBS (in Durham, NC) can be reached at
+(919) 471-6436.  If you have problems or suggestions related to Amiga
+Kermit, please contact me at the address below.  New versions of Amiga
+Kermit will be available as enhancements are made, and can be from
+obtained from various sources, including the Software Distillery BBS, and
+the Columbia University Kermit distribution.
 
 Jack J. Rouse
-106 Rubin Ct. Apt. A4
+888H Buckingham Ct.
 Cary, NC 27511
+
 (919) 467-8000 (work)
 (919) 481-1395 (home)
+USENET: mcnc!rti-sel!sas!jjr
+COMPUSERVE: 74176,1757

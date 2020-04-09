@@ -8,7 +8,7 @@ kermit \- kermit file transfer
 .I Kermit
 is a file transfer program that allows files to be moved
 between machines of many different operating systems and architectures.
-This man page describes version 4E(068) of the program.  See the C-Kermit
+This man page describes version 4E(072) of the program.  See the C-Kermit
 documentation (ckuker.doc) or the Kermit book for further information.
 .PP
 Arguments are optional. If
@@ -145,7 +145,7 @@ your PC or workstation.
 .PP
 If you are running 
 .I Kermit
-On most systems,
+on most systems,
 .I Kermit
 runs in remote mode by default, so on a PC or workstation, you will have
 to put it into local mode.  The following command sets
@@ -331,7 +331,7 @@ list of files.
 .B ESC
 (The Escape or Altmode key) \(em Request completion of the current keyword
 or filename, or insertion of a default value.  The result will be a beep
-if the requested operation fails.
+if the requested operation fails.  Tab does the same thing.
 .TP 8
 .B DEL
 (The Delete or Rubout key) \(em Delete the previous character from the
@@ -348,7 +348,7 @@ command.  You may also use BS (Backspace, Control-H) for this function.
 .TP
 .B SP
 (Space) \(em Delimits fields (keywords, filenames, numbers) within a
-command.  HT (Horizontal Tab) may also be used for this purpose.
+command.
 .TP
 .B CR
 (Carriage Return) \(em Enters the command for execution.
@@ -409,7 +409,7 @@ Close a log file.
 Establish a terminal connection to a remote system.
 .TP
 .B  cwd
-Change Working Directory.
+Change Working Directory (also, "cd").
 .TP
 .B dial
 Dial a telephone number.
@@ -432,6 +432,9 @@ server to exit, but not log out.
 Get files from a remote 
 .I Kermit
 server.
+.TP
+.B hangup
+Hang up the phone.
 .TP
 .B help
 Display a help message for a given command.
@@ -529,7 +532,7 @@ Communication line speed.
 The 'remote' commands are:
 .TP 12
 .B cwd  
-Change remote working directory.
+Change remote working directory (also, "remote cd").
 .TP
 .B delete  
 Delete remote files.
@@ -560,9 +563,9 @@ $HOME/.kermrc	\fIKermit\fR initialization commands
 .SH SEE ALSO
 cu(1C), uucp(1C)
 .br
-Frank da Cruz,
+Christine Gianone,
 .IR "Kermit User's Guide" ,
-Columbia University, 6th Edition
+Columbia University, 7th Edition
 .TP
 Frank da Cruz,
 .IR "Kermit, A File Transfer Protocol" ,
@@ -574,5 +577,6 @@ The diagnostics produced by
 .I Kermit
 itself are intended to be self-explanatory.
 .SH BUGS
-See recent issues of the Info-Kermit digest (on ARPANET or Usenet),
-or the file ckuker.bwr, for a list of bugs.
+See recent issues of the Info-Kermit digest (on the Internetwork, BITNET,
+USENET, etc), or the file ckuker.bwr, for a list of bugs.  See the file
+ckuker.upd for descriptions of bugs that were fixed in each release.

@@ -1,8 +1,6 @@
-char *ckzv = "Unix file support, 4E(037) 27 Jan 88";
+char *ckzv = "Unix file support, 4E(038) 24 Jan 89";
 
 /* C K U F I O  --  Kermit file system support for Unix systems */
-
-/* 4E, conditionals added for Apollo Aegis. */
 
 /*
  Author: Frank da Cruz (SY.FDC@CU20B),
@@ -28,14 +26,21 @@ char *ckzv = "Unix file support, 4E(037) 27 Jan 88";
 #include <sys/stat.h>
 #endif
 
-
 /* Berkeley Unix Version 4.x */
-/* 4.1bsd support added by Charles E Brooks, EDN-VAX */
+/* 4.1bsd support from Charles E Brooks, EDN-VAX */
 
 #ifdef BSD4
 #ifdef MAXNAMLEN
 #define BSD42
+#ifdef SUNOS4
+char *ckzsys = " SUNOS 4.x";
+#else
+#ifdef ultrix
+char *ckzsys = " VAX/Ultrix";
+#else
 char *ckzsys = " 4.2 BSD";
+#endif /* ultrix */
+#endif /* sunos4 */
 #else
 #ifdef FT18
 #define BSD41
@@ -57,11 +62,6 @@ char *ckzsys = " 2.9 BSD";
 char *ckzsys = " Version 7 Unix";
 #endif
 
-/* Version 9 Unix  */
-#ifdef V9
-char *ckzsys = " Version 9 Unix";
-#endif
-
 /* DEC Professional-300 series with Venturcom Venix v1 */
 #ifdef PROVX1
 char *ckzsys = " DEC Pro-3xx/Venix v1";
@@ -76,7 +76,15 @@ char *ckzsys = " NCR Tower 1632, OS 1.02";
 /* Sys III/V, Xenix, PC/IX,... support by Herm Fischer, Litton Data Systems */
 #ifdef UXIII
 #ifdef XENIX
+#ifdef M_I386
+char *ckzsys = " Xenix/386";
+#else
+#ifdef M_I286
 char *ckzsys = " Xenix/286";
+#else
+char *ckzsys = " Xenix/86";
+#endif
+#endif
 #else
 #ifdef PCIX
 char *ckzsys = " PC/IX";
@@ -195,7 +203,9 @@ char *WHOCMD = "who ";			/* For seeing who's logged in */
 
 #ifdef UXIII
 #include <fcntl.h>
+#ifndef MAXNAMLEN
 #define MAXNAMLEN DIRSIZ
+#endif
 #endif
 
 #ifndef O_RDONLY
@@ -221,7 +231,7 @@ char *WHOCMD = "who ";			/* For seeing who's logged in */
 FILE *fp[ZNFILS] = { 			/* File pointers */
     NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
-static int pid;	    			/* pid of child fork */
+static int pid = 0;			/* pid of child fork */
 static int fcount;			/* Number of files in wild group */
 static char nambuf[MAXNAMLEN+2];	/* Buffer for a filename */
 char *malloc(), *getenv(), *strcpy();	/* System functions */
@@ -242,9 +252,6 @@ zkself() {				/* For "bye", but no guarantee! */
 #ifdef V7
     return(kill(0,9));
 #else
-#ifdef V9
-    return(kill(0,9));
-#else
 #ifdef TOWER1
     return(kill(0,9));
 #else
@@ -255,7 +262,6 @@ zkself() {				/* For "bye", but no guarantee! */
     return(kill(0,9));
 #else
     return(kill(getppid(),1));
-#endif
 #endif
 #endif
 #endif
@@ -291,6 +297,12 @@ zopeni(n,name) int n; char *name; {
 /*  Z O P E N O  --  Open a new file for output.  */
 
 zopeno(n,name) int n; char *name; {
+
+/** suid stuff commented out, probably needs work to apply to all the Unix **/
+/** variants supported by this program.  Maybe use setreuid()? **/
+/** The code shown allegedly works in 4.xBSD, Ultrix, etc.     **/
+
+/*  int uid, euid;			/** suid variables...  */
     debug(F111," zopeno",name,n);
     if (chkfn(n) != 0) return(0);
     if ((n == ZCTERM) || (n == ZSTDIO)) {   /* Terminal or standard output */
@@ -298,7 +310,10 @@ zopeno(n,name) int n; char *name; {
 	debug(F101," fp[]=stdout", "", (int) fp[n]);
 	return(1);
     }
-    fp[n] = fopen(name,"w");		/* A real file, try to open */
+/*  uid = getuid(); euid = geteuid();	/** In case running suid to uucp, */
+/*  seteuid(uid);			/** etc, get user's own id.  */
+    fp[n] = fopen(name,"w");		/* A real file, try to open. */
+/*  seteuid(uid);			/** Put back program's suid. */
     if (fp[n] == NULL) {
         perror("zopeno can't open");
     } else {
@@ -678,8 +693,9 @@ zxcmd(comand) char *comand; {
 
 zclosf() {
     int wstat;
-    if (kill(pid,9) == 0) {
+    if (pid != 0) {
 	debug(F101,"zclosf pid =","",pid);
+	kill(pid,9);
         while ((wstat = wait((int *)0)) != pid && wstat != -1) ;
         pid = 0;
     }

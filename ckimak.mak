@@ -7,16 +7,16 @@
 KERFLAGS = 
 
 #The following flags are used with Lattice 3.03.
-LC1FLAGS = -csw -iinclude:lattice/
-LC2FLAGS = -v
-
-#The following flags are used with Lattice 3.04.
-#LC1FLAGS = -csw -DLAT304 -iinclude:lattice/
+#LC1FLAGS = -csw -iinclude:lattice/
 #LC2FLAGS = -v
 
-kermit: ckcmai.o ckucmd.o ckuusr.o ckuus2.o ckuus3.o ckcpro.o ckcfns.o\
+#The following flags are used with Lattice 3.10
+LC1FLAGS = -csw -DLAT310 -b
+LC2FLAGS = -v -r
+
+kermit: ckcmai.o ckucmd.o ckuusr.o ckuus2.o ckuus3.o ckipro.o ckcfns.o\
         ckcfn2.o ckicon.o ckitio.o ckifio.o ckistu.o ckiutl.o
- lc:alink with ckiker.lnk faster
+ lc:BLink with ckiker.lnk smallcode smalldata verbose nodebug
 
 ckiutl.o: ckiutl.c
  lc:lc1 $(KERFLAGS) -iinclude: $(LC1FLAGS) -oram: ckiutl
@@ -45,6 +45,10 @@ ckcmai.o: ckcmai.c ckcker.h ckcdeb.h
 ckcpro.o: ckcpro.c ckcker.h ckcdeb.h
  lc:lc1 $(KERFLAGS) $(LC1FLAGS) -oram: ckcpro
  lc:lc2 $(LC2FLAGS) -ockcpro.o ram:ckcpro
+
+ckipro.o: ckipro.c ckcker.h ckcdeb.h
+ lc:lc1 $(KERFLAGS) $(LC1FLAGS) -oram: ckipro
+ lc:lc2 $(LC2FLAGS) -ockipro.o ram:ckipro
 
 ckcfns.o: ckcfns.c ckcker.h ckcdeb.h
  lc:lc1 $(KERFLAGS) $(LC1FLAGS) -oram: ckcfns

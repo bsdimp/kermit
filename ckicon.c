@@ -1,4 +1,4 @@
-char *connv = "Connect Command for Amiga, V4D(002) 29 June 86";
+char *connv = "Connect Command for Amiga, V4D(002) 27 July 86";
  
 /*  C K I C O N  --  Dumb terminal connection to remote system, for Amiga  */
 /*
@@ -9,7 +9,7 @@ char *connv = "Connect Command for Amiga, V4D(002) 29 June 86";
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained.
 
- Modified for Amiga by Jack J. Rouse
+ Modified for Amiga by Jack J. Rouse, The Software Distillery
 
  Uses the following special functions from ckitio:
     conttb() -- Prepares for connect mode.
@@ -97,7 +97,7 @@ conect() {
 	    }
 	    else if (c == escape)
 		seenescape = 1;
-	    else if ((i = ttocq(c)) >= 0) { /* Ordinary character */
+	    else if ((i = ttocq(dopar(c))) >= 0) { /* Ordinary character */
 		overrun = 0;
 		if (duplex)
 		{   /* Half duplex? */

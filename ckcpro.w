@@ -1,4 +1,4 @@
-char *protv = "C-Kermit Protocol Module 4E(031), 31 Jul 87"; /* -*-C-*- */
+char *protv = "C-Kermit Protocol Module 4E(032), 13 Jan 89"; /* -*-C-*- */
 
 /* C K C P R O  -- C-Kermit Protocol Module, in Wart preprocessor notation. */
 /*
@@ -79,6 +79,8 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
     	   vcmd = 0; if (vstate == get) srinit();
 	   BEGIN vstate; }
 
+<get>Y { srinit(); } /* Resend of previous I-pkt ACK, same seq number! */
+
 <serve>R { srvptr = srvcmd; decode(rdatap,putsrv); /* Get Receive-Init */
 	   cmarg = srvcmd;  nfils = -1;
     	   if (sinit()) BEGIN ssinit; else { SERVE; } }
@@ -130,8 +132,9 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
 
 <rgen>Y { decode(rdatap,puttrm); RESUME; }    /* Got reply in ACK data */
 
-<rgen,rfile>F { if (rcvfil()) { ack1(filnam); BEGIN rdata; } /* File header */
-		else { errpkt("Can't open file"); RESUME; } }
+<rgen,rfile>F { if (rcvfil())		      /* File header */
+		  { encstr(filnam); ack1(data); BEGIN rdata; }
+                else { errpkt("Can't open file"); RESUME; } }
 
 <rgen,rfile>X { opent(); ack(); BEGIN rdata; }	/* Screen data is coming */
 

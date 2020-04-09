@@ -1,8 +1,9 @@
-char *ckxv = "VMS tty I/O, 1.0(012), 11 Jul 85";
+char *ckxv = "VMS tty I/O, 1.0(013), 14 Sep 87";
 
 /*  C K V T I O  --  Terminal and Interrupt Functions for VAX/VMS  */
 
 /* Edit History
+ * 013 14 Sep 87 FdC    Add parity strip to ttinl(), add syscleanup().
  * 012 11 Jul 85 FdC    Add gtimer(), rtimer() for timing statistics.
  * 011  5 Jul 85 DS     Treat hangup of closed line as success.
  * 010 25 Jun 85 MM     Added sysinit() to open console.
@@ -113,6 +114,7 @@ Time functions
     char *dftty = "TT:";
     int dfloc = 0;			/* Default location is remote */
     int dfprty = 0;			/* Parity (0 = none) */
+    int ttprty = 0;			/* Parity in use */
     int dfflow = 1;			/* Xon/Xoff flow control */
     int batch = 0;			/* Assume interactive */
 
@@ -188,6 +190,12 @@ print_msg(s) char *s; {
 sysinit() {
     if (conchn == 0)
 	   conchn = vms_assign_channel("SYS$INPUT:");
+    return(0);
+}
+
+/*  S Y S C L E A NU P -- System-dependent program epilog.  */
+
+syscleanup() {
     return(0);
 }
 
@@ -464,9 +472,12 @@ ttoc(c) char c; {
   file, or -1 if an error occurred.  Times out & returns error if not completed
   within "timo" seconds.
 */
+/*** WARNING: THIS MIGHT NOT WORK ANY MORE, BECAUSE IT IS NOW THIS ***/
+/*** FUNCTION'S JOB TO STRIP PARITY.  I PUT IN SOME CODE THAT LOOKS LIKE ***/
+/*** IT SHOULD DO IT, BUT IT'S NOT TESTED.  - Frank, C-Kermit 4E ***/
 
 ttinl(dest,max,timo,eol) int max,timo; char *dest; {
-    int x, y, c;
+    int x, y, c, i;
     int trmmsk[2], func;
 
     if (ttychn == 0) return(-1);		/* Not open. */
@@ -479,6 +490,10 @@ ttinl(dest,max,timo,eol) int max,timo; char *dest; {
 			  dest, max, timo, trmmsk, 0, 0))
 	|| ttiosb.status == SS$_TIMEOUT	/* Check separately so no err msg */
 	|| !CHECK_ERR("ttinl: ttiosb.status",ttiosb.status)) return(-1);
+
+    if (ttprty) {
+        for (i = 0; i < ttiosb.size; i++) dest[i] &= 0177; /* strip parity */
+    }
     return(ttiosb.size);
 }
 

@@ -1,19 +1,15 @@
-char *fnsv = "C-Kermit functions, 4E(053) 14 Sep 87";
+char *fnsv = "C-Kermit functions, 4E(054) 13 Jan 89";
 
 /*  C K C F N S  --  System-independent Kermit protocol support functions.  */
 
 /*  ...Part 1 (others moved to ckcfn2 to make this module small enough) */
 
 /*
- 4E includes support for Data General systems from Phil Julian of SAS 
- Institute, and Megamax native Macintosh C compiler support from
- Jim Noble of Planning Research Corporation.
-*/ 
-/*
- Author: Frank da Cruz (SY.FDC@CU20B),
- Columbia University Center for Computing Activities, January 1985.
- Copyright (C) 1985, Trustees of Columbia University in the City of New York.
- Permission is granted to any individual or institution to use, copy, or
+ Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+ Columbia University Center for Computing Activities.
+ First released January 1985.
+ Copyright (C) 1985, 1989, Trustees of Columbia University in the City of New 
+ York.  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained. 
 */
@@ -350,6 +346,7 @@ resetc() {
 
 tinit() {
     xflg = 0;				/* Reset x-packet flag */
+    rqf = -1;				/* Reset 8th-bit-quote request flag */
     memstr = 0;				/* Reset memory-string flag */
     memptr = NULL;			/*  and pointer */
     bctu = 1;				/* Reset block check type to 1 */
@@ -607,7 +604,10 @@ seot() {
 
 CHAR *
 rpar() {
-    data[1] = tochar(rpsiz);		/* Biggest packet I can receive */
+    if (rpsiz > MAXPACK)		/* Biggest normal packet I want. */
+      data[1] = tochar(MAXPACK);	/* If > 94, use 94, but specify */
+    else				/* extended packet length below... */
+      data[1] = tochar(rpsiz);		/* else use what the user said. */
     data[2] = tochar(rtimo);		/* When I want to be timed out */
     data[3] = tochar(mypadn);		/* How much padding I need (none) */
     data[4] = ctl(mypadc);		/* Padding character I want */
@@ -626,7 +626,7 @@ rpar() {
     else
     	data[9] = '~'; 		
 
-    data[10] = tochar(atcapr?atcapb:0 | lpcapr?lpcapb:0 | swcapr?swcapb:0);
+    data[10] = tochar((atcapr?atcapb:0)|(lpcapr?lpcapb:0)|(swcapr?swcapb:0));
     data[capas+1] = tochar(swcapr ? wsize : 0);	/* Window size */
 
     rpsiz = urpsiz;			/* Long packets ... */

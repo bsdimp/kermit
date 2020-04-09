@@ -1,14 +1,14 @@
-char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
+char *dialv = "Dial Command, V2.0(010) 15 Jan 89";
 
-/*  C K U D I A  --  Dialing program for connection to remote system */
+/*  C K U D I A	 --  Dialing program for connection to remote system */
 
 /*
- Author: Herm Fischer (HFISCHER@USC-ECLB)
+ Original author: Herm Fischer (HFISCHER@USC-ECLB).
  Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436
+ Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436.
  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+ copyright notice is retained.
 
  ------
 
@@ -26,12 +26,12 @@ char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
      removed when Kermit wishes to have the modem hang up a call.
      The signal is asserted both while Kermit is asking the modem
      to dial a specific number, and after connection, while Kermit
-     is in a data exchange mode.  
+     is in a data exchange mode.
 
      Carrier detect:  This signal must be asserted by the modem when
      a carrier is detected from a remote modem on a communications
      circuit.  It must be removed by the modem when the circuit
-     disconnects or is hung up.  (Carrier detect is ignored while
+     disconnects or is hung up.	 (Carrier detect is ignored while
      Kermit is asking the modem to dial the call, because there is
      no consistant usage of this signal during the dialing phase
      among different modem manufacturers.)
@@ -65,7 +65,7 @@ char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
  *							-- Dan Schullman
  *
  *	24-May-85	DF03, DF100-series, DF200-series, and "unknown" modem
- *			support added.  Also restructured the various data
+ *			support added.	Also restructured the various data
  *			tables, fixed some bugs related to missing data and
  *			missing case labels, and modified the failure message
  *			to display the "reason" given by the modem.
@@ -73,6 +73,19 @@ char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
  *	16-Mar-87	Support for the ATT7300 UNIX PC internal modem was
  *			added.
  *							-- Richard E. Hill
+ *
+ *	14-Mar-88	Rewrite code for ATT7300 (here and in ckutio.c)
+ *			Avoids dial(3c) with it's LCK files, hangs up line
+ *			correctly, enables user interrupts and timeouts,
+ *			turns on/off the system getty() login procedure.
+ *			Correct Hayes command sequence at little.
+ *			Procedures: attdial, atthang, ongetty, offgetty.
+ *			Parts adapted from work of Richard E. Hill and
+ *			Kevin O'Gorman.
+ *							-- Joe R. Doupnik
+ *
+ * 13-Jan-89 Add IBM/Siemens/Rolm CBX dialing support.  - F. da Cruz
+ *
  */
 
 /*
@@ -109,7 +122,7 @@ char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
  * SHOULD PERHAPS BE HANDLED MUCH EARLIER, SIMPLY READING USER INPUT AND
  * SENDING IT TO THE MODEM AND ECHOING MODEM RESPONSES BACK TO THE USER,
  * ALL THE TIME LOOKING FOR CARRIER.  OF COURSE, THE PROBLEM THEN BECOMES
- * ONE OF ALLOWING THE USER TO ABORT THE DIALING.  WE COULD CHOOSE SOME
+ * ONE OF ALLOWING THE USER TO CANCEL THE DIALING.  WE COULD CHOOSE SOME
  * PHRASE THAT WOULD PRESUMABLY NEVER BE A PART OF A VALID AUTODIAL SEQUENCE
  * (E.G., "QUIT" and "quit"). -- DS
  */
@@ -126,10 +139,10 @@ char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
 #include <setret.h>
 #endif
 
-extern int flow, local, mdmtyp, quiet, speed, parity, seslog;
+extern int flow, local, mdmtyp, quiet, speed, parity, seslog, ttyfd;
 extern char ttname[], sesfil[];
 
-#define	MDMINF	struct mdminf
+#define MDMINF	struct mdminf
 
 MDMINF		/* structure for modem-specific information */
     {
@@ -170,8 +183,9 @@ MDMINF		/* structure for modem-specific information */
 #define		n_UNKNOWN	 9
 #define		n_USROBOT	10
 #define		n_VENTEL	11
-#define         n_CONCORD       12
-#define		n_ATT7300	13	/* added for PC7300 */
+#define		n_CONCORD	12
+#define		n_ATTUPC	13	/* aka Unix PC and ATT7300 */
+#define		n_ROLM          14      /* Rolm CBX */
 
 /*
  * Declare modem "variant" numbers for any of the above for which it is
@@ -297,7 +311,7 @@ MDMINF HAYES =		/* information for "Hayes" modem */
     "",			/* wake_prompt */
     "",			/* dmode_str */
     "",			/* dmode_prompt */
-    "AT D %s\r",	/* dial_str */
+    "ATD%s\r",		/* dial_str, note: user can supply D or T */
     0			/* dial_rate */
     };
 
@@ -392,9 +406,9 @@ MDMINF CONCORD =	/* Info for Condor CDS 220 2400b modem */
     };
 
 static
-MDMINF ATT7300 =	/* dummy information for "ATT7300" internal modem */
+MDMINF ATTUPC = /* dummy information for "ATT7300/Unix PC" internal modem */
     {
-    30,			/* dial_time */
+    20,			/* dial_time */
     "",			/* pause_chars */
     0,			/* pause_time */
     "",			/* wake_str */
@@ -403,6 +417,21 @@ MDMINF ATT7300 =	/* dummy information for "ATT7300" internal modem */
     "",			/* dmode_str */
     "",			/* dmode_prompt */
     "%s\r",		/* dial_str */
+    0			/* dial_rate */
+    };
+
+static
+MDMINF ROLM =		/* IBM (Siemens) / Rolm CBX */
+    {
+    60,			/* dial_time */
+    "",			/* pause_chars */
+    0,			/* pause_time */
+    "\r\r",		/* wake_str */
+    5,			/* wake_rate */
+    "MODIFY?",	        /* wake_prompt */
+    "",			/* dmode_str */
+    "",			/* dmode_prompt */
+    "CALL %s\r",	/* dial_str */
     0			/* dial_rate */
     };
 
@@ -431,7 +460,8 @@ MDMINF *ptrtab[] =
     &USROBOT,
     &VENTEL,
     &CONCORD,
-    &ATT7300
+    &ATTUPC,			/* ATT7300 internal modem, jrd*/
+    &ROLM			/* Rolm CBX, fdc */
     };
 
 /*
@@ -442,9 +472,9 @@ MDMINF *ptrtab[] =
  */
 struct keytab mdmtab[] =
     {
-    "att7300",          n_ATT7300,      0,
+    "att7300",		n_ATTUPC,	0,
     "cermetek",		n_CERMETEK,	0,
-    "concord",          n_CONCORD,      0,
+    "concord",		n_CONCORD,	0,
     "df03-ac",		n_DF03,		0,
     "df100-series",	n_DF100,	0,
     "df200-series",	n_DF200,	0,
@@ -453,6 +483,7 @@ struct keytab mdmtab[] =
     "hayes",		n_HAYES,	0,
     "penril",		n_PENRIL,	0,
     "racalvadic",	n_RACAL,	0,
+    "rolm",		n_ROLM,		0,
     "unknown",		n_UNKNOWN,	0,
     "usrobotics-212a",	n_USROBOT,	0,
     "ventel",		n_VENTEL,	0
@@ -469,14 +500,14 @@ int nmdm = (sizeof(mdmtab) / sizeof(struct keytab));	/* number of modems */
 /*
  * Failure reasons for use with the 'longjmp' exit.
  */
-#define	F_time		1	/* timeout */
+#define F_time		1	/* timeout */
 #define F_int		2	/* interrupt */
-#define	F_modem		3	/* modem-detected failure */
-#define	F_minit		4	/* cannot initialize modem */
+#define F_modem		3	/* modem-detected failure */
+#define F_minit		4	/* cannot initialize modem */
 
 static
-char *F_reason[5] = { 		/* failure reasons for message */
-    "Unknown",  "Timeout", "Interrupt", "Modem", "Initialize" };
+char *F_reason[5] = {		/* failure reasons for message */
+    "Unknown",	"Timeout", "Interrupt", "Modem", "Initialize" };
 
 static int tries = 0;
 
@@ -524,9 +555,11 @@ static
 didWeGet(s,r) char *s, *r; {	/* Looks in string s for response r */
     int lr = strlen(r);		/*  0 means not found, 1 means found it */
     int i;
+    debug(F110,"didWeGet",r,0);
+    debug(F110," in",s,0);
     for (i = strlen(s)-lr; i >= 0; i--)
-    	if ( s[i] == r[0] ) if ( !strncmp(s+i,r,lr) ) return( 1 );
-    return( 0 );	    
+	if ( s[i] == r[0] ) if ( !strncmp(s+i,r,lr) ) return( 1 );
+    return( 0 );
 }
 
 
@@ -540,9 +573,7 @@ reset ()
     signal(SIGINT,savInt);		/* restore interrupt handler */
     }
 
-
-
-/*  C K D I A L  --  Dial up the remote system */
+/*  C K D I A L	 --  Dial up the remote system */
 
 ckdial(telnbr) char *telnbr; {
 
@@ -567,49 +598,39 @@ ckdial(telnbr) char *telnbr; {
 	if (speed < 0) {
 	    printf("Sorry, you must 'set speed' first\n");
 	    return(-2);
-        }
-
-#ifdef ATT7300
-/*
-   The following if-statement added by R.E.Hill to handle the internal
-   modem available on the ATT PC7300 computer and other ATT systems which
-   uses internal modems activated by system routines - "dial" & "undial"
-*/
-        if (mdmtyp == n_ATT7300) {
-	    if (attdial(ttname,speed,telnbr)) return (-2);
-	    if ( ! quiet ) printf ("call completed.\07\r\n");
-	    return(0);
 	}
-#endif /* ATT7300 */
+        debug(F110,"dial",telnbr,0);
 
+	/* Carrier no-wait can be invalidated by ckutio fun and games, jrd */
 	if (ttopen(ttname,&local,mdmtyp) < 0) { /* Open, no carrier wait */
 	    erp = errmsg;
 	    sprintf(erp,"Sorry, can't open %s",ttname);
 	    perror(errmsg);
 	    return(-2);
-    	}
-	pmdminf = ptrtab[mdmtyp-1];	/* set pointer to modem info */ 
+	}
+	pmdminf = ptrtab[mdmtyp-1];	/* set pointer to modem info */
 	augmdmtyp = mdmtyp;		/* initialize "augmented" modem type */
 
 /* cont'd... */
 
-
-					/* interdigit waits for tone dial */
+				       /* interdigit waits for tone dial */
 /* ...dial, cont'd */
 
 
 	waitct = 1*strlen(telnbr) ;	/* compute time to dial worst case */
 	waitct += pmdminf->dial_time;	/* dialtone + completion wait times */
-	for (i=telnbr; *i; i++) 	/* add in pause characters time */
+	for (i=telnbr; *i; i++)		/* add in pause characters time */
 	    for (j=pmdminf->pause_chars; *j; j++)
 		if (*i == *j) {
-		    waitct += pmdminf->pause_time; 
+		    waitct += pmdminf->pause_time;
 		    break;
 		    }
 
        printf("Dialing thru %s, speed %d, number %s.\r\n",ttname,speed,telnbr);
        printf("The timeout for completing the call is %d seconds.\r\n",waitct);
-       printf("Type the interrupt character to cancel the dialing.\r\n");
+       printf("Type the interrupt character (^C) to cancel the dialing.\r\n");
+       debug(F101,ttname,"",speed);
+       debug(F101,"timeout","",waitct);
 
 /* Hang up the modem (in case it wasn't "on hook") */
 
@@ -618,12 +639,12 @@ ckdial(telnbr) char *telnbr; {
 	    return(-2);
 	    }
 
-/* Condition console terminal and communication line */	    
+/* Condition console terminal and communication line */
 				/* place line into "clocal" dialing state */
-	if ( ttpkt(speed,DIALING,parity) < 0 )  {
+	if ( ttpkt(speed,DIALING,parity) < 0 )	{
 	    printf("Sorry, Can't condition communication line\n");
 	    return(-2);
-    	}
+	}
 
 /*
  * Establish jump vector, or handle "failure" jumps.
@@ -639,9 +660,9 @@ ckdial(telnbr) char *telnbr; {
 	else				/* first (i.e., non-nested) failure */
 	    {
 	    signal ( SIGALRM, dialtime );	/* be sure to catch signals */
-	    if ( signal ( SIGINT, SIG_IGN ) != SIG_IGN ) 
+	    if ( signal ( SIGINT, SIG_IGN ) != SIG_IGN )
 		signal ( SIGINT, dialint );
-	    alarm ( 5 );		/* be sure to get out of this section */
+	    alarm ( 10 );		/* be sure to exit this section */
 	    ttclos ();			/* hangup and close the line */
 	    }
 	switch ( n )			/* type of failure */
@@ -649,11 +670,13 @@ ckdial(telnbr) char *telnbr; {
 	    case F_time:		/* timed out */
 		{
 		printf ( "No connection made within the allotted time.\r\n" );
+		debug(F110,"dial","timeout",0);
 		break;
 		}
 	    case F_int:			/* dialing interrupted */
 		{
 		printf ( "Dialing interrupted.\r\n" );
+		debug(F110,"dial","interrupted",0);
 		break;
 		}
 	    case F_modem:		/* modem detected a failure */
@@ -661,30 +684,31 @@ ckdial(telnbr) char *telnbr; {
 		printf ( "Failed (\"" );
 		for ( pc=lbuf; *pc; pc++ )
 		    if ( isprint(*pc) )
-			putchar(*pc);	/* display printable reason */ 
+			putchar(*pc);	/* display printable reason */
 		printf ( "\").\r\n" );
+		debug(F110,"dial",lbuf,0);
 		break;
 		}
 	    case F_minit:		/* cannot initialize modem */
 		{
 		printf ( "Cannot initialize modem.\r\n" );
+		debug(F110,"dial","modem init",0);
 		break;
 		}
 	    }
-	reset ();			/* reset alarms, etc. */
+	reset();			/* reset alarms, etc. */
 	return ( -2 );			/* exit with failure code */
 	}
 
 /*
  * Set timer and interrupt handlers.
  */
+    ttflui();			/* flush input buffer if any */
 
-    savAlrm = signal(SIGALRM,dialtime);	/* set alarm handler */
+    savAlrm = signal(SIGALRM,dialtime); /* set alarm handler */
     if ( ( savInt = signal ( SIGINT, SIG_IGN ) ) != SIG_IGN )
 	signal ( SIGINT, dialint );	/* set int handler if not ignored */
     alarm(10);			/* give modem 10 seconds to wake up */
-
-    ttflui();			/* flush input buffer if any */
 
 /*
  * Put modem in command mode.
@@ -696,6 +720,30 @@ ckdial(telnbr) char *telnbr; {
 #define GOT_A -3
 
 switch (augmdmtyp) {
+
+#ifdef ATT7300
+	case n_ATTUPC:
+/*
+  For ATT7300/Unix PC's with their special internal modem. Timeout
+  and user interrupts are enabled during dialing.  attdial() is in
+  file ckutio.c.  - jrd
+*/
+	{
+	alarm(waitct);				/* do alarm properly */
+	if (attdial(ttname,speed,telnbr))	/* dial internal modem */
+		{
+		reset();			/* reset alarms, etc. */
+		if ( ! quiet ) printf("Call did not complete.");
+		ttclos();			/* close line if open */
+		return (-2);			/* return failure */
+		}
+	reset();				/* reset alarms, etc. */
+	ttpkt(speed,CONNECT,parity);		/* cancel dialing ioctl */
+	if ( ! quiet ) printf ("Call completed.\07\r\n");
+	return(0);	 /* no conversation with modem to complete dialing */
+	}
+#endif /* att7300 */
+
     case n_HAYES:
     case n_HAYESNV:
 	while(tries++ < 4) {
@@ -740,7 +788,7 @@ switch (augmdmtyp) {
 	    if (status == IGNORE) ttflui();
 	    sleep(1);		/* wait before retrying */
 	}
-        if (status != 0) break;
+	if (status != 0) break;
 	longjmp( sjbuf, F_minit );	/* modem-initialization failure */
 
 /* cont'd... */
@@ -757,11 +805,10 @@ switch (augmdmtyp) {
     msleep(500);		/* give things settling time */
     alarm(10);			/* alarm on dialing prompts */
 
-		
-/* Dial the number */
 
+/* Dial the number */
 				/* put modem into dialing mode */
-    ttolSlow(pmdminf->dmode_str, pmdminf->dial_rate);	
+    ttolSlow(pmdminf->dmode_str, pmdminf->dial_rate);
     if (pmdminf->dmode_prompt) {	/* wait for prompt, if any expected */
 	waitFor(pmdminf->dmode_prompt);
 	msleep(300);
@@ -771,9 +818,10 @@ switch (augmdmtyp) {
     alarm(waitct);		/* time to allow for connecting */
     ttflui();			/* clear out stuff from waking modem up */
     sprintf(lbuf, pmdminf->dial_str, telnbr); /* form dialing string */
+    debug(F110,"dialing",lbuf);
     ttolSlow(lbuf,pmdminf->dial_rate);	/* send dialing string */
 
-    if (augmdmtyp == n_RACAL) {	/* acknowledge printout of dialing string */
+    if (augmdmtyp == n_RACAL) { /* acknowledge printout of dialing string */
 	sleep(3);
 	ttflui();
 	ttoc('\r');
@@ -781,7 +829,6 @@ switch (augmdmtyp) {
 
 /* cont'd... */
 
-
 					/* interdigit waits for tone dial */
 /* ...dial, cont'd */
 
@@ -800,25 +847,26 @@ switch (augmdmtyp) {
     while (status == 0) {
       switch (augmdmtyp) {
 	default:
-	    for (n=0; n < LBUFL; n++) {	/* accumulate response */
-		lbuf[n] = (ttinc(0) & 0177); 
+	    for (n=0; n < LBUFL; n++) { /* accumulate response */
+		lbuf[n] = (ttinc(0) & 0177);
 		if ( lbuf[n] == '\r' || lbuf[n] == '\n' ) break;
 		}
 	    lbuf[n] = '\0';		/* terminate response from modem */
+	    debug(F110,"dial modem response",lbuf,0);
 	    if (n) {			/* if one or more characters present */
 		switch (augmdmtyp) {
 		  case n_CERMETEK:
-		    if (didWeGet(lbuf,"\016A")) {	
+		    if (didWeGet(lbuf,"\016A")) {
 			status = CONNECTED;
 			ttolSlow("\016U 1\r",200);	/* make transparent*/
 			}
 		    break;
-		  case n_DF100:      /* DF100 won't generate some of these */
+		  case n_DF100:	     /* DF100 won't generate some of these */
 		  case n_DF200:
 		    if (didWeGet(lbuf,"Attached")) status = CONNECTED;
 		    /*
 		     * The DF100 will respond with "Attached" even if DTR
-		     * and/or carrier are not present.  Another reason to
+		     * and/or carrier are not present.	Another reason to
 		     * (also) wait for carrier?
 		     */
 		    if (didWeGet(lbuf,"Busy")) status = FAILED;
@@ -857,6 +905,19 @@ switch (augmdmtyp) {
 		    if (didWeGet(lbuf,"ON LINE")) status = CONNECTED;
 		    if (didWeGet(lbuf,"FAILED CALL")) status = FAILED;
 		    break;
+		  case n_ROLM:
+		    if (didWeGet(lbuf,"CALLING")) status = 0;
+		    if (didWeGet(lbuf,"COMPLETE")) status = CONNECTED;
+		    if (didWeGet(lbuf,"FAILED")) status = FAILED;
+		    if (didWeGet(lbuf,"NOT AVAILABLE")) status = FAILED;
+		    if (didWeGet(lbuf,"LACKS PERMISSION")) status = FAILED;
+		    /*
+		      The Rolm CBX does not give a CALL COMPLETE indication
+		      when dialing an outpool number, but it does seem to
+		      return a long string of DELs at that point.
+		    */
+		    if (didWeGet(lbuf,"\177\177\177")) status = CONNECTED;
+		    break;		
 		  case n_VENTEL:
 		    if (didWeGet(lbuf,"ONLINE!")) status = CONNECTED;
 		    if (didWeGet(lbuf,"BUSY")) status = FAILED;
@@ -896,8 +957,11 @@ switch (augmdmtyp) {
     alarm(0);				/* turn off alarm on connecting */
     if ( status != CONNECTED )		/* modem-detected failure */
 	longjmp( sjbuf, F_modem );	/* exit (with reason in lbuf) */
+    msleep(500);			/* allow some time...  */
     alarm(3);				/* precaution in case of trouble */
-    ttpkt(speed,CONNECT,parity);	/* cancel dialing state ioctl */
+    debug(F110,"dial","succeeded",0);
+    if (augmdmtyp != n_ROLM)		/* Rolm has wierd modem signaling */
+      ttpkt(speed,CONNECT,parity);	/* cancel dialing state ioctl */
     reset ();				/* reset alarms, etc. */
     if ( ! quiet )
 	printf ( "Call completed.\07\r\n" );

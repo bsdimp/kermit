@@ -41,6 +41,7 @@ extern char ttname[], sesfil[];
 extern CHAR dopar();
 
 int i, active;				/* Variables global to this module */
+int io_retry = 0;
 char *chstr();
 char temp[50];
 
@@ -108,7 +109,6 @@ conect() {
 
 /* ...connect, cont'd */
 
-
 	parent_id = getpid();		/* Get parent id for signalling */
         signal(SIGUSR1,SIG_IGN);	/* Don't kill parent */
 	pid = fork();			/* All ok, make a fork */
@@ -118,6 +118,7 @@ conect() {
 	    printf("[Back at Local System]\n");
 	    return(0);
 	}
+        io_retry = 0;
 	if (pid) {			
 	  active = 1;			/* This fork reads, sends keystrokes */
 	  if (!setjmp(env_con)) {	/* comm error in child process */
@@ -144,7 +145,7 @@ conect() {
 	    kill(pid,9);		/* Done, kill inferior fork. */
 	    wait((int *)0);		/* Wait till gone. */
 	    conres();			/* Reset the console. */
-	    printf("[Back at Local System]\n");
+	    printf("\r[Back at Local System]\n");
 	    return(0);
 
 	} else {			/* Inferior reads, prints port input */
@@ -152,12 +153,16 @@ conect() {
 	    sleep(1);			/* Wait for parent's handler setup */
 	    while (1) {			/* Fresh read, wait for a character */
 		if ((c = ttinc(0)) < 0) { /* Comm line hangup detected */
-		    if (errno == 9999)	/* this value set by ckutio.c myread */
-			 printf("\r\nCommunications disconnect ");
-		    else perror("\r\nCan't get character");
-		    kill(parent_id,SIGUSR1);	/* notify parent. */
+		    if (errno == 9999)	/* this value set by myread() */
+		      printf("\r\nCommunications disconnect ");
+		    else if (io_retry++ < 3) {
+			tthang();
+			continue;
+		    }
+		    perror("\r\nCan't get character");
+		    kill(parent_id,SIGUSR1); /* notify parent. */
 		    pause();		/* Wait to be killed by parent. */
-                }
+		}
 		c &= cmask;		/* Got a char, strip parity, etc */
 		conoc(c);		/* Put it on the screen. */
 		if (seslog) zchout(ZSFILE,c);	/* If logging, log it. */
@@ -178,7 +183,7 @@ conect() {
 hconne() {
     int c;
     static char *hlpmsg[] = {"\
-\r\nC to close the connection, or:",
+\r\n  C to close the connection, or:",
 "\r\n  0 (zero) to send a null",
 "\r\n  B to send a BREAK",
 "\r\n  H to hangup and close connection",

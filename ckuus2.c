@@ -172,7 +172,7 @@ Type of packet block check to be used for error detection, 1, 2, or 3.\n",
 "" } ;
 
  
-static char *hmxyf[] = { "\set file: names, type, warning, display.\n\n",
+static char *hmxyf[] = { "set file: names, type, warning, display.\n\n",
 "'names' are normally 'converted', which means file names are converted\n",
 "to 'common form' during transmission; 'literal' means use filenames\n",
 "literally (useful between like systems).\n\n",
@@ -250,6 +250,9 @@ Tell the remote Kermit server to shut down without logging out."));
 case XXGET:
     return(hmsg(hmxxget));
  
+case XXHAN:
+    return(hmsg("Hang up the phone."));    
+
 case XXHLP:
     return(hmsga(tophlp));
  
@@ -456,7 +459,7 @@ Communication line speed for external tty line specified in most recent");
 #else
     puts("\
 'set line' command.  Any of the common baud rates:");
-    puts(" 0, 110, 150, 300, 600, 1200, 1800, 2400, 4800, 9600.");
+    puts(" 0, 110, 150, 300, 600, 1200, 1800, 2400, 4800, 9600, 19200.");
 #endif
 #endif
     return(0);
