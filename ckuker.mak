@@ -1,12 +1,13 @@
-# CKUKER.MAK, Version 2.05, 19 Mar 86
+# CKUKER.MAK, Version 2.06, 5 Feb 87
 #
 # -- Makefile to build C-Kermit for Unix and Unix-like systems --
 #
-# Read instructions below before proceeding, then
-# rename this file to "makefile" or "Makefile", and then:
+# Before proceeding, read the instructions below, and also read the file
+# ckuker.bwr (the "beware file"), and then rename this file to "makefile"
+# or "Makefile", and then:
 #
 # for Berkeley Unix 4.x, "make bsd" (tested with 4.1, 4.2, and 4.3)
-# for Berkeley Unix 2.9 (PDP-11), "make bsd29"
+# for Berkeley Unix 2.9 (DEC PDP-11 or Pro-3xx), "make bsd29"
 # for DEC Ultrix 1.1 or 1.2, "make bsd"
 # for AT&T 3Bx systems, "make att3bx"
 # for AT&T generic System III/System V, "make sys3" or "make sys3nid"
@@ -25,7 +26,7 @@
 # for BBN C/70 with IOS 2.0, "make c70"
 # for Amdahl UTS 2.4 on IBM 370 series & compatible mainframes, "make uts24"
 # for Amdahl UTSV IBM 370 series & compatible mainframes, "make sys3"
-# for Sequent Balance 8000, "make bsd4"
+# for Sequent Balance 8000, "make bsd"
 #
 ##############################################################################
 #
@@ -103,6 +104,9 @@
 #  For Altos 986 with Xenix 3.0, use "make sys3", but
 #  1. Get rid of any "(void)"'s (they're only there for Lint anyway)
 #  2. In ckcdeb.h, define CHAR to be "char" rather than "unsigned char".
+#
+#  For IBM PC/AT and clones running Microport Sys 5.2 Rel.2, change
+#  'wait(0)' everywhere to 'wait((int *)0)', and use the -Ml link switch.
 #
 #  Other systems that are close to, but not quite, like Sys III or V, or
 #  4.x BSD or V7 -- look at some of the tricks used below and see if you

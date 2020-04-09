@@ -1,0 +1,123 @@
+CURRENT KNOWN BUGS WITH AMIGA KERMIT
+
+No DIAL or SCRIPT commands yet.
+
+The perror() command used under 3.03 does not give helpful error messages,
+only error numbers, if available.
+
+Depending on unknown factors of AmigaDOS buffering, it is possible that
+wildcard expansion nested inside several levels of directories will cause
+significant disk thrashing.  I have not seen this yet, and have avoided
+complicating the expansion code by modifying it to not thrash.
+
+When the Amiga's serial output is looped back to its serial input, (through
+a modem, say) and the serial device is set to a high baud rate (>100K), when
+a break is sent, the Amiga will hang up.
+
+The setup and cleanup of Kermit's window does not currently support
+Workbench, and the default window created by Lattice's _main is not
+eliminated.  This is easily fixed, but there are other problems with
+Workbench invocation.  See below.
+
+When Kermit is invoked from a CLI and spawns a CLI subprocess with '!',
+after ENDCLI is used to terminate the subprocess, the ENDCLI command
+line is written to the console window of the original CLI process, without
+a trailing newline.  This seems to be an AmigaDOS quirk, and is
+primarily an annoyance.  When Kermit is invoked from Workbench, however,
+the Amiga crashes immediately after the ENDCLI command (although the
+problem may be unrelated).
+
+The current directory name is constructed from the previous current
+directory name and a new relative name.  This is similar to the way the CD
+command operates, but it is subject to some peculiarities.  For instance,
+'CWD C:' followed by 'CWD /' results in the current directory being the
+the parent of C: and a directory name of 'C:/'.  It is possible to
+reconstruct the name using the Parent() AmigaDOS function.  (This would
+also allow Kermit under the Workbench to reconstruct the current directory
+name.)  However, the V1.1 RAM: handler has bugs in the Parent() function,
+and so would probably not function with this method.  Under 3.04 Lattice C,
+the Lattice functions are used for chdir() and getcwd(), since they seem to
+use Parent() reconstruction. (Lattice 3.04 C in general assumes use of the
+fixed V1.2 RAM: handler.)
+
+There should be some form of output control and input for one-liners invoked
+with the '!' command.
+
+Due to a bug in all C-Kermit's, the transaction timer is not reset before
+some remote commands are executed on some other versions of Kermit.  The
+reported transaction time will be the elapsed time since the timer was last
+reset, or the base (zero) time of the system, midnight January 1, 1978 on
+the Amiga.  This can be demonstrated by starting C-Kermit, requesting REMOTE
+HELP from a VMS Kermit-32 version 3.2.077 server before any file transfer,
+and then requesting STAT.
+
+An audible bell is needed.
+
+The use of 'SET MODEM-TYPE type' to select modem control usage will have
+to change when the DIAL command is supported.
+
+The 23 by 77 window in connect mode is incompatible with the assumptions of
+many editors.  Emulation of a real terminal like a "not quite" ANSI VT100
+would be nice.
+
+Kermit should support AmigaDOS wildcarding, especially for SEND's.  It can
+be argued that Unix wildcarding is often appropriate for remote GET's from
+the Amiga server, but AmigaDOS wildcarding should be optionally available.
+ 5-Sep-86 01:52:03-EDT,1057;000000000001
+Return-Path: <CCPHIL%TUCC.BITNET@CUVMA.COLUMBIA.EDU>
+Received: from CUVMA.COLUMBIA.EDU by CU20B.COLUMBIA.EDU with TCP; Fri 5 Sep 86 01:52:00-EDT
+Received: from TUCC(MAILER) by CUVMA (Mailer X1.23b) id 4140;
+          Fri, 05 Sep 86 01:52:08 EDT
+Date:    Fri, 05 Sep 86 01:50 EDT
+To:      kermit@cu20b,fdccu@cuvma
+Reply-To:ccphil@TUCC
+From:    CCPHIL@TUCC
+
+I have found the following kermit initialization file useful for the
+Amiga, when you want to emulate a standard ANSI terminal (like a VT100).
+I have used this with a PCI protocol converter and also a VAX VMS system.
+The PCI works well, but the VAX has problems in EDT when lines need to
+be scrolled up from the bottom of the screen.
+
+Note that the Amiga Kermit will configure itself based on the settings in
+the Preferances screen for the serial line.  Insert the following lines
+into a file s:.kermrc  :
+%
+% Set up to 80 columns by 24 rows, position to (0,0), & clear screen
+%
+echo \\033[25t\\033[80u\\033[0x\\033[0y\\014
+%
+echo Kermit is initialized and 80x24 ANSI screen!
+
+------------------------------
+
+Date: Sat, 25 Apr 1987 00:50 CST
+From: Ian Horstmeier <HORSTMIH@UREGINA1>
+Subject: Bug in Amiga C-Kermit
+Keywods: C-Kermit
+
+I recently received this from a friend of mine regarding C-kermit for the
+Amiga.  Perhaps this information will be useful.
+
+Subject: Re: Using VT100/KERMIT and IBM systems
+Summary: The fix for C-Kermit
+
+The reason that C-kermit on the Amiga doesn't work with the IBM, is because
+the parity is not set!  I got my version of C-Kermit from kermserv@cuvma
+on BITNET, and it still contains this bug.  In the CKICON.C module, look
+in the connect mode function.  In about the middle of it, there is a call
+to the output a character function ttocq(c).  This needs to be changed to
+ttocq(dopar(c)).  There! It now works with IBM and sets parity correctly.
+According to the comments in the code, Kermit does its own parity checking
+and the serial.device is always in 8 bit no parity.  I always use kermit on
+the mainframe and the vax.  One thing you will notice is that the standard
+amiga keymap does not generate codes to be compatible with anything!  I am
+in the process of writing a keymap module for amiga c-kermit to make it look
+like a vt100.   Good luck!
+                                                              Walter Reed
+
+UUCP :  ihnp4!umn-cs!ndsuvax!ncreed
+Bitnet: ncreed@ndsuvax  OR NU105451@NDSUVM1
+
+------------------------------
+

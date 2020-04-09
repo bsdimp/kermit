@@ -1,4 +1,4 @@
-char *ckzv = "VMS file support, 1.0(004)+5, 25 Jun 85";
+char *ckzv = "VMS file support, 1.0(008), 19 Mar 86";
 char *ckzsys = " Vax/VMS";
 
 /* C K V F I O  --  Kermit file system support for VAX/VMS */
@@ -6,17 +6,18 @@ char *ckzsys = " Vax/VMS";
 /* Stew Rubenstein, Harvard University Chemical Labs */
 /*  (c) 1985 President and Fellows of Harvard College  */
 /*  Based on CKZUNX.C, 4.1(015) 28 Feb 85 */
-/* Also, Martin Minow, Digital Equipment Corporation, Maynard MA */
-
+/* Also, Martin Minow (MM), Digital Equipment Corporation, Maynard MA */
+/* Also, Dan Schullman (DS), Digital Equipment Corporation, Maynard MA */
 /* Adapted from ckufio.c, by... */
-/* F. da Cruz, Columbia University Center for Computing Activities */
+/* F. da Cruz (FdC), Columbia University Center for Computing Activities */
 
 /* Edit history
- * 005 25-Jun-85 DS modified zrtol to preserve version number, added debug
- * 004 25-Jun-85 DS modified zltor to strip version number, added debug
- * 003 20-Mar-85 MM fixed fprintf bug in zsout.c
- * 004 21-Mar-84 MM create text files in variable-stream.
- * 005  8-May-85 MM filled in zkself (not tested), fixed other minor bugs
+ * 003 20-Mar-85 MM  fixed fprintf bug in zsout.c
+ * 004 21-Mar-84 MM  create text files in variable-stream.
+ * 005  8-May-85 MM  filled in zkself (not tested), fixed other minor bugs
+ * 006  5-Jul-85 DS  handle version number in zltor, zrtol
+ * 007 11-Jul-85 FdC fix zclose() to give return codes
+ * 008 19-Mar-86 FdC Fix system() for "!", zopeni() for REMOTE commands.
  */
 
 /* Definitions of some VMS system commands */
@@ -28,7 +29,6 @@ char *SPACMD = "DIRECTORY/TOTAL";	/* Space/quota of current directory */
 char *SPACM2 = "DIRECTORY/TOTAL ";	/* Space/quota of current directory */
 char *WHOCMD = "SHOW USERS";		/* For seeing who's logged in */
 
-
 
 /*
   Functions (n is one of the predefined file numbers from ckermi.h):
@@ -57,7 +57,6 @@ char *WHOCMD = "SHOW USERS";		/* For seeing who's logged in */
  */
 
 
-
 /* Includes */
 
 #include "ckcker.h"
@@ -85,7 +84,6 @@ static char *mtchs[MAXWLD],		/* Matches found for filename */
      **mtchptr;				/* Pointer to current match */
 
 
-
 /***  Z K S E L F --  Log self out  ***/
 
 /*** (someone please check if this works in VMS) ***/
@@ -100,7 +98,6 @@ zkself() {
 zopeni(n,name) int n; char *name; {
     debug(F111," zopeni",name,n);
     debug(F101,"  fp","",(int) fp[n]);
-    if (chkfn(n) != 0) return(0);
     if (n == ZSYSFN) {			/* Input from a system function? */
 	return(zxcmd(name));		/* Try to fork the command */
     }
@@ -113,6 +110,7 @@ zopeni(n,name) int n; char *name; {
 	fp[ZIFILE] = stdin;
 	return(1);
     }
+    if (chkfn(n) != 0) return(0);
     fp[n] = fopen(name,"r");		/* Real file. */
     debug(F111," zopeni", name, (int) fp[n]);
     if (fp[n] == NULL) perror(name);	/* +1, want a useful message	*/
@@ -157,11 +155,14 @@ zopeno(n,name) int n; char *name; {
 
 /*  Z C L O S E  --  Close the given file.  */
 
+/*  Returns 0 if arg out of range, 1 if successful, -1 if close failed.  */
+
 zclose(n) int n; {
+    int x;
     if (chkfn(n) < 1) return(0);
-    if ((fp[n] != stdout) && (fp[n] != stdin)) fclose(fp[n]);
+    if ((fp[n] != stdout) && (fp[n] != stdin)) x = fclose(fp[n]);
     fp[n] = NULL;
-    return(1);
+    return((x == EOF) ? -1 : 1);
 }
 
 /*  Z C H I N  --  Get a character from the input file.  */
@@ -204,7 +205,6 @@ zchin(n,c) int n; char *c; {
 }
 
 
-
 /*  Z S O U T  --  Write a string to the given file, buffered.  */
 
 zsout(n,s) int n; char *s; {
@@ -245,7 +245,6 @@ zchout(n,c) int n; char c; {
 }
 
 
-
 /*  C H K F N  --  Internal function to verify file number is ok  */
 
 /*
@@ -272,7 +271,6 @@ chkfn(n) int n; {
     return( (fp[n] == NULL) ? 0 : 1 );
 }
 
-
 
 /*  Z C H K I  --  Check if input file exists and is readable  */
 
@@ -302,7 +300,6 @@ zchki(name) char *name; {
 }
 
 
-
 /*  Z C H K O  --  Check if output file can be created  */
 
 /*
@@ -313,7 +310,6 @@ zchko(name) char *name; {
 }
 
 
-
 /*  Z D E L E T  --  Delete the named file.  */
 
 zdelet(name) char *name; {
@@ -323,55 +319,40 @@ zdelet(name) char *name; {
 
 /*  Z R T O L  --  Convert remote filename into local form  */
 
-/*  For VMS, we eliminate all special characters and truncate  */
-
-/*
- * Doesn't allow the longer file specifications that VMS V4 supports.
- * Assumes version number delimited by semicolon (;) rather than period (.).
- */
-
-/* Should really use RMS to identify file specification components. -- DS */
+/*  For VMS, we eliminate all special characters and truncate.  */
+/*  Doesn't allow the longer filespecs that VMS V4 supports.    */
+/*  Assumes version number delimited by semicolon, not period.  */
+/*  Should really use RMS to parse filespec components.  -- DS  */
 
 zrtol(name,name2) char *name, *name2; {
-    char *cp;
     int count;
+    char *cp;
 
-    count = 9;				/* max file name length */
-    for ( cp = name2; *name != '\0'; name++ )
-	{
-	switch ( *name )
-	    {
-	    case '.':			/* file type delimiter */
-		{
-		count = 3;		/* max file type length */
+    count = 9;
+    for ( cp = name2; *name != '\0'; name++ ) {
+	switch (*name) {
+	    case '.':			/* File type */
+	    	count = 3;		/* Max length for this field */
 		*cp++ = '.';
 		break;
-		}
-	    case ';':			/* file version delimiter */
-		{
-		count = 5;		/* max file version length */
+	    case ';':			/* Version */
+	    	count = 5;
 		*cp++ = ';';
 		break;
-		}
 	    default:
-		{
-		if (count > 0 && isalnum(*name) )
-		    {
+	    	if (count > 0 && isalnum(*name)) {
 		    --count;
 		    *cp++ = islower(*name) ? toupper(*name) : *name;
-		    }
-		break;
 		}
-	    }
+		break;
 	}
-    *cp = '\0';
+    }
+    *cp = '\0';				/* End of name */
     debug(F110,"zrtol: ",name2,0);
 }
 
 
 /*  Z L T O R  --  Convert filename from local format to common form.   */
-
-/* Should really use RMS to identify file specification components. -- DS */
 
 zltor(name,name2) char *name, *name2; {
     char *cp, *pp;
@@ -382,22 +363,18 @@ zltor(name,name2) char *name, *name2; {
 	    pp++;
 	}
     }
-    for ( ; --cp >= pp; )		/* from end to beginning... */
-	{
-	if ( ! isdigit ( *cp ) )	/* if not a numeric digit */
-	    {
-	    if ( *cp == '-' )		/* if a negative number */
-		--cp;			/* skip over the minus sign */
-	    if ( *cp == ';' )		/* if the version delimiter (;) */
-		*cp = '\0';		/* make it the end of the string */
+    for ( ; --cp >= pp; ) {		/* From end to beginning */
+	if (!isdigit(*cp)) {		/* if not numeric, then */
+	    if (*cp == '-') --cp;	/* if minus sign, skip over, or */
+	    if (*cp == ';') *cp = '\0'; /* if version delim, make end */
 	    break;
-	    }
 	}
+    }
     cp = name2;				/* If nothing before dot, */
     if (*pp == '.') *cp++ = 'X';	/* insert 'X' */
     strcpy(cp,pp);
-    debug(F110,"zltor: ",name2,0);
 
+    debug(F110,"zltor: ",name2,0);
 }    
 
 
@@ -418,7 +395,6 @@ zhome() {
     return(getenv("HOME"));
 }
 
-
 
 /*  Z X C M D -- Run a system command so its output can be read like a file */
 
@@ -488,7 +464,6 @@ zkillf() {
 }
 
 
-
 /*  Z X P A N D  --  Expand a wildcard string into an array of strings  */
 /*
   Returns the number of files that match fn1, with data structures set up
@@ -528,7 +503,6 @@ znewn(fn,s) char *fn, **s; {
     *s = buf;
 }
 
-
 
 /*  Wildcard expansion for VMS is easy;  we just use a run-time library call.
 */
@@ -585,8 +559,12 @@ int len;
 system(s)  char *s;  {
     struct dsc$descriptor_s cmd;
 
-    zxcmd(s);
-    while (!get_subprc_line())
-	fputs(sub_buf, stdout);
-    putchar('\n');
+    if ( *s ) {
+	zxcmd(s);
+	while (!get_subprc_line())
+	    fputs(sub_buf, stdout);
+	putchar('\n');
+    } else {
+	LIB$SPAWN();
+    }
 }

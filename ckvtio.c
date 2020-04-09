@@ -1,12 +1,11 @@
-char *ckxv = "VMS tty I/O, 1.0(012), 26 Jun 85";
+char *ckxv = "VMS tty I/O, 1.0(012), 11 Jul 85";
 
 /*  C K V T I O  --  Terminal and Interrupt Functions for VAX/VMS  */
 
 /* Edit History
- *
- * 012 26 Jun 85 DS	Treat hangup of closed line as success.
- * 011 26 Jun 85 DS	Modified conola to output \r\n.
- * 010 21 Jun 85 MM	Added "hack_vms_open_console()" routine
+ * 012 11 Jul 85 FdC    Add gtimer(), rtimer() for timing statistics.
+ * 011  5 Jul 85 DS     Treat hangup of closed line as success.
+ * 010 25 Jun 85 MM     Added sysinit() to open console.
  * 009 18 Jun 85 FdC    Move def of CTTNAM to ckcdeb.h so it can be shared.
  * 008 11 Jun 85 MM     Fix definition of CTTNAM
  *
@@ -27,7 +26,6 @@ char *ckxv = "VMS tty I/O, 1.0(012), 26 Jun 85";
 
 char *ckxsys = " Vax/VMS";
 
-
 
 /*
  Variables available to outside world:
@@ -64,7 +62,6 @@ char *ckxsys = " Vax/VMS";
 */
 
 
-
 /*
 Functions for console terminal:
 
@@ -74,7 +71,7 @@ Functions for console terminal:
    conres()  -- Restore the console to mode obtained by congm().
    conoc(c)  -- Unbuffered output, one character to console.
    conol(s)  -- Unbuffered output, null-terminated string to the console.
-   conola(s) -- Unbuffered output, array of lines, each followed by CRLF
+   conola(s) -- Unbuffered output, array of lines to the console, CRLFs added.
    conxo(n,s) -- Unbuffered output, n characters to the console.
    conchk()  -- Check if characters available at console (bsd 4.2).
 		Check if escape char (^\) typed at console (System III/V).
@@ -87,9 +84,10 @@ Time functions
 
    msleep(m) -- Millisecond sleep
    ztime(&s) -- Return pointer to date/time string
+   rtimer()  -- Reset elapsed time counter
+   gtimer()  -- Get elapsed time
 */
 
-
 
 /* Includes */
 #include "ckcker.h"
@@ -105,8 +103,9 @@ Time functions
 #include "ckcdeb.h"			/* Formats for debug() */
 
 
-
 /* Declarations */
+
+    long time();			/* Get current time in secs */
 
 /* dftty is the device name of the default device for file transfer */
 /* dfloc is 0 if dftty is the user's console terminal, 1 if an external line */
@@ -151,6 +150,8 @@ static struct tt_mode
     ttold, ttraw, tttvt,		/* for communication line */
     ccold, ccraw, cccbrk;		/* and for console */
 
+static long tcount;			/* For timing statistics */
+
 /*  Event flags used for I/O completion testing  */
 #define CON_EFN 1
 #define TTY_EFN 2
@@ -164,7 +165,6 @@ static int inbufc = 0;			/* stuff for efficient raw line */
 static int ungotn = -1;			/* pushback to unread character */
 #endif
 
-
 
 /*  P R I N T _ M S G  --  Log an error message from VMS  */
 
@@ -183,7 +183,14 @@ print_msg(s) char *s; {
     ermsg(msg);
 }
 
+/*  S Y S I N I T  --  System-dependent program initialization.  */
 
+sysinit() {
+    if (conchn == 0)
+	   conchn = vms_assign_channel("SYS$INPUT:");
+    return(0);
+}
+
 
 
 /*  T T O P E N  --  Open a tty for exclusive access.  */
@@ -212,7 +219,6 @@ ttopen(ttname,lcl,modem) char *ttname; int *lcl, modem; {
 }
 
 
-
 vms_assign_channel(ttname) char *ttname;  {
     int channel;
     struct dsc$descriptor_s d;
@@ -226,7 +232,6 @@ vms_assign_channel(ttname) char *ttname;  {
     else return(channel & 0xFFFF);
 }
 
-
 
 /*  T T C L O S  --  Close the TTY, releasing any lock.  */
 
@@ -252,7 +257,6 @@ ttres() {				/* Restore the tty to normal. */
     return(0);
 }
 
-
 
 /*  T T P K T  --  Condition the communication line for packets. */
 /*		or for modem dialing */
@@ -287,7 +291,6 @@ ttpkt(speed,flow) int speed, flow; {
 }
 
 
-
 /*  T T V T -- Condition communication line for use as virtual terminal  */
 
 ttvt(speed,flow) int speed, flow; {
@@ -311,7 +314,6 @@ ttvt(speed,flow) int speed, flow; {
 			  &ttraw, sizeof ttraw, s, 0, 0, 0))) return(-1);
 }
 
-
 
 /*  T T S S P D  --  Return the internal baud rate code for 'speed'.  */
 
@@ -363,7 +365,6 @@ ttflui() {
 }
 
 
-
 /* Interrupt Functions */
 
 
@@ -397,7 +398,6 @@ connoi() {				/* Console-no-interrupts */
 }
 
 
-
 /*  T T C H K  --  Tell how many characters are waiting in tty input buffer  */
 
 ttchk() {
@@ -425,7 +425,6 @@ ttxin(n,buf) int n; char *buf; {
     return(ttiosb.size);
 }
 
-
 
 /*  T T O L  --  Similar to "ttinl", but for writing.  */
 /*
@@ -456,7 +455,6 @@ ttoc(c) char c; {
 }
 
 
-
 /*  T T I N L  --  Read a record (up to break character) from comm line.  */
 /*
   If no break character encountered within "max", return "max" characters,
@@ -485,7 +483,6 @@ ttinl(dest,max,timo,eol) int max,timo; char *dest; {
 }
 
 
-
 /*  T T I N C --  Read a character from the communication line  */
 
 ttinc(timo) int timo; {
@@ -507,7 +504,6 @@ ttinc(timo) int timo; {
     return(ch & 0377);
 }
 
-
 
 /*  T T _ C A N C E L  --  Cancel i/o on tty channel if not complete  */
 
@@ -549,11 +545,10 @@ ttsndb() {
 }
 
 
-
 /*  T T H A N G  --  Hang up the communications line  */
 
 tthang() {
-    if (ttychn == 0) return(0);		/* Not open. */
+    if (ttychn == 0) return(0);			/* Not open. */
 
     tt_cancel();
     if (!CHECK_ERR("tthang: SYS$QIOW",
@@ -562,7 +557,6 @@ tthang() {
     return(0);
 }
 
-
 
 /*  M S L E E P  --  Millisecond version of sleep().  */
 
@@ -575,6 +569,7 @@ msleep(m) int m; {
     struct time_struct {
 	long int hi, lo;
 	} t;
+    if (m <= 0) return(0);
     t.hi = -10000 * m;  /*  Time in 100-nanosecond units  */
     t.lo = -1;
     if (!CHECK_ERR("msleep: SYS$SCHDWK",
@@ -583,6 +578,18 @@ msleep(m) int m; {
     return(0);
 }
 
+/*  R T I M E R --  Reset elapsed time counter  */
+
+rtimer() {
+    tcount = time(0);
+}
+
+
+/*  G T I M E R --  Get current value of elapsed time counter in seconds  */
+
+gtimer() {
+    return( time( (long *) 0 ) - tcount );
+}
 
 
 /*  Z T I M E  --  Return date/time string  */
@@ -600,7 +607,6 @@ ztime(s) char **s; {
     *s = time_string;
 }
 
-
 
 /*  C O N G M  --  Get console terminal modes.  */
 
@@ -679,7 +685,6 @@ concb(esc) char esc; {
 }
 
 
-
 /*  C O N B I N  --  Put console in binary mode  */
 
 
@@ -721,7 +726,6 @@ conres() {
 }
 
 
-
 /*  C O N O C  --  Output a character to the console terminal  */
 
 conoc(c) char c; {
@@ -752,32 +756,22 @@ conol(s) char *s; {
     }
 }
 
-/*  C O N O L A  --  Write an array of lines, each followed by CRLF */
-
-/*
- * The original string is copied, any trailing \n and/or \r is removed,
- * and then an explicit \r\n is appended to it.
- */
+/*  C O N O L A  --  Write an array of lines to console, with CRLFs added */
 
 conola(s) char *s[]; {
     int i;
     char t[100], *cp;
-    for ( i=0; *s[i]; i++ )
-	{
-	strcpy ( t, s[i] );		/* copy the original string */
-	for ( cp = t + strlen(t); --cp >= t; )
-	    {
-	    if ( *cp != '\n' && *cp != '\r' )
-		{
+    for (i=0 ; *s[i] ; i++) {
+	strncpy(t,s[i],100);
+	for (cp = t + strlen(t); --cp >= t;) {
+	    if (*cp != '\n' && *cp != '\r') {
 		cp++;
-		*cp++ = '\r';
-		*cp++ = '\n';
-		*cp = '\0';
+		*cp++ = '\r'; *cp++ = '\n'; *cp++ = '\0';
 		break;
-		}
 	    }
-	conol(t);			/* output the modified string */
 	}
+	conol(t);
+    }  
 }
 
 /*  C O N O L L  --  Output a string followed by CRLF  */
@@ -798,7 +792,6 @@ conchk() {
 	&t, sizeof t, 0, 0, 0, 0)) ? t.count : 0);
 }
 
-
 
 /*  C O N I N C  --  Get a character from the console  */
 
@@ -837,7 +830,6 @@ coninc(timo) int timo; {
     else return(-1);
 }
 
-
 /*  V M S _ G E T C H A R -- get a character from the console (no echo).
  *	Since we use raw reads, we must check for ctrl/c, ctrl/y and
  *	ctrl/z ourselves.  We probably should post a "mailbox" for
@@ -872,7 +864,6 @@ vms_getchar()
 	}
 }
 
-
 
 /*  C O N T T I  --  Get character from console or tty, whichever comes  */
 /*	first.  This is used in conect() when NO_FORK is defined.  */
@@ -932,11 +923,4 @@ cancio()  {
             SYS$CANCEL(ttychn));
         tt_queued = 0;
     }
-}
-
-
-hack_vms_open_console()
-{
-	if (conchn == 0)
-	    conchn = vms_assign_channel("SYS$INPUT:");
 }

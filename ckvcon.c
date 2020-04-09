@@ -1,4 +1,4 @@
-char *connv = "Connect Command, V4.2(007)+1 27 Jun 85";
+char *connv = "Connect Command, V4.2(008) 5 Jul 85";
 
 /*  C K V C O N  --  Dumb terminal connection to remote system, for VMS  */
 /*
@@ -26,7 +26,6 @@ char *chstr();
 #define LBUFL 100			/* Line buffer */
 char lbuf[LBUFL];
 
-
 
 /*  C O N E C T  --  Perform terminal connection  */
 
@@ -79,7 +78,6 @@ conect() {
 /* cont'd... */
 
 
-
 /* ...connect, cont'd */
 
 	active = 1;
@@ -124,24 +122,23 @@ conect() {
 }
 
 
-
 /*  H C O N N E  --  Give help message for connect.  */
 
 hconne() {
     int c;
     static char *hlpmsg[] = {
-" ",					/* leave a blank line */
-"C to close the connection, or:",
-"  B to send a BREAK",
-"  H to hang up the phone",
-"  S for status",
-"  0 to send a null",
-"  ? for help",
-" escape character twice to send the escape character.",
-" ",					/* leave a blank line */
+" ",
+"\r\nC to close the connection, or:",
+"\r\n  0 (zero) to send a null",
+"\r\n  B to send a BREAK",
+"\r\n  H to hangup and close connection",
+"\r\n  S for status",
+"\r\n  ? for help",
+"\r\n escape character twice to send the escape character.\r\n\r\n",
+" ",
 "" };
     conola(hlpmsg);			/* Print the help message. */
-    conol("Command> ");			/* Prompt for command. */
+    conol("Command>");			/* Prompt for command. */
     c = coninc(0);
     conoc(c);				/* Echo it. */
     conoll("");
@@ -163,7 +160,6 @@ chstr(c) int c; {
     return(cp);
 }
 
-
 
 /*  D O E S C  --  Process an escape character argument  */
 

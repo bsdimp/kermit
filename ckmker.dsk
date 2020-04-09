@@ -1,0 +1,58 @@
+MACINTOSH KERMIT DISTRIBUTION
+
+This is the Columbia University Macintosh Kermit distribution diskette.
+It contains several sets of files:
+
+Kermit Programs (double click to run the desired program):
+
+  CKMKER - The Macintosh Kermit program
+  CKMKEY - The Macintosh Kermit keyboard configurator
+
+Settings Files (double click to start up Kermit with saved settings, or
+edit settings with CKMKER or CKMKEY):
+
+  Normal Settings - Normal Mac Kermit startup file
+  IBM Mainframe Settings - Sample startup file to use with IBM systems
+
+Utilities:
+
+  Set File - Allows examination and changing of file attributes;
+    particularly useful with binary resource files downloaded by Kermit.
+
+  Bin Hex - Converts Macintosh applications to "hex" files and vice versa;
+    useful for transporting Mac applications on "foreign" media.
+
+  Disk Utility - Useful for duplicating the Macintosh Kermit distribution
+    (or any other) diskette, especially on 2-drive systems.
+
+Documentation (in plain text format, read with Mockwrite desk accessory).
+
+  The documention folder contains the Macintosh Kermit chapter from the
+  Kermit User Guide.  It's broken up into four pieces (Parts 1 through 4),
+  each small enough to fit into Mockwrite on a 128K Mac.
+
+  The Beware File lists known bugs and limitations.
+
+  The Update History lists changes that have been made since previous releases.
+
+System:
+
+  The System folder contains the Finder V 4.1, and the Mockwrite desk
+  accessory.
+
+How to duplicate this disk:
+
+1. Boot the Macintosh.
+
+2. Insert the Kermit Distribution disk into the internal drive.
+   Double click on "Kermit Distribution" if necessary.
+
+3. Double click on "Disk Utility".
+
+4. For each disk to be produced:
+
+   a. Put a fresh disk in the external drive.
+   b. Format the new disk by clicking "format" in the right-hand column.
+   c. Click "wr boot blk" in the right column.
+   d. Click "copy ->" in the LEFT column.
+   e. When complete, the copy will eject itself; go back to (a).

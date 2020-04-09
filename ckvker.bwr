@@ -1,0 +1,141 @@
+List of known bugs or problems with C-Kermit under VAX/VMS:
+
+Version: 4D(0060)
+As of:   9:57am  Thursday, 22 January 1987
+
+See CKUKER.BWR which lists problems with Unix Kermit.  Many of these
+problems may also apply to VMS C-Kermit.  This file lists only those that
+are unique to VMS C-Kermit.
+
+- The fact that VMS C-Kermit is built with CKU* files as well as CKC* and
+  CKV* files is confusing.  Well...  It's that way because VAX-11 C does
+  its best to provide a Unix programming environment -- to the extent it
+  succeeds, VMX C-Kermit can use certain Unix-specific modules.
+
+- VMS C-Kermit, unlike Bliss Kermit, is NOT interruptible,
+  either with ^C or ^Y.  The latter can be interrupted by two (?) ^Ys.
+  This is a serious shortcoming.  (There is code whose intention is
+  make the program interruptible, but it apparently does not work.)
+
+- VMS C-Kermit is less efficient than Bliss Kermit, and may require
+  the use of lower baud rates when sending TO it.
+
+- If using LAT (Local Area Transport) terminal connections, you may
+  need to use a lower baud rate when transferring from your "terminal"
+  to the host, or a smaller send-packet length.  Some LAT software doesn't
+  expect "fast typing" from the terminal direction (applies mainly to
+  old F11-based LAT boxes; newer DECserver-100s and -200s reportedly work fine
+  with Kermit, if set up with the right parameters).
+
+- VMS VAX-11 C V2 allows DEFINEs by a command line qualifer, and CKVKER.COM
+  makes use of this to include debugging and transaction logging code if
+  it believes that VAX-C V2 is being used.  VAX-C V1 had no such feature.
+  If you want the DEBUG and TLOG symbols defined for use with VAX-C V1,
+  modify the CKCDEB.H file.
+
+- The local "directory" command defaults to * rather than *.*.
+
+- Execution of local commands (C-Kermit>! <command>): 
+
+The problem with "! XXX" in VMS is related to the BYTLM in user authorization
+file.  For VMS to create a subprocess, the BYTLM must exceed 4096 (which is our
+previous setting), and of course, PRCLM must be at least 1.  I don't know the
+exact minimum for BYTLM, but after we set it to 6144, it worked.
+
+------------------------------
+
+Date:     Sat, 27 Sep 86 13:28 MDT
+From:     <PUBWORK@USU.BITNET> (PUBLIC/CBE Manager)
+Subject:  Re: VMS C Kermit
+
+     I got C Kermit for VMS for the purpose of adding the VMS support for send-
+ing FABs (as you also suggested) and adding a 'null timer' that would have a
+Kermit in server mode automatically logout if not used after a certain length
+of time (each system could setup their default value for this and each user
+could override it) and adding a warning when sending files that aren't simply
+streams of data (keyed or fixed-length files or files containing CRs or LFs
+within any of the records or files with 'carriage control' other than 'carriage
+return').  But the school year (which is just starting) will determine if I
+have time to add any of these improvements.  I will let you know when I make
+any major progress.
+     Thanks for the help and info.
+
+Eric McQueen (previously ERICMC@USU, also currently SLB5R@USU)
+
+------------------------------
+
+Date: Fri, 16 Jan 87 14:34:01 pst
+From: ames!styx!elxsi!gumby.ARPA!valid!carolf@cad.Berkeley.EDU
+To: CU20B.COLUMBIA.EDU!SY.FDC
+
+I've begun to test c-kermit 4D(061) between the S-320 and the MicroVAX, running
+VAX version 2.1, and the VAX-11/780 running VMS 4.4.  I compiled c-kermit on
+VMS using the CKVKER.COM DCL procedure.  I've found the following problems:
+
+ -----------------------------------------------------------------------------
+ S-320 -> MicroVAX and VAX-11/780
+ -----------------------------------------------------------------------------
+
+* Bye doesn't work
+  When running kermit from VMS in server mode, type bye, then connect.
+  Kermit will connect to the VMS command interpreter rather than logging out
+  of the server.  At this point, type logout (which doesn't echo on the screen)
+ 
+* Exit doesn't always work (MicroVAX only)
+  Sometimes no action will be taken in response to exit.  Quit always works
+  however.
+
+ -----------------------------------------------------------------------------
+ MicroVAX and VAX-11/780 -> S-320
+ -----------------------------------------------------------------------------
+
+* Directory doesn't work on VMS
+  Directory listed only some of the files in a directory containing several
+  files.
+
+* Cwd doesn't work on VMS
+  Cwd caused an access violation and exited from kermit.
+  c-kermit(MicroVAX)> cwd
+  %SYSTEM-F ACCVIO, access violation, reason mask=00, virtual address=00000000,
+  P4
+  %TRACE-F-TRACEBACK, symbolic stack dump follows
+  module name	routine name	line	rel pc	abs pc
+  CKVFIO	system		3233	17	15122
+  CKUUSR	docmd		1796	1a2	12F53
+  CKUUSR	parser		1635	182	12B69
+  CKCMAI	main		930	BC	D918
+  $ (could not echo - logged out)
+
+* On the VAX, kermit's output overwrites the prompt and command on the previous
+  line.
+
+* Remote directory on the VAX could not list UNIX files whose format was not
+  correct VMS format.
+  c-kermit(VAX-11/780)> remote directory
+  c-kermit(VAX-11/780)> - ttini: ttiosb.status:  %SYSTEM-W-DATAOVERUN, data
+  overrun (for all filenames too long)
+
+* Remote help on the VAX
+  c-kermit(VAX-11/780)> remote help
+  (printed some help to the screen, then)
+                             REMOTE HOST co
+  c-kermit(VAX-11/780)> - ttini: ttiosb.status:  %SYSTEM-W-DATAOVERUN, data
+  overrun
+
+I also have a question.  What is the reason for not reading the .kermrc file
+when the command line contains an action?  If the .kermrc file were always
+read, kermit's capabilities would be increased. For example, we could then use
+the -g command line option for a file transfer requiring a login,
+since a script called from .kermrc could login to the remote server).
+
+Please let me know if you receive this mail.  I sure would appreciate any
+suggestions as to what might be causing the problems.
+
+                                  Thanks!
+
+UUCP address:  ucbvax!hplabs!pesnta!valid!carolf
+
+                                  Carol Fernihough
+
+------------------------------
+

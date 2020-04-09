@@ -1,0 +1,472 @@
+*
+* CKMKEY.RC - Resource File for Key Config program
+*
+
+ckmkey.rsrc
+
+* ID string
+Type KERK = STR
+ ,0
+CKMKEY V0.8(6) -- May 1985
+
+* MENUS
+
+Type MENU
+ ,1(4)
+ 
+  About K-Config
+  (-
+
+Type MENU
+  ,2(4)
+File
+  Open...
+  Save
+  Decompile...
+  Quit
+
+Type MENU
+ ,3(4)
+Set
+  Keys...
+  Modifiers...
+  Function Definitions...
+
+*
+* ALRT 1 - Error occured
+*
+
+Type ALRT
+,1
+90 50 180 400
+2
+5555
+
+*
+* ALRT 2 - Save changes before doing something else
+*
+
+Type ALRT
+ ,2
+80 110 188 390
+3
+5555
+
+*
+* DLOG 257 - About this program
+*
+
+Type DLOG
+  ,257
+54 73 190 385
+Visible 1 NoGoAway 0
+  257
+About DLOG
+
+*
+* DLOG 1000 - Set keys
+*
+
+Type DLOG
+ ,1000
+48 11 275 496
+Invisible 1 NoGoAway 0
+1000
+
+*
+* DLOG 1001 - Set modifier keys
+*
+
+Type DLOG
+ ,1001
+63 108 309 371
+Invisible 16 NoGoAway 0
+1001
+Set Modifier Keys
+
+*
+* DLOG 1002 - Define function keys
+*
+
+Type DLOG
+ ,1002
+66 32 229 473
+Invisible 16 NoGoAway 0
+1002
+Function Definitions
+
+*
+* DITL 2 - Error Box
+*
+
+Type DITL
+,2
+2
+BtnItem Enabled
+65 20 85 60
+OK
+
+StatText Disabled
+12 72 85 321
+^0 ^1
+
+*
+* DITL 3 - Warning box
+*
+
+Type DITL
+,3
+4
+BtnItem Enabled
+40 20 60 90
+Yes
+
+BtnItem Enabled
+72 20 92 90
+No
+
+BtnItem Enabled
+72 200 92 270
+Cancel
+
+StatText Disabled
+9 104 60 271
+Save "^0" before ^1?
+
+*
+* DITL 257 - About KERMIT
+*
+
+Type DITL
+  ,257(32)
+6
+*   1
+StatText Disabled
+15 62 32 306
+^0
+
+*   2
+StatText Disabled
+33 62 50 305
+Columbia University
+
+*   3
+StatText Disabled
+51 62 68 305
+Copyright 1985, All Rights Reserved
+
+*   4
+IconItem Disabled
+15 10 47 42
+1000
+
+*   5
+IconItem Disabled
+76 152 108 184
+2001
+
+*   6
+StatText Disabled
+113 156 129 182
+Bill
+
+*
+* DITL 1000 - set key dialog
+*
+
+Type DITL
+ ,1000
+7
+*   1
+BtnItem Enabled
+174 311 196 432
+Set Key
+
+*   2
+BtnItem Enabled
+172 439 222 474
+Quit
+
+* 3 - Set function keys
+BtnItem Enabled
+200 311 222 432
+Set Function Key
+
+* 4 - user item keyboard picture
+UserItem
+7 6 168 476
+
+
+* 5 - static text for key name and mapping
+StatText Disabled
+174 7 223 263
+
+
+* 6 - edit text for key value
+EditText Enabled
+191 272 207 301
+00
+
+* 7 - invisible text
+EditText Enabled
+500 500 520 520
+00
+
+*
+* DITL 1001 - set modifier keys
+*
+
+Type DITL
+ ,1001
+20
+*   1
+BtnItem Enabled
+213 67 233 127
+OK
+
+*   2
+BtnItem Enabled
+212 141 232 201
+Cancel
+
+*   3
+StatText Disabled
+11 12 31 82
+Option
+
+*   4
+RadioItem Enabled
+40 12 60 82
+Normal
+
+*   5
+RadioItem Enabled
+59 12 79 82
+Control
+
+*   6
+RadioItem Enabled
+78 12 98 82
+Caps
+
+*   7
+ChkItem Enabled
+103 12 123 82
+Meta
+
+*   8
+StatText Disabled
+11 176 31 246
+Caps Lock
+
+*   9
+RadioItem Enabled
+40 176 60 246
+Normal
+
+*   10
+RadioItem Enabled
+59 176 79 246
+Control
+
+*   11
+RadioItem Enabled
+78 176 98 246
+Caps
+
+*   12
+ChkItem Enabled
+103 176 123 246
+Meta
+
+*   13
+StatText Disabled
+11 94 31 164
+ Key
+
+*   14
+RadioItem Enabled
+40 94 60 164
+Normal
+
+*   15
+RadioItem Enabled
+59 94 79 164
+Control
+
+*   16
+RadioItem Enabled
+78 94 98 164
+Caps
+
+*   17
+ChkItem Enabled
+103 94 123 164
+Meta
+
+* 18
+RadioItem Enabled
+140 19 156 229
+Use 8th-bit for Meta
+
+* 19
+RadioItem Enabled
+159 19 175 229
+Use Meta prefix string:
+
+* 20
+EditText Enabled
+181 40 200 213
+/033
+
+*
+* DITL 1002 - Set function keys
+*
+
+Type DITL
+ ,1002
+14
+*   1
+BtnItem Enabled
+129 94 154 206
+OK
+
+*   2
+BtnItem Enabled
+129 239 154 351
+Cancel
+
+*   3
+StatText Disabled
+10 10 27 44
+
+
+*   4
+EditText Enabled
+10 48 27 408
+
+
+*   5
+StatText Disabled
+32 10 49 44
+
+
+*   6
+EditText Enabled
+32 48 49 408
+
+
+*   7
+StatText Disabled
+54 10 71 44
+
+
+*   8
+EditText Enabled
+54 48 71 408
+
+
+*   9
+StatText Disabled
+76 10 93 44
+
+
+*   10
+EditText Enabled
+76 48 93 408
+
+
+*   11
+StatText Disabled
+98 10 115 44
+
+
+*   12
+EditText Enabled
+98 48 115 408
+
+
+* 13 - User item for scroll bars
+CtrlItem ResCtrl
+7 410 118 426
+256
+
+* 14 - invisible text
+EditText Enabled
+500 500 520 520
+00
+
+
+*
+* CNTL 256 - Control definition for function key scroll bars
+*
+
+Type CNTL
+ ,256
+ vertical scroll bar
+ 51 402 162 418
+ Visible
+ 16
+ 0 
+ 0 0 128
+
+*
+* MacKermit Icon, ID 1000
+*
+
+Type ICON
+ ,1000
+00000000 00000000 00000002 0003760B 00058D07 0007070E 00080082 00140242
+00160642 50119886 300C631C 5FC30CF8 20F7FFE0 001F5700 0003AA00 00015600
+0007AF00 003FF7E0 00FC00F8 0185FF5C 2105DB44 6605D744 EC05CF44 7005D744
+2005DB45 0005FF4F 00040047 00040040 00040F40 00050040 00040040 0007FFC0
+
+* Bill's Icon
+
+Type ICON
+ ,2001
+00000000 000FF800 00355600 00EAAB80 01555540 01AAAAC0 035557E0 02AAADA0
+035578E0 06ABC0B0 057E00D0 06E000F0 05DE3DD0 0761C370 055C9D50 07488970
+0541C150 03222260 029C1C20 01814060 018000C0 0143E1C0 00C7F280 00AC1F80
+007BEB00 00288E00 00388A00 001FFC00 000D5800 0007E000 00000000 00000000
+
+
+*
+* ICN# 128 - CKMKEY icon for APPL file
+*
+
+Type ICN# = HEXA
+  ,128(32)
+00000000 10000000 18000002 0403760A 08058D06 0407070E 08080082 04140242
+08160642 50119886 300C631C 7FC30CF8 30F7FFE0 081F5700 1003AA00 08015600
+1007AF00 3FFFFFFC 40FC00E2 41800072 5555557A 4600001A 7CAAAABA 7000000E
+7555555E 4000000E 7AAAAAAE 40000002 56FFFF6A 40000002 3FFFFFFC 00000000
+* Mask
+FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF
+FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF
+FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF
+FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF
+
+Type FREF = HEXA
+  ,128(32)
+* APPL uses loc icon 0, no tagalongs
+4150504C
+0000
+00
+
+Type BNDL = HEXA
+  ,128
+* owner KERK 0
+4B45524B0000
+* 2 types follow, ICN# and FREF
+0001
+* ICN#, 1 entries, local 0 to global 128
+49434E230000
+0000 0080
+* FREF, 1 entries, local 0 to global 128
+465245460000
+0000 0080
+
+Type CODE
+  ckmkey.out,0
+

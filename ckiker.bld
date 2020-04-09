@@ -1,0 +1,45 @@
+COMPILING KERMIT
+
+Kermit has been compiled with the Lattice 3.03 compiler.  Some support has
+been added for the Lattice 3.04 compiler (I have a beta-test copy).  The
+3.04 runtime has additional AmigaDOS support functions and differences in
+low level file I/O.  When compiling for 3.04, you should use define the
+preprocessor symbol LAT304, but Kermit has not been recently recompiled
+under 3.04.
+
+The 3.03 executable is currently 116696 bytes without debug logging.  STRIPA
+will remove about 1500 bytes of symbol tables.  I am not very happy about
+the size of Kermit.  Since Lattice currently uses the AmigaDOS object code
+format, it can not save space by assuming the data segment is less than 64K
+and using data segment relative addresses instead of absolute long addresses
+for accessing globals.  I do not have the Manx compiler, so I have not tried
+compiling Kermit with it.  However, I have tried to write portable code.
+Since C-Kermit has to run on PDP-11's it should work with 16-bit ints.
+
+Three files are provided for compiling Kermit on the Amiga.  CKIMAK.MAK
+contains a sample makefile.  Since many Amiga users do not have a version
+of make, an execute script to compile Kermit is in CKIKER.MAK.  CKIKER.LNK
+contains the Alink WITH file for linking Kermit.
+
+To compile Amiga Kermit with CKIKER.MAK, you must first make the following
+logical assigns:
+   ASSIGN lc: <directory containing LC1, LC2, and ALINK commands>
+   ASSIGN include: <directory include directories are rooted at>
+   ASSIGN lib: <directory containing LC.LIB, AMIGA.LIB, and LSTARTUP.OBJ>
+Since CKIKER.MAK takes a parameter, you must have a directory :T for
+EXECUTE to create the instantiated version in.  To compile Kermit normally,
+change the current directory to the directory containing the C source files
+and enter
+   EXECUTE CKIKER.MAK
+To create a version of Kermit with debug and transaction logging available,
+enter:
+   EXECUTE CKIKER.MAK "-DDEBUG -DTLOG"
+Compilation will produce a fairly large number of warning messages.  They
+can normally be safely ignored.
+
+On a two disk system, Kermit takes 35 minutes to compile.  I generally work
+with a boot disk containing the include files, library files, both passes
+of the compiler, and the linker.  Any libraries, commands, and other files
+unnecessary for development using CLI only are of course stripped.  If you
+have a single disk system, you will probably need to modify the CKIKER.MAK
+script to reduce disk swapping.

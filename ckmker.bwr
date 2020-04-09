@@ -1,0 +1,577 @@
+Columbia Macintosh Kermit version 0.8(34): Known problems and Limitations
+-------------------------------------------------------------------------
+
+     Last update to this file: 27 July 87
+
+
+The biggest problem with Mac Kermit is installing it on your Mac if you
+don't have it on a diskette already.  For tape distribution, the program is
+encoded in Binhex Version 4 (.HQX) format, and you need (a) a way of getting
+the .HQX file onto your Mac in the first place, and (b) a copy of Binhex
+Version 4 to convert it into a runnable application.  It is assumed that
+most sites receiving Kermit tapes that are interested in running Macintosh
+Kermit will have some method of initially downloading the .HQX file, and
+will have a copy of Binhex.  To alleviate the problem, MacKermit has been
+submitted to a number of user groups for wider diskette distribution, and
+Columbia itself is now distributing Mac Kermit on diskette.
+
+-----
+
+Occasionally, files transferred to the Mac with apparent success will be
+empty.  This happens very rarely and cannot be reproduced.  It has only been
+reported twice, once on a Hyperdrive system, and once on a Mac with a Tecmar
+disk after the screen had been dumped to the printer.  (this problem may be
+rectified in edit (33), which now terminates on failure to close, attempting
+to report an appropriate error.)  One user claimed to be able to reproduce
+the problem by using Mac Kermit to GET any file whose name starts with X from
+the Unix Kermit server (yet others can't reproduce it this way).
+
+-----
+
+Certain VT100/102 functions are not supported, including:
+ . Double-height lines
+ . Double-width characters
+ . VT102 printer port commands
+ . etc
+(See CKMVT1.DOC for a complete list)
+
+-----
+
+Character attributes (bold, inverse, etc) are not preserved when restoring the
+screen after it has been overlaid by another window.  The program does not have
+code (or buffer space on a thin Mac) to do this.
+
+-----
+
+When mapping the OPTION key to CTRL, certain characters (notably CTRL-v, where
+v is any lowercase vowel) have to by typed twice in order to send them.  This
+is a feature of the Mac, sort of like Command-Shift-1...9, but unlike
+Command-Shift-1...9, MacKermit doesn't have a command to disable this feature.
+
+-----
+
+When a Settings file is saved, it does not store the Command-Shift-1...
+Command-Shift-9 flag, so it has to be set every session if it is to be active.
+
+-----
+
+After a file transfer, successful or otherwise, the mouse cursor does not turn
+from a watch back into an arrow.  An appropriate message is printed, however.
+
+-----
+
+Reportedly, Kermit will die during terminal emulation when certain things
+happen at the bottom of the screen, e.g. when using the VAX/VMS TYPE/PAGE
+command, and typing ^Y or ^C instead of CR at the bottom of a page; may have
+something to do with trying to write on the 25th line in reverse video...
+A similar problem was reported by a user typing a command into the EMACS echo
+area (again, at the bottom of the screen) when a "send" came in.
+
+-----
+
+Various other (nonfatal) problems are reported to occur at the bottom of the
+screen, involving status lines or "wholines", forced scrolling in EMACS, etc.
+
+-----
+
+Switching between Mac Kermit and MacTerminal may result in repeated errors if
+Macterminal closes the serial port.
+
+-----
+
+Starting up MacKermit when there is output going to the port can result in
+an address error.
+
+-----
+
+Reportedly, the program can be made to hang getting retries and no packet
+transmission if an earlier file transfer was terminated using Command-dot.
+(Since Command-dot doesn't send any notification - e.g. an Error packet - to
+the remote Kermit, the latter is probably going through its timeout/retry
+cycle.  If you experience this symptom, wait for the remote Kermit to exceed
+its maximum retries.)
+
+-----
+
+Reportedly, if you receive a file (interactive), toggle disk drives and insert
+a new disk, the program may bomb during initialization (the only reported
+instance of this occurred using RAM Disk "RamStart" from net.sources.mac.)
+
+-----
+
+The responses to REMOTE commands come in the small SHOW RESPONSE window.  The
+window might need to be stretched in order to view the entire width of the
+response (this may not be obvious to the user).
+
+-----
+
+The SHOW RESPONSE window accumulates everything that has been sent to it;
+you can always scroll back to the beginning.  That's nice, but there's no way
+to make space when it fills up.  And when it does fill up, it will probably
+crash the program.
+
+-----
+
+Reportedly, the lower right corner of the SHOW RESPONSE window is "dead";
+clicking on it will not bring the window to the front.
+
+-----
+
+Reportedly, the Mac will hang if the ScreenSaver DA blanks the screen during a
+file transfer.  Not clear whether fault is Kermit's or ScreenSaver's.
+
+-----
+
+Reportedly, the TRANSFER command will crash the Mac with error ID = 26 when
+used to launch an application from a different disk.
+
+-----
+
+The VT102 emulator may overflow after a few screens of continuous scrolling at
+9600 baud.
+
+-----
+
+When sending files in TEXT mode, Mac Kermit does not strip the high order
+bit.  This would not normally be a problem, since text files aren't supposed
+to have high-order bits anyway, but reportedly some applications (like
+MacWrite) leave a few high bits on even when you instruct them to save
+"text only".
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~THINGS TO DO~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Fix bugs listed above.
+
+-----
+
+The following changes should help the terminal emulator keep up with continuous
+input from the port at 9600 baud (or higher):
+
+. Use arithmetic instead of calling the routines fndrel, fndprev, and fndabs.
+
+. Zeroline could be improved by using a blockmove, or munger.
+
+. Tabs could be improved by using an array, indexed by current position which
+  results in the count of spaces until the next stop.  This would cost
+  MAXCOL*(sizeof short) but that's not much.
+
+Since no matter what we do will probably be insufficient we should allow the
+user to set a parameter saying whether to use XON/XOFF.  After all, the VT100
+can't keep up either, it just XOFFs the host.  As long as we can guarantee that
+we can handle one screen's worth we won't have any problems from EMACS and
+other non-scrolling full screen applications.
+
+-----
+
+SFGetFile should be called with the numTypes argument equal to -1 instead of,
+it zero; apparently 0 doesn't find all files (check this).
+
+-----
+
+Make the program as small as possible by compressing anything you can get your
+hands on!  It must always be able to run on a 128 K Mac.
+
+-----
+
+Make the autowrap setting on the communications menu work.
+
+-----
+
+Many system calls do not check the error codes.  This could be a problem.
+Look especially in ckmfio.c and ckmtio.c.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~SUGGESTIONS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Translate to a native Macintosh C compiler (which one is best?).  Preferably
+do it in such a way that it can be easily ported to other compilers, and still
+built by SUMACC.  This is desirable not only so that people without VAX Unix
+systems can work on the program, but also because SUMACC does not generate
+segmented code, which imposes a strict limitation on the size of the program,
+preventing the addition of many desirable features, like the ones below.
+(On the other hand, segmented code means lots of disk accesses...)
+
+-----
+
+Include the ability to log a terminal session to a file (save lines scrolled
+off top, and/or save screen, cut and paste, etc).  Similarly for transmitting
+raw text (a la MacTerminal pasting onto the screen).
+
+-----
+
+When a file of type RSRC is downloaded add it to the "Launch" menu.
+
+-----
+
+Allow both ports.  Also allow two windows open at once, one for each port.
+
+-----
+
+Add the ability to clear the screen from a menu.
+
+-----
+
+Allow cutting and pasting in the remote response window, or at least a way
+to reclaim the memory it's using.
+
+-----
+
+Add missing VT100/102 functions.
+
+-----
+
+Add some kind of login script facility.
+
+-----
+
+UNDIGESTED:
+-------
+
+Date: Sat, 22 Feb 86 02:23:04 EST
+From: "Michael C. Adler" <MADLER@MC.LCS.MIT.EDU>
+Subject: MockWrite under HFS
+
+The MockWrite editor desk accessory (version 4.0) does not work under HFS.
+For reasons beyond my comprehension, bit 9 of all the file I/O traps was set.
+This causes the OS to interpret standard file traps as HFS traps.  Although
+I have patched a version that works, I hesitate to upload it since it is not
+my software.  However, if you have a suitable hex file editor, you can use
+the following patch list.  At each of the offsets specified, change the value
+A2xx to A0xx.  The offsets are into the DRVR resource.  If you are editing
+the resource file as a byte stream, search for the hex sequence:
+	24 00 00 08 01 6a ff 35.
+The offsets are from the beginning of this sequence.
+
+Offset		Current value
+6d6		a208
+6f4		a20c
+716		a20d
+726		a200
+758		a203
+75a		a218
+766		a212
+768		a201
+772		a213
+a4c		a200
+a4e		a211
+ae4		a202
+af0		a201
+b22		a201
+
+Good luck,
+-Michael
+
+------------------------------
+
+Date: 14 Apr 86 18:55 EDT
+From: (David HM Spector) <SPECTOR@NYU-ACF7.ARPA>
+Subject: Macintosh Kermit Recieve Dialog Box.
+
+The Recieve-file dialog box in the current (and previous) versions of Macintosh
+Kermit needs to be increased to the size of the send-file dialog box (or
+larger).  Currently, the dialog box is mal-formed and won't work with HFS too
+well.  That is not to say that Macintosh Kermit doesn't work with HFS,
+as far as I can tell it works very well, just the dialog box is too small.
+
+                        David
+
+------------------------------
+
+Date: Wed, 25 Jun 86 16:55:34 cdt
+From: Peter Wu <pwu@unix.macc.wisc.edu>
+Subject: CKMKER 0.8(34) bug
+
+When using Macintosh kermit ckmker 0.8(34) with the note-pad window
+opened and the cursor inside the note-pad window, note-pad changes the
+cursor to an ibeam and kermit changes it back to an arrow, resulting in
+an alternating cursor of ibeam and arrow.
+
+peter
+
+------------------------------
+
+Date: Sun, 7 Dec 86 11:29:35 pst
+From: gould9!joel@nosc.ARPA (Joel West @ Western Software Technology)
+Subject: Uploading Macintosh Binhexes with Kermit
+Keywords: UNIX, MacKermit, hqx
+
+I've been meaning to send this along for a while, but I wasn't sure anyone
+was interested.  A query on INFO-MAC prompted this posting.
+
+It is a UNIX csh script (MACKERM) that I use to upload binhexes using
+kermit.  If for a file foo.hqx, it first sends the header (before the
+binhex) as 'About foo', then sends foo.hqx.  I use the header to later note
+the origin on the final unhexed file.
+
+To make this work, you need to take the first file (usually a short About...
+file) manually, selecting the target directory.  Then place your MAC in
+server mode, since each 'kermit' command at the UNIX side is a separate
+session, and the Mac would otherwise quit file transfer mode.
+
+Oh yeah, it also works on ordinary files, preserves actual names ('FooBar'
+instead of 'FOOBAR') and NEVER transfers a directory.  So it's real useful
+to type
+	mackerm *
+place the Mac in server mode, and walk away.
+
+	Joel West
+	joel%gould9.UUCP@NOSC.MIL	ihnp4!gould9!joel
+
+==File =====
+
+	#!/bin/csh
+	# by Joel West, ihnp4!gould9!joel, 11/14/86
+	# Script to send binhexes and other files
+	# Also preserves exact upper/lower case name
+	set noglob
+	foreach f ($*)
+	    if (-d $f) continue
+	    set typ=$f:e
+	    switch ($typ)
+	      case hqx:
+	      case hex:
+		set r=$f:r
+		set T1=/tmp/kermdat_$$
+		set T2=/tmp/kermhqx_$$
+		rm -f $T1 $T2
+		cat $f | cutat '(This' $T1 $T2
+		kermit -s $T1 -a "About $r"
+		kermit -s $T2 -a $f
+		rm -f $T1 $T2
+		breaksw
+	      default:
+		kermit -s $f -a $f
+	    endsw
+	end
+
+== EOF ==
+
+[Ed. - Thanks.  This hint has been added to the Macintosh Kermit .BWR 
+file, CKMKER.BWR.]
+
+------------------------------
+
+Date:         Fri, 06 Feb 87 09:22:45 ULG
+From:         Andre PIRARD <A-PIRARD@BLIULG12>
+Subject:      MacKermit CMS TAKE file
+To:           Frank da Cruz <SY.FDC@CU20B.COLUMBIA.EDU>
+
+I told you some time ago of national characters and an emerging IBM EBCDIC
+set called "table 500" to support them. I've composed an according conversion
+table to be TAKEn on CMS KERMIT for use with MacKermit.
+Pittifully, it's only useful in file transfer mode.
+I see no way in terminal mode (on the 7171) that would not involve screen
+codes translation on the Mac.
+By the way, there is still the problem of the "OPTION dot" key that is
+nowhere to find on our national keyboards. We have : (colon) where you have
+. (dot) and our dot is the shifted key to the right of your M (which is our
+ (dot) and our dot is the shifted key to the right of your M (which is our
+",?" (isn't that easy?)). Neither OPTION : nor . (which needs the shift key)
+nor others yield the interrupt. Do you have a hint? Or wouldn't there be
+a more "international" choice to be chosen in a future version?
+Here goes my file for anyone it can help:
+
+* CMS KERMIT TAKE file to convert Apple Macintosh extended ascii
+* international characters to their EBCDIC IBM table 500 equivalent.
+* use: TAKE KERMAC
+* within CMS KERMIT connected to a Mac before file transfer.
+* Andre Pirard
+* Service General d'Informatique
+* Universite de Liege
+* Belgique
+*
+SET ATOE 128 099
+SET ATOE 129 103
+SET ATOE 130 104
+SET ATOE 131 113
+SET ATOE 132 105
+SET ATOE 133 236
+SET ATOE 134 252
+SET ATOE 135 069
+SET ATOE 136 068
+SET ATOE 137 066
+SET ATOE 138 066
+SET ATOE 139 070
+SET ATOE 140 071
+SET ATOE 141 072
+SET ATOE 142 081
+SET ATOE 143 084
+SET ATOE 144 082
+SET ATOE 145 083
+SET ATOE 146 085
+SET ATOE 147 088
+SET ATOE 148 086
+SET ATOE 149 087
+SET ATOE 150 073
+SET ATOE 151 206
+SET ATOE 152 205
+SET ATOE 153 203
+SET ATOE 154 204
+SET ATOE 156 222
+SET ATOE 157 221
+SET ATOE 158 219
+SET ATOE 159 220
+SET ATOE 161 144
+SET ATOE 162 176
+SET ATOE 163 177
+SET ATOE 167 089
+SET ATOE 174 158
+SET ATOE 180 178
+SET ATOE 190 156
+SET ETOA 099 128
+SET ETOA 103 129
+SET ETOA 104 130
+SET ETOA 113 131
+SET ETOA 105 132
+SET ETOA 236 133
+SET ETOA 252 134
+SET ETOA 069 135
+SET ETOA 068 136
+SET ETOA 066 137
+SET ETOA 066 138
+SET ETOA 070 139
+SET ETOA 071 140
+SET ETOA 072 141
+SET ETOA 081 142
+SET ETOA 084 143
+SET ETOA 082 144
+SET ETOA 083 145
+SET ETOA 085 146
+SET ETOA 088 147
+SET ETOA 086 148
+SET ETOA 087 149
+SET ETOA 073 150
+SET ETOA 206 151
+SET ETOA 205 152
+SET ETOA 203 153
+SET ETOA 204 154
+SET ETOA 222 156
+SET ETOA 221 157
+SET ETOA 219 158
+SET ETOA 220 159
+SET ETOA 144 161
+SET ETOA 176 162
+SET ETOA 177 163
+SET ETOA 089 167
+SET ETOA 158 174
+SET ETOA 178 180
+SET ETOA 156 190
+
+------------------------------
+
+Date: Fri 20 Mar 87 11:01:04-EST
+From: MacIntosh User Group <UG.CUMUG@CU20B.COLUMBIA.EDU>
+Subject: Kermit on the Macintosh II
+
+     While in California for the AppleWorld sideshow I was left alone for
+two hours with a Mac II during which time I had opportunity to pop a
+Kermit disk into its gaping maw . . . You may be happy to know that, as 
+far as I could tell, the program seemed to run just fine.  According to
+Didier Diaz, the Mac II project coordinator, about 30 to 40% of the programs
+written for the Mac don't run on the II due to their not following "Inside
+Macintosh" stringently enough.  He was happy to see Kermit faring so well
+by comparison.
+                                   Father Mack +
+                           (a.k.a.:  Fr. Larry D. McCormick,
+                                     President, CUMUG)
+-------
+
+Date: Wed, 1 Apr 87 22:23:12 pst
+From: uw-apl!apl-em!dunlap@beaver.cs.washington.edu
+Subject: MacKermit 34 on 128K
+Keywords: MacKermit
+
+> Date: Sun, 15 Feb 87 11:58 EST
+> From: Mark B. Johnson <CDTAXW%IRISHMVS.BITNET@wiscvm.wisc.edu>
+> Subject: MacKermit on a 128K Machine?
+> Keywords: Mac Kermit
+>
+> Is anyone successfully using MacKermit V0.8(34) on a 128K machine?  I am sure
+> we had done it here sometime back, but I have tried it recently with several
+> different versions of the Finder and System and keep getting system crashes
+> when trying to Send files.  We are sure it is the System and Finder, and are
+> wondering if anyone who might be doing it successfully could send us their
+> configuration.  Thanks again.
+
+I think MacKermit V0.8(34) is too big for a 128K Mac.  I have experimented a
+bit by taking out the VT100 fonts and the "blank cursor" which had been
+added using the Resource Mover according to Davide Cervone.  Without those
+it gets a bit farther in sending and receiving files.  In the receive cases
+where three dialog boxes are overlaid it bombs.  And when sending it bombs
+when trying to display the files to chose in a dialog box.  I have tried
+this with slightly different results (but not good) using both the original
+(Summer 1984) system and finder as well as the March 1985 update which
+includes finder version 4.1.
+
+John Dunlap	Applied Physics Lab, University of Washington
+dunlap%apl-em%uw-apl%uw-beaver@washington.edu
+
+------------------------------
+
+Date: 10-JUN-1987 17:35:59
+From: DB_WILSON@UK.AC.OPEN.ACS.VAX
+Subject: Bug in Mac Kermit 0.8(034) Using 2-byte Checksums
+Keywords: MacKermit
+
+I have found a problem using Macintosh Kermit with two byte checksums when the
+data packet can have bytes with the eighth bit set. The resulting checksum is
+consistent with such bytes being negative in the range -128 to -1, i.e. bytes
+are treated as signed -128..127 rather than unsigned 0..255. The Kermit book
+makes it clear (c.f. page 224) that the latter is correct.
+
+The workaround is easy - don't use two byte checksums for binary files.
+
+Regards,
+David.
+
+[Ed. - Thanks for the report.  The same bug exists in Unix Kermit, which
+is built on the same code.  The problem will be fixed in the next
+release of C-Kermit.]
+
+------------------------------
+
+Date: Mon, 20 Jul 87 14:09:03 EDT
+From: Charlie C. Kim <cck@cunixc.columbia.edu>
+Subject: Mac Kermit and Mac II
+Keywords: MacKermit
+
+MacKermit works on a Mac II; however, the Sumacc C compiler runtime
+library does not.  Unfortunately, the current version of MacKermit is
+built with the Sumacc C compiler.  The problem is the traps and calls
+to various in-rom/ram packages on the Macintosh are built in-line, on
+the stack as I remember, by the Sumacc C compiler runtime libraries.
+This doesn't work too well on a 68020 based system like the Mac II
+because the 68020 has an instruction cache.
+
+If you are willing to live with a (moderate) performance degradation,
+simply turn off the instruction cache with following MPW asm program:
+		Machine MC68020
+	nocache main
+		clr.l d0
+		movec d0,cacr
+		rts
+		ENDP
+		end
+
+Simply "restart" your machine to turn the cache back on.
+
+Charlie C. Kim
+User Services
+Columbia University
+
+Here's the corresponding compiled program in binhex 4.0 format:
+ ---------------- CUT HERE ----------------
+(This file must be converted with BinHex 4.0)
+
+:#@j[)'PMB@0SC3""8&"-2j!%!*!)!@qqk!#3"!%!N!-",!#3!b`!N!0$!4JQEJ!
+@)'hkZL*Z!!J`%8'm(rrP3#K`!!!H&!*(!2m#H#i!!J#3!d&38%`rN!3!N!S*R`#
+3"N&38%`rN!3!N"LG*p!U!*!'!@m"DN(ZrIBI%$mm!2p1V3&53qlqpR"!)YK63'l
+k3QG"l[lf,`J[,J!12bi!$%KZrrj1Z[ib%"pR%MmZrri[,J!),bi!%NkY!(*J$%*
+R,bi!##m,6Ud!FNcI')"1AL"Ih[`!%Nl3d&*23d968dm!N!3,SJ9J!!j19[cq)'i
+!#%2Zr`#3""J!N!-S!!!#!*!%#!#3!b!!!$mm!!'Tm!#3!``!N!-"F!"1H`!#6R8
+!!!%!N!-",!#3!b`!N!0$!!,Sk!AL!*!$(!!q!!"$6d4&!!%!#J!!rrmJ!*!)!3!
+!&!!!(!!#k'`%6@&TE[M5!:
+
+[Ed. - Thanks Charlie.....]
+
+------------------------------
+

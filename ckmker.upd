@@ -1,0 +1,193 @@
+Edit V0.8(34) 19 March 1986:
+Rebuild with new C-Kermit protocol & functions modules:
+. Bug with set send/receive padding fixed.
+. Bugs that interfered with wildcard sends fixed.
+. Bug that mixed up send and receive packet terminators fixed.
+. Bug with single-file cancellation fixed.
+. NAK for next packet now handled correctly as equivalent to ACK for current.
+. NAK is no longer immediately sent after RECEIVE or SERVER command given.
+. Long bursts of incoming data no longer crash the program.
+. Longer sleep done at end of file transfer to prevent other side from hanging.
+
+And Macintosh-specific terminal emulation fixes from Davide Cervone,
+University of Rochester (DPVC@UORDBV.BITNET):
+. Blinking block cursor
+. More robust scrolling, inserting, deleting, cursor positioning.
+. New, consistent VT100 fonts, including bold and graphics characters.
+. Mouse-activated cursor positioning (sends "arrow keys" like MacTerminal).
+
+Edit V0.8(33) 11 July 1985:
+Rebuild with new C-Kermit protocol & functions modules:
+. Fix yet another bug with parity vs 8th bit prefix negotiation
+. Don't Nak "blank lines" when trying to read packets
+. Don't Nak unknown packet types, send error packet instead
+. Fix test for echoed packets
+. Fix bug that prevented D from going in EOF packet when interrupting single
+  file during send.
+. If storing incoming file under new name, send that name back in Ack(F).
+. Upon receipt of Z packet, send Ack only after successfully closing new file.
+. Don't flush buffer at end of rpack, wait until desired packet received ok.
+
+Edit V0.8(32) 20 June 1985:
+Fix parity problems by doing all parity in software, rather than relying
+on the sio chip.  Also, ignore incoming DEL chars in terminal emulator.
+
+Edit V0.8(31) 13 June 1985:
+Add dragging and selecting of main window.  New CKC modules.
+
+Edit V0.8(30) Fix COMMAND-SHIFT-1..COMMAND-SHIFT-9 problem.  Since these
+characters are special (they eject the diskettes, dump screens to
+files/printer, etc.) they were being ignored.  This caused things like
+control-@ and control-^ to be ignored also.  Add a new item to the
+SETTINGS menu that allows you to enable or disable this action.  The
+default is disabled.
+
+Edit V0.8(29): Fix some default keymap definitions:
+
+control-y and control-t were mapped incorrectly. Control-' was mapped
+incorrectly.  Function defs were defined for VT52 instead of VT100:
+Change "?" to "O" in function definition strings.
+
+V0.8(28) Release Hilites:
+
+Settable keys, functions, break key in conjunction with the CKMKEY
+program.  See CKMKEY.DOC.
+
+Handle IO errors better, especially disk write protected, disk full.
+
+More protocol settings -- can set local and remote values.
+
+File naming on incomming files and the defaulting of file mode and fork
+is more consistent (see edit 24).
+
+Remote commands for server mode allow setting fork, and mode:  FORK
+RSRC, FORK DATA, MODE BINARY, MODE TEXT.  If you're using CKMKER as a
+server you can issue these remote commands.  BYE to the CKMKER server
+reboots the MAC.  CWD tries to switch default volumes (I don't think it
+works but it's sortof there).
+
+
+Edit V0.8(28): Try to make things smaller.  Change a few arrays to type
+short from type int.  Use SED to dick with ckcpro.c -- make the state
+table be type unsigned char instead of int.
+
+Edit V0.8(27): Handle IO errors on writes.  Terminate protocol, inform
+user.
+
+Edit V0.8(26): Finish and install the keyboard configurator program.
+This version has definable keys, function keys, and break.  Uses
+CKMKER V0.8(1) -- major versions indicate compatability.
+
+Edit V0.7(25): Modify protocol settings dialog.  Add values for send and
+receive.  Get rid of DELAY field.  New C Kermit base.  These new values
+are saved in the settings file.  New settings file version number.
+
+Edit V0.7(24): Make file defaults more consistent.  1. Values appearing
+for receive dialog and those set without the dialog are now the same: if
+the file extension is .RSRC or .rsrc then uses RSRC & BINARY and drop
+the .RSRC from the file name, else use the default settings and do not
+change the name (unless it exists and you have collision avoidance...).
+I have found this action to be most effective since I am often x-ferring
+RSRC files and often forget to do the settings.  If you want to transfer
+a ".RSRC" file into the data fork, then just use the dialog and override
+these defaults.
+
+Edit V0.7(23): For K-bytes transferred we were using 512 (0.5K) instead
+of 1024, change this.
+
+Edit V0.7(22): Fix problem with defaults on files recv'ed not really
+getting binary mode even though display says so.
+
+Edit V0.7(21): Fix up some remote commands/pipes stuff.
+
+
+V0.7(20) Release hilites:
+
+Various bug fixes, especially made parity work properly (I think).
+
+New dialogs for File operations with nicer appearance and better
+functionality.  You can now do LF conversion, receive to a different
+file name, select the disk, and resource/data fork.
+
+The File settings dialog has been added.  You can now set the default
+file mode (text or binary), fork (resource or data), and if files should
+be "quietly" superceded.  You can also set "prompt me with a dialog when
+a file is received" this lets you override the defaults and/or select a
+different disk and filename.
+
+The file settings are saved in your settings file.  Your old settings
+file are no longer compatible and if you try to use them you'll get an
+error message saying as much.
+
+The remote command window will now pop up for remote commands other than
+BYE and FINISH.  The window uses a fix sized font, and output from each
+command is delimited by dashes.
+
+Folder for new files is now the same as the location of the settings
+file, or if no settings file was used then the new files appear on the
+desktop.  If you are transfering alot of files and want to keep them
+together, create a folder, drag the settings file into it, and double
+click on the settings file, all created files will appear in that
+folder.
+
+Server mode is now available.
+
+Edit V0.7(20): Savings settings file to a different disk may bomb and
+doesn't work.  Add SetVol before CreateResFile.
+
+Edit V0.7(19): Redo set file settings dialog.
+
+Edit V0.7(18): Put in command to get into server mode.
+
+Edit V0.7(17): Redo status screen and miniparser.
+
+Edit V0.7(16): Folder for new files is now the same as the location of
+the settings file, or if no settings file was used then the new files
+appear on the desktop.
+
+Edit V0.7(15): Save file settings in the settings file; no longer
+can use old settings file must resave them.
+
+Edit V0.7(14): Fix the parity settings, they should be 7 bit plus
+parity not 8 bits (time for me to take a class in hardware).
+
+Edit V0.7(13): Get rid of debug menu item.  Seperate Show window from
+other items in the remote menu.
+
+Edit V0.7(12): Add file settings dialog and the support code for the
+idea of default settings.  Not yet saved in settings file.
+
+Edit V0.7(11): In receive file put the dialog up during protocol once the
+name is known.  Get remote file goes through the receive dialog as well.
+
+Edit V0.7(10): Fix the file naming problems; always use the settings
+from the user.  Don't change the filename.  The File dialogs should come
+up with default settings and not a blank which is confusing.
+
+
+Edit V0.7(9): A problem with the status display popping up for a finish
+command has been fixed.
+
+Edit V0.7(8): The remote command window now comes to the front when a
+remote command other than FINISH or BYE is executed.  The remote command
+window now has a fixed spaced font, and new output is delimited by
+newline dashes newline.
+
+Edit V0.7(7): Cosmetic changes have been made to the source code,
+declaring all global variables external in the ckmdef.h file, neatening
+up some of the dialog windows, and presenting a more consistent use of
+the selected disk drive.  A new type PLONG for pascal long (an int in
+cc68) has been defined to keep lint happy and to help in conversion to
+other Mac C compilers.
+
+Edit V0.7(6): New dialogs for send, get and receive file.  These dialogs
+overcome some problems with those of the previous release.
+
+Previous edits lost to antiquity (Bill 30-May-85).
+
+~~~~~~~~~~ PROBLEMS ~~~~~~~~~~
+
+SUMACC rmaker only allows 50 resources types per compile, our ckmker.rc
+file has passed that limit so if you need to run rmaker, recompile with
+NRESCOMP = 100 or so.
+

@@ -1,0 +1,20 @@
+Edit V0.8(6): Handle errors during save and decompile.
+
+Edit V0.8(5): Disable COMMAND-SHIFT-1...COMMAND-SHIFT-9 during the SET
+KEYS dialog.  You won't be able to get a snapshot of this dialog!
+
+Edit V0.8(4): Flush volume after saving (hey, I didn't even have to be
+told about this one again).
+
+Edit V0.8(3): Call loadkset() after saving otherwise we loose our
+handles when they are moved into the resource files and subsequent
+action (like a decompile or set keys) causes us to bomb.
+
+Edit V0.8(2): Call DrawMenuBar() after enabling or disabling items so
+that the menu bar item gets enabled or disabled as well.
+
+Edit V0.8(1): Don't need to have keymap resource defs in this file now
+that bootstrap period is over.  This means that the settings file must
+be from a V0.8 series kermit or else the defs won't be found -- but
+that's ok -- it will ensure some compatability -- and we tell people
+about the missing resources.

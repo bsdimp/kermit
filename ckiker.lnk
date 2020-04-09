@@ -1,0 +1,5 @@
+from    lib:lstartup.obj+ckcmai.o+ckitio.o+ckifio.o+ckcfns.o+*
+        ckcfn2.o+ckcpro.o+ckucmd.o+ckuus2.o+ckuus3.o+ckuusr.o+*
+        ckicon.o+ckistu.o+ckiutl.o
+to      kermit
+library lib:lc.lib+lib:amiga.lib

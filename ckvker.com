@@ -2,7 +2,7 @@ $	SAVE_VERIFY = 'F$VERIFY(0) + F$VERIFY(0'CKVKER_VERIFY' .GT. 0)
 $	ON CONTROL_Y THEN GOTO ABNORMAL_EXIT
 $	ON WARNING THEN GOTO ABNORMAL_EXIT
 $!
-$! CKVKER.COM	1.0 (001)+2 25-June-1985
+$! CKVKER.COM	1.0 (002) 25-June-1985
 $!
 $! Build Kermit modules.
 $!
@@ -23,15 +23,16 @@ $!			so that DCL won't convert them to uppercase.
 $!
 $! Modifications:
 $!
+$!	25-Jun-85	Allow external specification of CC options, and
+$!			provide some defaults.
+$!							-- Dan Schullman
+$!
 $!	24-Jun-85	Automatically determine C Run-Time library to use.
 $!			Save and restore verification, and exit on errors.
 $!			Display additional "progress" information.
 $!			Avoid use of LNK$LIBRARY in case user had it defined.
 $!			Use CCMAKE to compile CKCPRO and CKWART.
 $!							-- Dan Schullman
-$!
-$!	25-Jun-85	Allow external specification of CC options, and
-$!			provide some defaults. -- Dan Schullman
 $!
 $! Define command to be used in conditionally compiling C sources.
 $!

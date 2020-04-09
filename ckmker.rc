@@ -1,0 +1,1363 @@
+*
+* File ckmker.rc
+*
+* This file contains the resources for rmaker for the kermit program
+*
+* You might need to recompile RMAKER with NRESCOMP = 100;
+*
+
+* Table of contents:
+*  KERM
+*  	0	- Version number string 
+*  MENU
+*	1	- File menu
+*	2	- Set menu
+*	3	- Transfer menu
+*	4	- Remote menu
+*	5	- Server menu
+*	6	- Launch menu
+*  WIND
+*	1000	- Remote command response
+*  CNTL
+*	1000	- Remote command vertical scroll bar
+*	1001	- Remote command horizontal scroll bar
+*  DLOG
+*	257	- About kermit
+*	230	- Screen (status)
+*	1001	- Communications settings
+*	1002	- Protocol settings
+*	1003	- Remote command parser
+*	1004	- File settings
+*	3998	- DLOG for "Get file..."
+*	3999	- SFPPutFile DLOG for "Receive file..."
+*	4000	- SFPGetFile DLOG for "Send file..."
+*  DITL
+*	1	- error message
+*	2	- error message
+*	3	- abort from protocol
+*	100	- alert when opening an exsiting file
+*	230	- Screen display (status)
+*	257	- About kermit
+*	1001	- Communications settings
+*	1002	- Protocol settings
+*	1003	- Remote command parser
+*	1004	- File settings
+*	3998	- Get file...
+*	3999	- Receive file...
+*	4000	- Send file...
+* ICON
+*	1000	- Kermit Icon
+*	2000	- Bill Catchings
+*	2001	- Bill Schilit
+*	2002	- Frank da Cruz
+*	3000	- Communications port A
+*	3001	- Communications port B
+* ALRT
+*	1	- Alert ?
+*	2	- Alert ?
+*	3	- Alert, abort from protocol
+*	4	- Alert for opening existing file
+* ICN#
+*	128	- Mackermit icon with mask for finder
+* FREF
+*	128	- Reference for above
+* BNDL
+*	128	- Bundle for above
+* KSET		
+*	--	- default key configurations definition
+* MSET
+*	--	- default meta string
+* FSET
+*	--	- default function strings
+
+*
+* Note on resource attributes (parenthesized value after resource id):
+* These are the same as the resource manager's attributes:
+*
+*	 64	Read into system heap (don't do this here)
+*	 32	Set if purgeable.
+*	 16	Set if locked (won't be relocated once in memory)
+*	  4	Set if to be preloaded.
+*
+
+
+* Specify output file of executable code
+
+ckmker.rsrc
+
+* ID string
+Type KERM = STR
+ ,0
+Kermit Version 0.8(43A) -- March 1986
+
+*
+* MENUS - (4) means to preload the resource.  "^T" is the apple character.
+*
+
+Type MENU
+ ,1(4)
+ 
+   About Kermit
+   (-
+
+Type MENU
+ ,2(4)
+ File
+   Restore Settings...
+   Save Settings...
+   (-
+   Get file from server...
+   Send file...
+   Receive file...
+   (-
+   Quit
+
+Type MENU
+ ,3(4)
+ Settings
+   File Defaults...
+   Communications...
+   Protocol...
+   (-
+   -Shift-1...-Shift-9
+
+Type MENU
+ ,4(4)
+ Remote
+   Show Response
+   (-
+   Finish
+   Bye
+   (-
+   Cwd...
+   Delete file...
+   Directory...
+   Help...
+   Host...
+   Space...
+   Type...
+   Who...
+   (-
+   Be a Server
+
+Type MENU
+ ,5(4)
+ Transfer
+   To Application...
+
+*
+*  WIND - Remote command window
+*
+Type WIND
+ ,1000
+ Remote Response
+ 215 185 315 490
+ Visible GoAway
+ 0
+ 0
+
+Type CNTL
+ ,1000
+ Vertical Scroll Bar
+ -1 395 236 411
+ Visible
+ 16
+ 0
+ 0 0 50
+
+Type CNTL
+ ,1001
+ Horizontal Scroll Bar
+ 235 -1 251 396
+ Visible
+ 16
+ 0
+ 0 0 50
+
+*
+* DLOG 257 - About KERMIT
+*
+
+Type DLOG
+  ,257
+ 55 70 260 430
+Visible 1 NoGoAway 0
+  257
+About DLOG
+
+*
+* DLOG 230 - Screen (status) dialog
+*
+
+Type DLOG
+ ,230
+70 59 227 448
+Invisible 1 NoGoAway 0
+230
+
+*
+* DLOG 1001 - Communications settings
+*
+
+Type DLOG
+ ,1001
+ 30 60 310 450
+ Invisible 1 NoGoAway 0
+ 1001
+
+*
+* DLOG 1002 - Protocol settings
+*
+
+Type DLOG
+ ,1002
+ 30 60 310 450
+ Invisible 1 NoGoAway 0
+ 1002
+
+*
+* DLOG 1003 - Remote command parser
+*
+
+Type DLOG
+ ,1003
+50 37 192 415
+ Invisible 1 NoGoAway 0
+ 1003
+
+*
+* DLOG 1004 - File settings dialog
+*
+
+Type DLOG
+ ,1004
+50 61 300 425
+Invisible 1 NoGoAway 0
+1004
+
+*
+* DLOG 3998
+* 
+
+Type DLOG
+ ,3998
+70 77 203 360
+Invisible 1 NoGoAway 0
+3998
+
+*
+* DLOG 3999
+* 
+
+Type DLOG
+ ,3999
+0 0 168 331
+Invisible 1 NoGoAway 0
+3999
+
+*
+* DLOG 4000
+*
+
+Type DLOG
+ ,4000
+0 0 228 404
+Invisible 1 NoGoAway 0
+4000
+
+
+*
+* DITL 1 - Error occured
+*
+
+Type DITL
+,1
+2
+BtnItem Enabled
+65 20 94 63
+OK
+
+StatText Disabled
+12 72 94 236
+^0 ^1
+
+*
+* DITL 2 - Debug information
+*
+
+Type DITL
+,2
+2
+BtnItem Enabled
+90 13 110 83
+OK
+
+StatText Disabled
+10 60 70 350
+Debug: ^0 ^1 ^2 ^3
+
+*
+* DITL 3 - Abort typed
+*
+
+Type DITL
+ ,3
+3
+BtnItem Enabled
+63 75 83 125
+OK
+
+BtnItem Enabled
+63 154 83 204
+Cancel
+
+StatText Disabled
+10 75 46 216
+Emergency Exit?
+
+*
+* DITL 230 - Screen (status) preload, not purgeable.
+*
+
+Type DITL
+ ,230(4)
+ 15
+* 1
+BtnItem Enabled
+121 94 153 186
+Cancel File
+
+* 2
+BtnItem Enabled
+121 201 153 293
+Cancel Group
+
+* 3 Receiving/Sending message
+StatText Disabled
+13 15 29 84
+Receiving
+
+* 4 Receiving/sending filename
+StatText Disabled
+13 88 30 276
+
+
+* 5 "AS" field or blank if none
+StatText Disabled
+32 58 49 84
+As
+
+* 6 AS file name or blank if none
+StatText Disabled
+32 88 49 276
+
+
+* 7 Kilo bytes transfered
+StatText Disabled
+61 14 78 68
+KBytes:
+
+* 8 Numeric value for above (or xx/xx if known)
+StatText Disabled
+61 70 78 133
+
+
+* 9 Packets
+StatText Disabled
+62 148 77 208
+Packets:
+
+* 10 Numeric field for above
+StatText Disabled
+62 210 77 253
+
+
+* 11 "Retries"
+StatText Disabled
+63 272 79 327
+Retries:
+
+* 12 Numeric field for above
+StatText Disabled
+63 329 79 376
+
+
+* 13 DATA FORK or RSRC FORK
+StatText Disabled
+32 292 49 361
+
+
+* 14 BINARY MODE or TEXT MODE message
+StatText Disabled
+14 292 30 383
+
+
+* 15 Status/message line
+StatText Disabled
+84 31 118 362
+Emergency exit: hold down  and type a period.
+
+*
+* DITL 257 - About KERMIT
+*
+
+Type DITL
+  ,257(32)
+11
+*   1
+BtnItem Enabled
+169 144 189 202
+OK
+
+*   2
+StatText Disabled
+15 62 32 306
+^0
+
+*   3
+StatText Disabled
+33 62 50 305
+Columbia University
+
+*   4
+StatText Disabled
+51 62 68 305
+Copyright 1985, All Rights Reserved
+
+*   5
+IconItem Disabled
+15 10 47 42
+1000
+
+*   6
+IconItem Disabled
+88 47 120 79
+2000
+
+*   7
+StatText Disabled
+130 21 147 115
+Bill Catchings
+
+*   8
+IconItem Disabled
+89 253 121 285
+2001
+
+*   9
+StatText Disabled
+130 237 146 310
+Bill Schilit
+
+*   10
+IconItem Disabled
+89 153 121 185
+2002
+
+*   11
+StatText Disabled
+130 127 146 223
+Frank da Cruz
+
+
+*
+* DITL 1001 - Communications settings
+*
+
+Type DITL
+ ,1001(32)
+31
+*   1
+BtnItem Enabled
+240 260 265 310
+OK
+
+*   2
+BtnItem Enabled
+240 330 265 380
+Cancel
+
+*   3
+StatText Disabled
+5 5 21 182
+Communications Settings
+
+*   4
+StatText Disabled
+35 5 50 75
+Baud Rate
+
+*   5
+RadioItem Enabled
+35 80 50 130
+300
+
+*   6
+RadioItem Enabled
+35 155 50 205
+600
+
+*   7
+RadioItem Enabled
+35 230 50 280
+1200
+
+*   8
+RadioItem Enabled
+35 305 50 355
+1800
+
+*   9
+RadioItem Enabled
+55 80 70 130
+2400
+
+*   10
+RadioItem Enabled
+55 155 70 205
+4800
+
+*   11
+RadioItem Enabled
+55 230 70 280
+7200
+
+*   12
+RadioItem Enabled
+55 305 70 355
+9600
+
+*   13
+RadioItem Enabled
+75 80 90 140
+19.2K
+
+*   14
+RadioItem Enabled
+75 155 90 215
+57.6K
+
+*   15
+StatText Disabled
+175 5 191 75
+Auto Wrap
+
+*   16
+RadioItem Disabled
+175 80 191 153
+On
+
+*   17
+RadioItem Disabled
+175 197 191 247
+Off
+
+*   18
+StatText Disabled
+125 5 141 75
+Parity
+
+*   19
+RadioItem Enabled
+125 255 141 312
+Mark
+
+*   20
+RadioItem Enabled
+125 319 141 384
+Space
+
+*   21
+RadioItem Enabled
+125 80 141 130
+Even
+
+*   22
+RadioItem Enabled
+125 140 141 190
+Odd
+
+*   23
+RadioItem Enabled
+125 197 141 251
+None
+
+*   24
+StatText Disabled
+150 5 166 61
+Echo
+
+*   25
+RadioItem Enabled
+150 80 166 170
+Local
+
+*   26
+RadioItem Enabled
+150 197 166 288
+Remote
+
+*   27
+StatText Disabled
+229 5 245 120
+Connection Port
+
+*   28
+RadioItem Disabled
+229 125 244 140
+
+
+*   29
+RadioItem Disabled
+229 187 244 202
+
+
+*   30
+IconItem Disabled
+220 145 252 177
+3000
+
+*   31
+IconItem Disabled
+220 207 252 239
+3001
+
+*
+* DITL 1002 - Protocol settings
+*
+Type DITL
+ ,1002(32)
+35
+*   1
+BtnItem Enabled
+200 332 225 382
+OK
+
+*   2
+BtnItem Enabled
+238 332 263 382
+Cancel
+
+*   3
+StatText Disabled
+5 5 21 182
+Protocol Settings
+
+*   4
+StatText Disabled
+35 5 50 135
+Block Check Type
+
+*   5
+RadioItem Enabled
+35 144 50 199
+1
+
+*   6
+RadioItem Enabled
+35 207 50 262
+2
+
+*   7
+RadioItem Enabled
+35 271 50 326
+3
+
+*   8
+StatText Disabled
+57 5 72 135
+Handshake
+
+*   9
+RadioItem Enabled
+57 332 72 387
+Bell
+
+*   10
+RadioItem Enabled
+57 144 72 199
+CR
+
+*   11
+RadioItem Enabled
+57 271 72 326
+ESC
+
+*   12
+RadioItem Enabled
+57 207 72 262
+LF
+
+*   13
+RadioItem Enabled
+79 271 94 326
+None
+
+*   14
+RadioItem Enabled
+79 144 94 199
+XON
+
+*   15
+RadioItem Enabled
+79 207 94 261
+XOFF
+
+*   16
+StatText Disabled
+114 237 146 313
+     SEND (outbound)
+
+*   17
+StatText Disabled
+113 156 146 224
+ RECEIVE (inbound)
+
+*   18
+StatText Disabled
+155 10 171 149
+Start of packet char
+
+*   19
+EditText Enabled
+155 183 171 203
+00
+
+*   20
+StatText Disabled
+175 21 191 149
+End of packet char
+
+*   21
+EditText Enabled
+176 183 192 203
+00
+
+*   22
+StatText Disabled
+195 88 212 149
+Pad char
+
+*   23
+EditText Enabled
+197 183 213 203
+00
+
+*   24
+StatText Disabled
+217 91 234 149
+Padding
+
+*   25
+EditText Enabled
+218 183 234 203
+00
+
+*   26
+StatText Disabled
+239 10 255 148
+Seconds for timeout 
+
+*   27
+EditText Enabled
+239 183 255 203
+00
+
+*   28
+StatText Disabled
+258 53 274 148
+Packet length
+
+*   29
+EditText Enabled
+260 183 276 203
+00
+
+*   30
+EditText Enabled
+153 265 169 285
+00
+
+*   31
+EditText Enabled
+174 265 190 285
+00
+
+*   32
+EditText Enabled
+195 265 211 285
+00
+
+*   33
+EditText Enabled
+216 265 232 285
+00
+
+*   34
+EditText Enabled
+237 265 253 285
+00
+
+*   35
+EditText Enabled
+258 265 274 285
+00
+
+
+
+*
+* DITL 1003 - Remote command parser
+*
+
+Type DITL
+ ,1003(32)
+8
+*   1
+BtnItem Enabled
+83 100 113 185
+Do It
+
+*   2
+BtnItem Enabled
+83 203 113 288
+Cancel
+
+*   3
+StatText Disabled
+5 8 21 298
+Remote command is ^0
+
+* 4 (help on arg1)
+StatText Disabled
+31 8 47 83
+^1
+
+* 5
+EditText Enabled
+31 90 47 365
+
+
+* 6 (help on arg2)
+StatText Disabled
+56 8 72 83
+^2
+
+* 7
+EditText Enabled
+57 90 73 365
+
+
+* 8
+StatText Disabled
+120 30 136 352
+Emergency exit: hold down  and type a period.
+
+
+*
+* DITL 1004 - File settings.  Keep radItems at same index as in other
+*	      dialogs with same settings.
+
+Type DITL
+ ,1004
+14
+* 1 OK button - do settings
+BtnItem Enabled
+211 87 237 159
+OK
+
+* 2 Cancel button - forget these settings
+BtnItem Enabled
+211 193 237 265
+Cancel
+
+* 3 Prompt string
+StatText Disabled
+10 10 26 182
+File Settings
+
+* 4 
+RadioItem Enabled
+50 10 70 325
+Attended: dialog on each file received.
+
+* 5 
+RadioItem Enabled
+84 10 105 330
+Unattended: with the following defaults...
+
+* 6  
+RadioItem Enabled
+112 32 130 341
+Supersede existing files of the same name.
+
+* 7 
+RadioItem Enabled
+130 32 147 351
+Create new file names to avoid conflicts.
+
+* 8 
+StatText Disabled
+159 33 176 77
+Mode:
+
+* 9 
+StatText Disabled
+160 176 176 213
+Fork:
+
+* 10 Place holder
+StatText Disabled
+48 410 56 426
+-
+
+* 11 Radio for fork type data
+RadioItem Enabled
+160 213 177 271
+Data
+
+* 12 Radio for fork type resource
+RadioItem Enabled
+176 213 193 296
+Resource
+
+* 13 Radio for data type text
+RadioItem Enabled
+159 77 176 140
+Text
+
+* 14 Radio for data type binary
+RadioItem Enabled
+175 77 193 143
+Binary
+
+
+*
+*
+* DITL 3998 
+*
+
+Type DITL
+ ,3998
+5
+* 1 Get button
+BtnItem Enabled
+90 38 112 117
+Get
+
+* 2 Cancel button
+BtnItem Enabled
+90 155 112 225
+Cancel
+
+* 3 Prompt string
+StatText Disabled
+32 12 48 184
+Get remote file:
+
+* 4 EditText for remote file name
+EditText Enabled
+57 15 76 247
+
+
+* 5 IconItem for Kermit Picture
+IconItem Disabled
+11 216 43 248
+1000
+
+*
+* DITL 3999
+*
+
+Type DITL
+ ,3999
+15
+* 1 Receive button
+BtnItem Enabled
+69 18 90 99
+OK
+
+* 2 Cancel button
+BtnItem Enabled
+69 109 90 179
+Cancel
+
+* 3 Prompt string
+StatText Disabled
+13 12 29 184
+Receive as:
+
+* 4 Disk name
+UserItem Disabled
+57 226 75 312
+
+
+* 5 Eject button
+BtnItem Enabled
+93 236 111 306
+Eject
+
+* 6 Drive button
+BtnItem Enabled
+123 236 142 306
+Drive
+
+* 7 File name
+EditText Enabled
+39 14 55 182
+
+
+* 8 Gray line
+UserItem Disabled
+18 210 141 212
+
+
+* 9 IconItem for Kermit Picture
+IconItem Disabled
+11 251 43 283
+1000
+
+* 10 Place holder (invisible)
+StatText Disabled
+32 435 128 536
+h
+
+* 11 Radio for fork type data
+RadioItem Enabled
+133 111 150 169
+Data
+
+* 12 Radio for fork type resource
+RadioItem Enabled
+149 111 166 193
+Resource
+
+* 13 Radio for data type text
+RadioItem Enabled
+133 17 150 80
+Text
+
+* 14 Radio for data type binary
+RadioItem Enabled
+149 17 167 82
+Binary
+
+* 15 Button to receive the rest
+BtnItem Enabled
+101 18 125 178
+Proceed Automatically
+
+*
+* DITL 4000
+*
+
+Type DITL
+ ,4000
+18
+*   1
+BtnItem Enabled
+51 174 69 254
+Send
+
+*   2
+BtnItem Enabled
+148 488 166 568
+0
+
+*   3
+BtnItem Enabled
+91 173 109 253
+Cancel
+
+*   4
+UserItem Disabled
+83 284 101 380
+
+
+*   5
+BtnItem Enabled
+121 290 139 370
+Eject
+
+*   6
+BtnItem Enabled
+154 291 172 371
+Drive
+
+*   7
+UserItem Enabled
+10 9 124 149
+
+
+*   8
+UserItem Enabled
+10 148 124 164
+
+
+*   9
+UserItem Enabled
+30 269 188 271
+
+
+*   10
+StatText Disabled
+32 435 128 536
+h
+
+* 11
+RadioItem Enabled
+186 169 203 227
+Data
+
+* 12
+RadioItem Enabled
+202 169 219 251
+Resource
+
+* 13
+RadioItem Enabled
+186 49 203 112
+Text
+
+* 14
+RadioItem Enabled
+202 49 220 114
+Binary
+
+* 15
+StatText Disabled
+132 14 150 46
+As:
+
+* 16 As file name edit text
+EditText Enabled
+52 455 148 556
+
+
+* 17 Invisible text
+EditText Enabled
+155 17 176 256
+
+
+* 18
+IconItem Disabled
+31 311 63 343
+1000
+
+*
+* MacKermit Icon, ID 1000
+*
+
+Type ICON
+ ,1000
+00000000 00000000 00000002 0003760B 00058D07 0007070E 00080082 00140242
+00160642 50119886 300C631C 5FC30CF8 20F7FFE0 001F5700 0003AA00 00015600
+0007AF00 003FF7E0 00FC00F8 0185FF5C 2105DB44 6605D744 EC05CF44 7005D744
+2005DB45 0005FF4F 00040047 00040040 00040F40 00050040 00040040 0007FFC0
+
+*
+* People ICONs:
+*  2000 - Bill Catchings
+*  2001 - Bill Schilit
+*  2002 - Frank da Cruz
+*
+
+Type ICON
+ ,2000
+00000000 0003FE00 001D1580 003446C0 00511160 00444720 009118D0 00C46050
+01114050 01458028 03160028 0249E3D8 03120038 0250E5D0 02B04490 03600410
+03600410 03600010 03C01110 01100E10 01500020 00C840A0 00483F20 00040040
+00220040 00018080 00206100 00001E00 00000000 00000000 00000000 00000000
+
+Type ICON
+ ,2001
+00000000 000FF800 00355600 00EAAB80 01555540 01AAAAC0 035557E0 02AAADA0
+035578E0 06ABC0B0 057E00D0 06E000F0 05DE3DD0 0761C370 055C9D50 07488970
+0541C150 03222260 029C1C20 01814060 018000C0 0143E1C0 00C7F280 00AC1F80
+007BEB00 00288E00 00388A00 001FFC00 000D5800 0007E000 00000000 00000000
+
+Type ICON
+ ,2002
+0003F000 000E5800 00310600 00FA2F80 01C08EC0 013A5940 03573360 0331E1B0
+02E000B0 068000F8 05800058 0580007C 0D00002C 0B3E3E34 0F41413C 051C9C48
+07888858 02808068 03808050 028000F0 034140C0 01C6B0C0 00CB6980 00680980
+0077F700 00308600 001D5C00 000AA800 00055000 0003E000 00000000 00000000
+
+*
+* Other ICONS
+* 3000 - Communications port A
+* 3001 - Communications port B
+*
+
+Type ICON
+ ,3000
+7FFFFFFE 80000001 80000001 80000031 80000049 81C00049 82200131 84100081
+88100641 88080901 90080901 90082601 90101001 9060C801 88812001 88812001
+8484C001 84420001 82210001 82100E01 81081181 80842041 80422021 8021C021
+80100021 800C0041 80030081 8000C301 80003C01 80000001 80000001 7FFFFFFE
+
+Type ICON
+ ,3001
+7FFFFFFE 80000001 80000001 80000001 80FFC001 80806001 80805001 80804801
+80804401 80807E01 80800201 80800201 80800201 80800201 80800201 80800201
+80800201 80800201 8F8003E1 88800221 88800239 88FFFE29 88000029 88000029
+88000039 88000021 88000021 8FFFFFE1 80000001 80000001 80000001 7FFFFFFE
+
+*
+* ALRT 1 - ???
+*
+
+Type ALRT
+,1
+113 121 222 378
+1
+5555
+
+*
+* ALRT 2 - ???
+*
+
+Type ALRT
+,2
+60 81 180 431
+2
+5555
+
+*
+* ALRT 3 - Abort from protocol.
+*
+
+Type ALRT
+,3
+108 147 212 372
+3
+5555
+
+*
+* ALRT 4 - Open existing file (uses system DITL for same)
+*
+
+Type ALRT
+ ,4
+115 130 221 341
+-3996
+5555
+
+*
+* ICN# 128 - MacKermit icon for APPL file
+*
+
+Type ICN# = HEXA
+  ,128(32)
+00000000 00000000 00700e00 00881100 01242480 01742e80 038ff1c0 04700e20
+04000020 047ffe20 04800120 04800120 04c00320 04b00d20 048c3120 0483c120
+04800120 04800120 047ffe20 04000020 04000020 04000020 04000020 04000020
+0400ff20 04000720 04000020 04000020 04000020 03ffffc0 00000000 00000000 
+* mask
+00000000 00700e00 00f81f00 01fc3f80 03fe7fc0 07ffffe0 07ffffe0 0ffffff0
+0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0
+0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0
+0ffffff0 0ffffff0 0ffffff0 0ffffff0 0ffffff0 07ffffe0 07ffffe0 00000000 
+
+*
+* ICN# 129 - MacKermit ICON for TEXT file
+* 
+
+Type ICN# = HEXA
+  ,129(32)
+0FFFFE00 08000300 08000280 08000240 08000220 08000210 08181BF8 08242408
+085A5A08 08E7E708 09181888 09000088 091FF888 09200488 09300C88 09281488
+09266488 09218488 09200488 091FF888 09000088 09000088 09000088 0900FC88
+09001C88 09000088 09000088 09000088 08FFFF08 08000008 08000008 0FFFFFF8
+* Mask
+0FFFFE00 0FFFFF00 0FFFFF80 0FFFFFC0 0FFFFFE0 0FFFFFF0 0FFFFFF8 0FFFFFF8
+0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8
+0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8
+0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8 0FFFFFF8
+
+Type FREF = HEXA
+  ,128(32)
+* APPL uses loc icon 0, no tagalongs
+4150504C
+0000
+00
+
+Type FREF = HEXA
+  ,129(32)
+* TEXT uses loc icon 1, no tagalongs
+54455854
+0001
+00
+
+Type BNDL = HEXA
+  ,128
+* owner KERM 0
+4B45524D0000
+* 2 types follow, ICN# and FREF
+0001
+* ICN#, 2 entries, local 0 to global 128, local 1 to global 129
+49434E230001
+0000 0080
+0001 0081
+* FREF, 2 entries, local 0 to global 128, local 1 to global 129
+465245460001
+0000 0080
+0001 0081
+
+* Compiled program code
+
+Type CODE
+  ckmker.out,0
+
+*
+* KSET - Kermit's Keyboard defaults settings (struct KSET).
+*	 Create by CKMKEY's decompile option.
+*
+
+* Decompiled information from master
+
+Type FSET = HEXA
+ ,2
+12 03 1b 4f 70 03 1b 4f 71 03 1b 4f 72 03 1b 4f 73 03 1b 4f 74 03 1b 4f 75 03
+1b 4f 76 03 1b 4f 77 03 1b 4f 78 03 1b 4f 79 03 1b 4f 6d 03 1b 4f 6c 03 1b 4f
+6e 03 1b 4f 4d 02 1b 50 02 1b 51 02 1b 52 02 1b 53
+
+
+Type MSET = HEXA
+ ,2
+01 1b
+
+
+Type KSET = HEXA
+ ,2
+00 00 09 00 00 00 08 00 00 00 04 00 61 73 64 66 68 67 7a 78 63 76 00 62 71 77
+65 72 79 74 31 32 33 34 36 35 3d 39 37 2d 38 30 5d 6f 75 5b 69 70 0d 6c 6a 27
+6b 3b 5c 2c 2f 6e 6d 2e 09 20 1b 7f fe 00 00 00 00 00 00 00 00 00 00 00 00 2e
+2a 00 00 00 2b 84 2c 00 00 00 0a 2f 2d 00 00 00 30 31 32 33 34 35 36 37 00 38
+39 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 41 53 44 46 48 47 5a 58 43 56 00 42 51 57 45 52 59
+54 21 40 23 24 5e 25 2b 28 26 5f 2a 29 7d 4f 55 7b 49 50 0d 4c 4a 22 4b 3a 7c
+3c 3f 4e 4d 3e 09 20 7e 08 ff 00 00 00 00 00 00 00 00 00 00 00 00 2e 2a 00 00
+00 2b 00 2c 00 00 00 0a 2f 2d 00 00 00 30 31 32 33 34 35 36 37 00 38 39 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 41 53 44 46 48 47 5a 58 43 56 00 42 51 57 45 52 59 54 31 32
+33 34 36 35 3d 39 37 2d 38 30 5d 4f 55 5b 49 50 0d 4c 4a 27 4b 3b 5c 2c 2f 4e
+4d 2e 09 20 60 08 0d 00 00 00 00 00 00 00 00 00 00 00 00 8c 8f 00 00 00 8e 00
+91 00 00 00 8d 90 8a 00 00 00 80 81 82 83 84 85 86 87 00 88 89 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 41 53 44 46 48 47 5a 58 43 56 00 42 51 57 45 52 59 54 21 40 23 24 5e
+25 2b 28 26 5f 2a 29 7d 4f 55 7b 49 50 0d 4c 4a 22 4b 3a 7c 3c 3f 4e 4d 3e 09
+20 7e 08 0d 00 00 00 00 00 00 00 00 00 00 00 00 2e 2a 00 00 00 2b 00 2c 00 00
+00 0a 2f 2d 00 00 00 30 31 32 33 34 35 36 37 00 38 39 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+01 13 04 06 08 07 1a 18 03 16 00 02 11 17 05 12 19 14 31 32 33 34 36 35 3d 39
+37 2d 38 30 5d 0f 15 5b 09 10 0d 0c 0a 27 0b 3b 1c 2c 2f 0e 0d 2e 09 20 60 08
+0d 00 00 00 00 00 00 00 00 00 00 00 00 2e 2a 00 00 00 2b 00 2c 00 00 00 0a 2f
+2d 00 00 00 30 31 32 33 34 35 36 37 00 38 39 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 13 04
+06 08 07 1a 18 03 16 00 02 11 17 05 12 19 14 21 00 23 24 1e 25 2b 28 26 1f 2a
+29 1d 0f 15 1b 09 10 0d 0c 0a 1c 0b 3a 1c 3c 3f 0e 0d 3e 09 20 1e 08 0d 00 00
+00 00 00 00 00 00 00 00 00 00 2e 2a 00 00 00 2b 00 2c 00 00 00 0a 2f 2d 00 00
+00 30 31 32 33 34 35 36 37 00 38 39 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 cb d0 00 00
+cb d4 00 00
+
