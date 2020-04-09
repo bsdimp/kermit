@@ -25,13 +25,14 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
 /*  C K C M A I  --  C-Kermit Main program  */
 
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software as long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 /*
  The Kermit file transfer protocol was developed at the Columbia University
@@ -44,33 +45,46 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
  program over the years, and apologies to anybody I missed:
 
    Chris Adie, Edinburgh U, Scotland (OS/2 support)
+   Robert Adsett, University of Waterloo, Canada
    Larry Afrin, Clemson U
    Barry Archer, U of Missouri
-   Robert Andersson, Oslo, Norway
+   Robert Andersson, International Systems A/S, Oslo, Norway
    Chris Armstrong, Brookhaven National Lab (OS/2)
    William Bader, Moravian College
    Fuat Baran, CUCCA
    Stan Barber, Rice U
    Jim Barbour, U of Colorado
+   Donn Baumgartner, Dell
    Nelson Beebe, U of Utah
    Karl Berry, UMB
+   Dean W Bettinger, SUNY
+   Gary Bilkus
+   Marc Boucher, U of Montreal
    Charles Brooks, EDN
+   Bob Brown
    Mike Brown, Purdue U
+   Jack Bryans, California State U at Long Beach
    Mark Buda, DEC (VAX/VMS)
-   Bjorn Carlsson, Stockholm University Computer Center QZ
+   Bjorn Carlsson, Stockholm University Computer Centre QZ, Sweden
    Bill Catchings, formerly of CUCCA
    Bob Cattani, Columbia U CS Dept
+   Davide Cervone, Rochester University
+   Seth Chaiklin, Denmark
    John Chandler, Harvard U / Smithsonian Astronomical Observatory
-   John L. Chmielewski, AT&T, Lisle, IL
+   John L Chmielewski, AT&T, Lisle, IL
    Howard Chu, U of Michigan
    Bill Coalson, McDonnell Douglas
    Bertie Coopersmith, London, UK
+   Chet Creider, University of Western Ontario, Canada
    Alan Crosswell, CUCCA
    Jeff Damens, formerly of CUCCA
    Mark Davies, Bath U, UK
-   Joe R. Doupnik, Utah State U
    S. Dezawa, Fujifilm, Japan
+   Joe R. Doupnik, Utah State U
    Frank Dreano (Honeywell)
+   John Dunlap, University of Washington
+   David Dyck, John Fluke Mfg Co.
+   Bernie Eiben, DEC
    Kristoffer Eriksson, Peridot Konsult AB, Oerebro, Sweden
    John R. Evans, IRS, Kansas City
    Glenn Everhart, RCA Labs
@@ -78,45 +92,64 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Carl Fongheiser, CWRU
    Marcello Frutig, Catholic University, Sao Paulo, Brazil (X.25 support)
    Hirofumi Fujii, Japan Nat'l Lab for High Energy Physics, Tokyo (Kanji)
+   Chuck Fuller, PSC
    Andy Fyfe, Caltech
    Christine M. Gianone, CUCCA
    John Gilmore, UC Berkeley
    German Goldszmidt, IBM
+   Alistair Gorman, New Zealand
    Chris Green, Essex U, UK
+   Alan Grieg, Dundee Tech, Scotland, UK
    Yekta Gursel, MIT
    Jim Guyton, Rand Corp
+   Michael Haertel
+   Bob Hain, UMN
+   Marion Hakanson, ORST
+   John Hamilston, Iowa State U
+   Simon Hania, Netherlands
    Stan Hanks, Rice U.
    Ken Harrenstein, SRI
    James Harvey, Indiana/Purdue U (VMS)
-   Rob Healey, rhealey@kas.helios.mn.org
+   Rob Healey
    Chuck Hedrick, Rutgers U
    Ron Heiby, Technical Systems Division, Motorola Computer Group
    Steve Hemminger, Tektronix
    Christian Hemsing, RWTH Aachen, Germany (OS-9)
    Andrew Herbert, Monash Univ, Australia
    Mike Hickey, ITI
+   R E Hill
+   Bill Homer, Cray Research
    Randy Huntziger, National Library of Medicine
    Larry Jacobs, Transarc
-   Mark B. Johnson, Apple Computer
+   Steve Jenkins, Lancaster University, UK
+   Mark B Johnson, Apple Computer
+   Eric F Jones, AT&T
+   Luke Jones, AT&T
    Peter Jones, U of Quebec Montreal
    Phil Julian, SAS Institute
-   Marion Kananson, hakanson@cs.orst.edu
-   Sergey Kartashoff, Institute of..., Moscow, USSR
+   Mic Kaczmarczik, U of Texas at Austin
+   Sergey Kartashoff, Inst. of Precise Mechanics & Computer Equipment, Moscow
    Howie Kaye, CUCCA
    Rob Kedoin, Linotype Co, Hauppauge, NY (OS/2)
+   Mark Kennedy, IBM
    Terry Kennedy, St Peter's College, Jersey City, NJ (VAX/VMS, 2.11 BSD)
    Douglas Kingston, morgan.com
    Tom Kloos, Sequent Computer Systems
    Jim Knutson, U of Texas at Austin
+   Scott Kramer, SRI International, Menlo Park, CA
+   David Kricker, Encore Computer
    Thomas Krueger, UWM
    Bo Kullmar, Central Bank of Sweden, Kista
    John Kunze, UC Berkeley
    Bob Larson, USC (OS-9)
    Bert Laverman, Groningen U, Netherlands
+   Steve Layton
    David Lawyer, UC Irvine
    S.O. Lidie, Lehigh U
    Tor Lillqvist, Helsinki University, Finland
+   Dean Long
    Kevin Lowey, U of Saskatchewan (OS/2)
+   Andy Lowry, Columbia University
    David MacKenzie, Environmental Defense Fund, University of Maryland
    John Mackin, University of Sidney, Australia
    Martin Maclaren, Bath U, UK
@@ -124,22 +157,32 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Fulvio Marino, Olivetti, Ivrea, Italy
    Peter Mauzey, AT&T
    Tye McQueen, Utah State U
+   Ted Medin
    Hellmuth Michaelis
    Leslie Mikesell, American Farm Bureau
    Martin Minow, DEC (VAX/VMS)
+   Pawan Mistra, Bellcore
+   Ken Mizialko, IBM, Manassas, VA
    Ray Moody, Purdue U
-   Bruce J Moore (Atari ST)
+   Bruce J Moore, Allen-Bradley Co, Highland Heights, OH (Atari ST)
    Steve Morley, Convex
+   Peter Mossel, Columbia University
    Tony Movshon, NYU
-   Dan Murphy, ???
-   Gary Mussar,
+   Lou Muccioli, Swanson Analysis Systems
+   Dan Murphy
+   Gary Mussar
+   John Nall, FSU
+   Jack Nelson, University of Pittsburgh
    Jim Noble, Planning Research Corporation (Macintosh)
    Ian O'Brien, Bath U, UK
+   John Owens
+   Andre' Pirard, University of Liege, Belgium
    Paul Placeway, Ohio State U (Macintosh & more)
    Piet W. Plomp, ICCE, Groningen University, Netherlands
    Ken Poulton, HP Labs
    Manfred Prange, Oakland U
    Frank Prindle, NADC
+   Tony Querubin, U of Hawaii
    Anton Rang
    Scott Ribe
    Alan Robiette, Oxford University, UK
@@ -149,42 +192,54 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Jay Rouman, U of Michigan
    Jack Rouse, SAS Institute (Data General and/or Apollo)
    Stew Rubenstein, Harvard U (VAX/VMS)
+   Bill Schilit, Columbia University
    Eric Schnoebelen, Convex
    Benn Schreiber, DEC
    Dan Schullman, DEC (modems, DIAL command, etc)
    John Schultz, 3M
    Steven Schultz, Contel (PDP-11)
+   APPP Scorer, Leeds Polytechnic, UK
    Gordon Scott, Micro Focus, Newbury UK
    Gisbert W. Selke, WIdO, Bonn, Germany
    David Sizeland, U of London Medical School
+   Fridrik Skulason, Iceland
+   Dave Slate
    Bradley Smith, UCLA
-   Richard Smith, Cal State
-   Ryan Stanisfer
+   Richard S Smith, Cal State
+   Ryan Stanisfer, UNT
+   Bertil Stenstroem, Stockholm University Computer Centre (QZ), Sweden
    Peter Svanberg, Royal Techn. HS, Sweden
    Andy Tanenbaum, Vrije U, Amsterdam, Netherlands
    Markku Toijala, Helsinki U of Technology
    Rick Troxel, NIH
    Warren Tucker, Tridom Corp, Mountain Park, GA
    Dave Tweten, AMES-NAS
+   G Uddeborg, Sweden
    Walter Underwood, Ford Aerospace
    Pieter Van Der Linden, Centre Mondial, Paris
    Ge van Geldorp, Netherlands
    Fred van Kempen, MINIX User Group, Voorhout, Netherlands
    Wayne Van Pelt, GE/CRD
    Mark Vasoll, Oklahoma State U (V7 UNIX)
-   Paul Vixie (DEC)
+   Konstantin Vinogradov, ICSTI, Moscow
+   Paul Vixie, DEC
+   Dimitri Vulis, CUNY
    Roger Wallace, Raytheon
    Stephen Walton, Calif State U, Northridge (Amiga)
    Jamie Watson, Switzerland (RS/6000)
    Rick Watson, U of Texas (Macintosh)
+   Robert Weiner
    Lauren Weinstein
    Joachim Wiesel, U of Karlsruhe
    Michael Williams, UCLA
+   Nate Williams, U of Montana
+   David Wilson
    Patrick Wolfe, Kuck & Associates, Inc.
    Gregg Wonderly, Oklahoma State U (V7 UNIX)
    Farrell Woods, Concurrent (formerly Masscomp)
    Dave Woolley, CAP Communication Systems, London
    Jack Woolley, SCT Corp
+   Frank Wortner
    Ken Yap, U of Rochester
    John Zeeff, Ann Arbor, MI
 */
@@ -476,6 +531,7 @@ int parity,                             /* Parity specified, 0,'e','o',etc */
 
     int tlevel = -1;			/* Take-file command level */
 #ifndef NOSPL
+    extern int cmdlvl;			/* Command level */
     extern int maclvl;			/* Macro invocation level */
 #endif /* NOSPL */
     int carrier = CAR_AUT;		/* Pay attention to carrier signal */
@@ -640,15 +696,11 @@ main(argc,argv) int argc; char **argv;
     local = dfloc;                      /* And whether it's local or remote. */
     parity = dfprty;                    /* Set initial parity, */
     flow = dfflow;                      /* and flow control. */
-
-#ifndef COHERENT
     if (local) if (ttopen(ttname,&local,0,0) < 0) { /* If default tty line */
 	printf("%s: Can't open device\n",ttname);   /* is external, open it */
 	local = 0;			            /* now... */
 	strcpy(ttname,CTTNAM);
     }
-#endif
-
     speed = ttgspd();			/* Get transmission speed. */
 
 #ifdef SUNX25
@@ -671,6 +723,9 @@ main(argc,argv) int argc; char **argv;
 #ifndef NOCCTRAP
     setint();				/* Set up interrupts */
     if (setjmp(cmjbuf)) {		/* Control-C trap returns to here. */
+#ifdef GEMDOS
+	cc_clean();			/* Atari: Clean up after ^C-trap. */
+#endif /* GEMDOS */
 	doexit(GOOD_EXIT,-1);		/* Exit with good status. */
     } else {
 #endif /* NOCCTRAP */
@@ -706,7 +761,7 @@ main(argc,argv) int argc; char **argv;
 	    if (sstate) proto();	/* Enter protocol if requested. */
 	}
     }
-    *cmdfil = '\0';
+    *cmdfil = '\0';			/* Done, nullify the file name */
 #endif /* MAC */
 #endif /* NOICP */
 

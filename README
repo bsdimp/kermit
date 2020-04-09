@@ -1,7 +1,9 @@
-This directory contains C-Kermit version 4F(095), which was never formally
-released.  It is an upgrade of version 4E(072).  Its major new feature is
-attribute packets.  The VMS support files, ckv*.*, are known to be
-inconsistent with the mainline cku*.* and ckc*.* files.  These files are
-kept as a fallback for version 5A of C-Kermit, which is much bigger.  There
-may be computers for which version 5A is too big, and version 4F will still
-fit...
+This is kermit version 5A ported to 386bsd.  I've used it for several
+weeks now without any troubles.  ckufio.c, ckutio.c and makefile are
+in RCS.  Revision 1.1 of each is the virgin sources, and 
+revision 1.2 is the version for 396bsd.  To build it type:
+co *,v
+make 386bsd
+
+then edit the makefile to specify BINDIR and MANDIR, the destinations
+for the executable and man page.  Then type 'make install'.  Rich@rice.edu

@@ -1,15 +1,16 @@
-char *ckzv = "File support, 5A(058) 21 Jan 92";
+char *ckzv = "File support, 5A(060) 8 Feb 92";
 
 /* C K U F I O  --  Kermit file system support for UNIX, OS/2, and Aegis */
 
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.  Many other contributors.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained.
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /* Include Files */
@@ -72,6 +73,7 @@ char *ckzv = "File support, 5A(058) 21 Jan 92";
 #include <sys/dirent.h>
 #else
 #include <dirent.h>
+#define	d_ino		d_fileno	/* backward compatibility */
 #endif /* SDIRENT */
 #else
 #ifdef OS2
@@ -186,7 +188,9 @@ char *ckzsys = HERALD;
 #endif /* POSIX */
 
 #ifdef BSD4
+#ifndef __386BSD__
 #define NAMEENV "USER"
+#endif /* __386BSD__ */
 #endif /* BSD4 */
 
 #ifdef ATTSV
@@ -213,7 +217,9 @@ char *DIRCM2 = "dir ";			/* For directory listing, no args */
 char *WHOCMD = "";			/* Who's there? */
 char *SPACMD = "chkdsk ";		/* For space on disk */
 char *SPACM2 = "chkdsk ";		/* For space on disk */
-#else
+
+#else /* Not OS2 */
+
 char *DELCMD = "rm -f ";		/* For file deletion */
 char *PWDCMD = "pwd ";			/* For saying where I am */
 #ifdef COMMENT
@@ -222,7 +228,7 @@ char *DIRCM2 = "/bin/ls -ld *";		/* For directory listing, no args */
 #else
 char *DIRCMD = "/bin/ls -l ";		/* For directory listing */
 char *DIRCM2 = "/bin/ls -l ";		/* For directory listing, no args */
-#endif
+#endif /* COMMENT */
 char *TYPCMD = "cat ";			/* For typing a file */
 
 #ifdef FT18				/* Fortune For:Pro 1.8 */
@@ -245,11 +251,16 @@ char *SPACM2 = "df ";			/* For space in specified directory */
 #define BSD4
 #endif /* FT18 */
 
-#ifdef BSD4
-char *WHOCMD = "finger ";		/* For seeing who's logged in */
+#ifdef OXOS				/* For seeing who's logged in */
+char *WHOCMD = "who ";
 #else
-char *WHOCMD = "who ";			/* For seeing who's logged in */
+#ifdef BSD4
+char *WHOCMD = "finger ";
+#else
+char *WHOCMD = "who ";
 #endif /* BSD4 */
+#endif /* OSOS */
+
 #endif /* OS2 */
 
 #ifdef DTILDE				/* For tilde expansion */
@@ -283,16 +294,22 @@ _PROTOTYP( char * tilde_expand, (char *) );
 #ifndef is68k				/* Whether to include <fcntl.h> */
 #ifndef BSD41				/* All but a couple UNIXes have it. */
 #ifndef FT18
+#ifndef COHERENT
 #include <fcntl.h>
+#endif /* COHERENT */
 #endif /* FT18  */
 #endif /* BSD41 */
 #endif /* not is68k */
+
+#ifdef COHERENT
+#include <sys/fcntl.h>
+#endif /* COHERENT */
 
 #ifndef _POSIX_SOURCE
 #ifndef NEXT
 #ifndef SVR4
 /* POSIX <pwd.h> already gave prototypes for these. */
-#ifdef IRIX40
+#if defined (IRIX40) || defined (__386BSD__)
 _PROTOTYP( struct passwd * getpwnam, (const char *) );
 #else
 _PROTOTYP( struct passwd * getpwnam, (char *) );
@@ -977,11 +994,17 @@ zdelet(name) char *name; {
 
 VOID
 zrtol(name,name2) char *name, *name2; {
+    char *p;
+    debug(F101,"zrtol name","",name);
+    debug(F101,"zrtol name2","",name2);
+    if (!name || !name2) return;
+    debug(F101,"zrtol input","",name);
+    p = name2;
     for ( ; *name != '\0'; name++) {
-    	*name2++ = isupper(*name) ? tolower(*name) : *name;
+    	*p++ = isupper(*name) ? tolower(*name) : *name;
     }
-    *name2 = '\0';
-    debug(F110,"zrtol:",name2,0);
+    *p = '\0';
+    debug(F110,"zrtol result",name2,0);
 }
 
 
@@ -1740,11 +1763,13 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
     debug(F111,"zstime date check 3",yy->date.val,yy->date.len);
 
 #ifdef ANYBSD
+#ifndef __386BSD__
     debug(F100,"ztime BSD calling ftime","",0);
     ftime(&tbp);
     debug(F100,"ztime BSD back from ftime","",0);
     timezone = tbp.timezone * 60L;
     debug(F101,"ztime BSD timezone","",timezone);
+#endif /* __386BSD__ */
 #endif
 
 #ifdef ATTSV
@@ -2498,10 +2523,11 @@ whoami () {
   /* how about $USER or $LOGNAME? */
     if ((c = getenv(NAMEENV)) != NULL) { /* check the env variable */
 	strcpy (envname, c);
-	p = getpwnam(envname);
-	if (p->pw_uid == ruid) {	/* get passwd entry for envname */
-	    strcpy (realname, envname);	/* if the uid's are the same */
-	    return(realname);
+	if ((p = getpwnam(envname)) != NULL) {
+	    if (p->pw_uid == ruid) {	/* get passwd entry for envname */
+		strcpy (realname, envname); /* if the uid's are the same */
+		return(realname);
+	    }
 	}
     }
 

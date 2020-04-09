@@ -20,14 +20,16 @@ char *loginv = "Script Command, 5A(012) 25 Dec 91";
  end with ~c. Null expect strings (e.g., ~0 or --) cause a short
  delay, and are useful for sending sequences requiring slight pauses.
 
- Author: Herm Fischer (HFISCHER@USC-ECLB)
- Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Author: Herm Fischer (HFISCHER@USC-ECLB)
+  Contributed to Columbia University for inclusion in C-Kermit.
+  Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436, and
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 
- Modifications added 1985-1991, F. da Cruz, Columbia University.
+  Modifications added 1985-1992, F. da Cruz, Columbia University, and others.
 */
 
 #include "ckcdeb.h"

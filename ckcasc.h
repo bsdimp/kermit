@@ -1,7 +1,19 @@
+/*
+  File CKCASC.H
+  Mnemonics for ASCII control characters (and Space) for use with C-Kermit.
+*/
+/*
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
+*/
 #ifndef CKCASC_H
 #define CKCASC_H
-
-/* Mnemonics for ASCII control characters (and Space) */
 
 #define NUL  '\0'     /* Null */
 #define SOH  001      /* Start of header */
@@ -27,7 +39,6 @@
 #define XRS  036      /* Record Separator, Ctrl-Circumflex */
 #define SYN  '\x16'   /* SYN, Ctrl-V */
 #define CAN  030      /* CAN, Ctrl-X */
-#define SUB  032      /* SUB, Ctrl-Z */
 #define SP   040      /* Space */
 #define DEL  0177     /* Delete (Rubout) */
 #define RUB  0177     /* Delete (Rubout) */

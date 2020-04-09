@@ -1,17 +1,18 @@
-char *ckxv = "UNIX tty I/O, 5A(087), 8 Feb 92";
+char *ckxv = "UNIX tty I/O, 5A(089), 8 Feb 92";
 
 /*  C K U T I O  */
 
 /* C-Kermit interrupt, terminal control & i/o functions for UNIX */
 
 /*
- Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.  Many other contributors.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained.
+  Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /* Includes for all Unixes (conditional includes come later) */
@@ -20,6 +21,12 @@ char *ckxv = "UNIX tty I/O, 5A(087), 8 Feb 92";
 #include "ckcnet.h"			/* Symbols for network types. */
 
 #include <errno.h>			/* System error numbers */
+#ifdef __386BSD__
+#include <sys/errno.h>			/* System error numbers */
+/* If you define _POSIX_SOURCE you cannot get ENOTCONN from sys/errno.h */
+#define	ENOTCONN	57		/* Socket is not connected */
+#endif /* __386BSD__ */
+
 
 #ifdef SDIRENT				/* Directory bits... */
 #define DIRENT
@@ -134,10 +141,6 @@ char *ckxsys = HERALD;
   PIDSTRING means use ASCII string to represent pid in lockfile.
 */
 #ifndef LOCK_DIR
-#ifdef COHERENT
-#define PIDSTRING
-#define LOCK_DIR "/tmp";
-#else
 #ifdef RTAIX				/* IBM RT PC AIX 2.2.1 */
 #define PIDSTRING
 #define LOCK_DIR "/etc/locks";
@@ -178,7 +181,6 @@ char *ckxsys = HERALD;
 #endif /* ISIII */
 #endif /* AIXRS */
 #endif /* RTAIX */
-#endif /* COHERENT */
 #endif /* !LOCK_DIR (outside ifndef) */
    
 #endif /* !NOUUCP */
@@ -338,8 +340,11 @@ Time functions
 /* POSIX */
 
 #ifdef POSIX				/* POSIX uses termios.h */
+#define	NCCS		20
 #include <termios.h>
+#ifndef __386BSD__
 #define NOSYSIOCTLH			/* No ioctl's allowed. */
+#endif /* __386BSD__ */
 #undef ultrix				/* Turn off any ultrix features. */
 #endif /* POSIX */
 
@@ -351,6 +356,9 @@ Time functions
 
 #ifndef NOSYSIOCTLH			/* Others use ioctl() */
 #include <sys/ioctl.h>
+#ifdef __386BSD__
+#include <sys/ioctl_compat.h>
+#endif /* __386BSD__ */
 #endif /* NOSYSIOCTLH */
 
 /* Whether to include <fcntl.h> */
@@ -359,11 +367,17 @@ Time functions
 #ifndef BSD41
 #ifndef FT21
 #ifndef FT18
+#ifndef COHERENT
 #include <fcntl.h>
+#endif /* COHERENT */
 #endif /* FT18 */
 #endif /* FT21 */
 #endif /* BSD41 */
 #endif /* not is68k */
+
+#ifdef COHERENT
+#include <sys/fcntl.h>
+#endif /* COHERENT */
 
 #ifdef ATT7300				/* Unix PC, internal modem dialer */
 #include <sys/phone.h>
@@ -1173,6 +1187,7 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
         }
     }
 
+#ifndef NOFDZERO
 /* Note, the following code was added so that Unix "idle-line" snoopers */
 /* would not think Kermit was idle when it was transferring files, and */
 /* maybe log people out. */
@@ -1185,6 +1200,7 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 	    debug(F101,"ttopen stdio redirected","",ttyfd);
 	}
     }
+#endif /* NOFDZERO */
 
 /* Now check if line is locked -- if so fail, else lock for ourselves */
 /* Note: After having done this, don't forget to delete the lock if you */
@@ -1370,8 +1386,10 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 	}
 #endif /* ATTSV */
 #ifndef SCO3R2
+#ifndef OXOS
 /* Reportedly lets uugetty grab the device in SCO UNIX 3.2 / XENIX 2.3 */
 	close( priv_opn(ttname, O_RDWR) ); /* Magic to force change. */
+#endif /* OXOS */
 #endif /* SCO3R2 */
     }
 #endif /* O_NDELAY */
@@ -3375,7 +3393,8 @@ conbgt() {
 #ifdef SVR4ORPOSIX			/* POSIX actually tells us */
     debug(F100,"SVR4ORPOSIX jc test...","",0);
 #ifdef _SC_JOB_CONTROL
-    jc = sysconf(_SC_JOB_CONTROL);	/* Whatever system says */
+/*    jc = sysconf(_SC_JOB_CONTROL);	/* Whatever system says */
+    jc = 1;
     debug(F111,"sysconf(_SC_JOB_CONTROL)","jc",jc);
 #else
 #ifdef _POSIX_JOB_CONTROL
@@ -3858,13 +3877,13 @@ ttoc(c) char c;
     /* debug(F101,"ttoc","",(CHAR) c); */
     if (ttyfd < 0) return(-1);          /* Check for not open. */
     saval = signal(SIGALRM,timerh);	/* Enable timer interrupt */
-    alarm(2);				/* for 2 seconds. */
+    alarm(15);				/* for 15 seconds. */
     if (setjmp(sjbuf)) {		/* Timer went off? */
 	ttimoff();			/* Yes, turn off the alarm. */
-	conoc('\07');			/* Ring the bell. */
+	if (!backgrd) conoc('\07');	/* Ring the bell. */
         debug(F100,"ttoc timed out","",0); /* Log a message. */
 	if (ttflow == FLO_XONX) {
-	    debug(F100,"ttoc flow","",ttflow); 	/* Maybe we're xoff'd */
+	    debug(F101,"ttoc flow","",ttflow); 	/* Maybe we're xoff'd */
 #ifdef POSIX
 	    debug(F100,"ttoc tcflow","",0); /* POSIX way to unstick. */
 	    tcflow(ttyfd,TCOON);
@@ -3881,7 +3900,7 @@ ttoc(c) char c;
     } else {
 	if (write(ttyfd,&c,1) < 1) {	/* Try to write the character. */
 	    ttimoff();			/* If error, turn off timer, */
-	    conoc('\07');		/* ring the bell, */
+	    if (!backgrd) conoc('\07');	/* ring the bell, */
 	    debug(F101,"ttoc error","",errno); /* log the error, */
 	    return(-1);			/* and return the error code. */
 	}
@@ -4292,16 +4311,16 @@ ttsndlb() {
 /* Define MSLFTIME for systems that must use an ftime() loop. */
 #ifdef ANYBSD				/* For pre-4.2 BSD versions */
 #ifndef BSD42
+#ifndef __386BSD__
 #define MSLFTIME
+#endif /* __386BSD__ */
 #endif /* BSD42 */
 #endif /* ANYBSD */
 #ifdef TOWER1				/* NCR Tower OS 1.0 */
 #define MSLFTIME
 #endif /* TOWER1 */
 #ifdef COHERENT				/* Coherent */
-#ifndef _I386				/* not used in the 386 version (4.0) */
-#define MSLFTIME 
-#endif /* _I386 */
+#define MSLFTIME
 #endif /* COHERENT */
 
 int
@@ -4714,6 +4733,9 @@ conbin(esc) char esc;
                         |INPCK|ISTRIP);
 #else /* POSIX */
     ccraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|IXON|IXOFF|INPCK|ISTRIP);
+#ifdef __386BSD__
+    ccraw.c_lflag &= ~IEXTEN; /* pass CTRL-V though while connected */
+#endif /* __386BSD__ */
 #endif /* ATTSV */
     ccraw.c_oflag &= ~OPOST;
 #ifdef ATT7300
@@ -4780,15 +4802,16 @@ conres() {
 #ifdef POSIX
     debug(F100,"conres restoring tcsetattr","",0);
     return(tcsetattr(0,TCSADRAIN,&ccold));
+#else
+#ifdef sony_news			/* Sony NEWS */
+    return(ioctl(0,TIOCKSET,&km_con)); /* Restore console Kanji mode */
 #else /* BSD, V7, and friends */
     msleep(300);
     debug(F100,"conres restoring stty","",0);
     return(stty(0,&ccold));
+#endif /* sony_news */
 #endif /* POSIX */
 #endif /* ATTSV */
-#ifdef sony_news			/* Sony NEWS */
-    return(ioctl(0,TIOCKSET,&km_con)); /* Restore console Kanji mode */
-#endif /* sony_news */
 }
 
 /*  C O N O C  --  Output a character to the console terminal  */
@@ -5189,6 +5212,9 @@ carrctl(ttpar, carrier) struct sgttyb *ttpar; int carrier; {
 #ifdef ultrix
     int temp = 0;
 #endif /* ultrix */
+#ifdef OXOS
+    int modem_status, lnohang = LNOHANG;
+#endif /* OXOS */
     debug(F101, "carrctl","",carrier);
     if (carrier == curcarr)
       return(0);
@@ -5203,6 +5229,31 @@ carrctl(ttpar, carrier) struct sgttyb *ttpar; int carrier; {
 	ioctl(ttyfd, TIOCNMODEM, &temp);
     }
 #endif /* ultrix */
+#ifdef OXOS
+/*
+  From Fulvio Marino at Olivetti.  This code allows CONNECT to work even
+  if DCD/RTS are down, if "carrier" is set appropriately.
+*/
+    if (ioctl(ttyfd, TIOCMODG, &modem_status) == 0) {
+	if (carrier) {
+	    /* enable carrier detect */
+	    modem_status |= TIOCM_CAR;
+	} else {
+	    /* disable carrier detect */
+	    modem_status &= ~TIOCM_CAR;
+	}
+	(void)ioctl(ttyfd, TIOCMODS, &modem_status);
+    }
+    if (carrier) {
+	/* Send hangup when carrier drops */
+	(void)ioctl(ttyfd, TIOCLBIC, &lnohang);
+	/* hang up the phone */
+	(void)ioctl(ttyfd, TIOCHPCL, NULL);
+    } else {
+	/* Don't send hangup when carrier drops */
+	(void)ioctl(ttyfd, TIOCLBIS, &lnohang);
+    }
+#endif /* OXOS */
     return(0);
 }
 #endif /* SVORPOSIX */
@@ -5295,7 +5346,11 @@ ttgmdm() {
   Hence the following ifndef on a symbol which is defined there.
 */
 #ifndef TIOCMGET
+#ifdef __386BSD__
+#include <sys/ioctl.h>
+#else
 #include <sys/ttycom.h>
+#endif /* __386BSD__ */
 #endif /* TIOCMGET */
 
     int x, y, z;

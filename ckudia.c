@@ -4,12 +4,14 @@ char *dialv = "Dial Command, 5A(028) 23 Dec 91";
 /*  C K U D I A	 --  Dialing program for connection to remote system */
 
 /*
- Original author: Herm Fischer (HFISCHER@USC-ECLB).
- Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436.
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided 
- this copyright notice is retained.
+  Original author: Herm Fischer (HFISCHER@USC-ECLB).
+  Contributed to Columbia University for inclusion in C-Kermit.
+  Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436, and
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 
  Os9/68k and Microcom modem support by Bob Larson (Blarson@ecla.usc.edu)
  Additional code by many others over the years.

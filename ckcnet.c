@@ -1,25 +1,26 @@
-char *cknetv = "Network support, 5A(007) 8 Feb 91";
+char *cknetv = "Network support, 5A(008) 8 Feb 91";
 
 /*  C K C N E T  --  Network support  */
 /*
- Authors:
+  Authors:
 
- Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
-   Columbia University Center for Computing Activities.
- netopen() routine for TCP/IP originally by Ken Yap, Rochester University
-   (ken@cs.rochester.edu) (no longer at that address).
- SunLink X.25 support by Marcello Frutig, Catholic University,
-   Rio de Janeiro, Brazil (FRUTIG@BRLNCC.BITNET).
- Missing pieces for Excelan sockets library from William Bader, Moravian
-   College <bader@moravian.edu>.
- telnet protocol support by Frank da Cruz.
- TGV MultiNet code by Frank da Cruz.
- Other contributions as indicated below.
+  Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+    Columbia University Center for Computing Activities.
+  netopen() routine for TCP/IP originally by Ken Yap, Rochester University
+    (ken@cs.rochester.edu) (no longer at that address).
+  SunLink X.25 support by Marcello Frutig, Catholic University,
+    Rio de Janeiro, Brazil (FRUTIG@BRLNCC.BITNET).
+  Missing pieces for Excelan sockets library from William Bader, Moravian
+    College <bader@moravian.edu>.
+  telnet protocol support by Frank da Cruz.
+  TGV MultiNet code by Frank da Cruz.
+  Other contributions as indicated below.
 
- Copyright (C) 1991, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software as long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 #include "ckcdeb.h"
@@ -50,6 +51,11 @@ extern int duplex, debses, seslog, ttyfd, quiet; /* External variables */
 */
 #define bzero(s,n) memset(s,0,n) 
 #define bcopy(h,a,l) memmove(a,h,l)
+#else
+#ifdef PTX				/* Sequent DYNYX PTX 1.3 */
+#define bzero(s,n) memset(s,0,n) 
+#define bcopy(h,a,l) memmove(a,h,l)
+#endif /* PTX */
 #endif /* SVR4 */
 
 #define NAMECPYL 100			/* Local copy of hostname */

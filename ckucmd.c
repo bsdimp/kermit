@@ -10,13 +10,14 @@ char *cmdv = "Command package 5A(048), 8 Feb 92";
 /*  C K U C M D  --  Interactive command package for Unix  */
 
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /*
@@ -152,6 +153,9 @@ _PROTOTYP( VOID cmdnewl, (char) );
 _PROTOTYP( VOID cmdchardel, (void) );
 _PROTOTYP( VOID cmdecho, (char, int) );
 _PROTOTYP( static int test, (int, int) );
+#ifdef GEMDOS
+_PROTOTYP( extern char *strchr, (char *, int) );
+#endif /* GEMDOS */
 
 /*  T E S T  --  Bit test  */
  
@@ -562,7 +566,11 @@ cmnum(xhlp,xdef,radix,n,f) char *xhlp, *xdef; int radix, *n; xx_strp f; {
 	debug(F101,"cmnum 1st chknum ok","",*n);
         return(0);
     } else if ((x = xxesc(&zp)) > -1) {	/* Check for backslash escape */
-	*n = x;
+#ifdef OS2
+	*n = wideresult;
+#else
+  	*n = x;
+#endif /* OS2 */
 	debug(F101,"cmnum xxesc ok","",*n);
 	return(*zp ? -2 : 0);
     } else if (f) {			/* If conversion function given */
@@ -789,6 +797,10 @@ cmifi(xhlp,xdef,xp,wild,f) char *xhlp, *xdef, **xp; int *wild; xx_strp f; {
                 *sp++ = '*';		/* Others */
 #endif /* datageneral */
                 *sp-- = '\0';
+#ifdef GEMDOS
+		if (! strchr(*xp, '.'))	/* abde.e -> abcde.e* */
+		  strcat(*xp, ".*");	/* abc -> abc*.* */
+#endif /* GEMDOS */
                 y = zxpand(*xp);	/* Add wildcard and expand list. */
 		if (y > 0) strcpy(filbuf,mtchs[0]);
 		else *filbuf = '\0';
@@ -881,8 +893,12 @@ cmifi(xhlp,xdef,xp,wild,f) char *xhlp, *xdef, **xp; int *wild; xx_strp f; {
                     *sp++ = '+';        /* Insert +, the DG wild card */
 #else
                     *sp++ = '*';
-#endif
+#endif /* datageneral */
                     *sp-- = '\0';
+#ifdef GEMDOS
+		    if (! strchr(*xp, '.'))	/* abde.e -> abcde.e* */
+		      strcat(*xp, ".*");	/* abc -> abc*.* */
+#endif /* GEMDOS */
 		    debug(F110,"cmifi ? wild",*xp,0);
                     y = zxpand(*xp);
                     *sp = '\0';
@@ -2005,6 +2021,7 @@ xxesc(s) char **s; {			/* Expand backslash escapes */
 	if ((y = unhex(*p++)) < 0) { *s = p - 2; return(-1); }
 	x = ((x << 4) & 0xF0) | (y & 0x0F);
 #ifdef OS2
+        wideresult = x;
         if ((y = unhex(*p)) >= 0) {
            p++;
 	   wideresult = ((x << 4) & 0xFF0) | (y & 0x0F);

@@ -11,10 +11,14 @@
 */
 
 /*
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
   Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
-  York. Permission is granted to any individual or institution to use, copy,
-  or redistribute this software so long as it is not sold for profit, provided
-  this copyright notice is retained.
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /*
@@ -506,17 +510,30 @@ _PROTOTYP(VOID tlog,(int, char *, char *, long));
  Systems where we can expand tilde at the beginning of file or directory names
 */
 #ifdef POSIX
+#ifndef DTILDE
 #define DTILDE
-#endif
+#endif /* DTILDE */
+#endif /* POSIX */
 #ifdef BSD4
+#ifndef DTILDE
 #define DTILDE
-#endif
+#endif /* DTILDE */
+#endif /* BSD4 */
 #ifdef ATTSV
+#ifndef DTILDE
 #define DTILDE
-#endif
+#endif /* DTILDE */
+#endif /* ATTSV */
 #ifdef OSK
+#ifndef DTILDE
 #define DTILDE
-#endif
+#endif /* DTILDE */
+#endif /* OSK */
+#ifdef HPUX				/* I don't know why this is */
+#ifndef DTILDE				/* necessary, since -DHPUX */
+#define DTILDE				/* automatically defines ATTSV */
+#endif /* DTILDE */			/* (see above) ... */
+#endif /* HPUX */
 
 /* Line delimiter for text files */
 
@@ -854,7 +871,11 @@ typedef union wait WAIT_T;
 #else
 #ifdef POSIX
 #include <sys/wait.h>
+#ifdef __386BSD__
+typedef int WAIT_T;
+#else
 #define WAIT_T pid_t
+#endif /* __386BSD__ */
 #else
 typedef int WAIT_T;
 #endif /* POSIX */

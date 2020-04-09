@@ -1,15 +1,16 @@
-char *userv = "User Interface 5A(081), 8 Feb 92";
+char *userv = "User Interface 5A(082), 8 Feb 92";
 
 /*  C K U U S R --  "User Interface" for Unix Kermit (Part 1)  */
 
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /*
@@ -1364,11 +1365,13 @@ docmd(cx) int cx; {
  
     if (cx == XXREC) {			/* RECEIVE */
 	cmarg2 = "";
-	x = cmofi("Name under which to store the file, or CR","",&cmarg2,
+	x = cmofi("Name under which to store the file, or CR","",&s,
 		  xxstring);
 	if ((x == -1) || (x == -2)) return(x);
-	debug(F111,"cmofi cmarg2",cmarg2,x);
 	if ((x = cmcfm()) < 0) return(x);
+	strcpy(line,s);
+	cmarg2 = line;
+	debug(F111,"cmofi cmarg2",cmarg2,x);
 	sstate = 'v';
 #ifdef MAC
 	scrcreate();

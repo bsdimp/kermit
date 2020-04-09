@@ -1,4 +1,14 @@
 /* ckuver.h -- C-Kermit UNIX Version heralds */
+/*
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
+*/
 
 #ifndef CKUVER_H
 #define CKUVER_H
@@ -81,10 +91,7 @@
 #endif /* CIE */
 
 #ifdef COHERENT
-#ifndef _I386
-#define HERALD " PC/AT MWC Coherent 286 3.x"
-#endif /* _i386 */
-#define HERALD " PC/AT MWC Coherent 386 4.x"
+#define HERALD " PC/AT MWC Coherent 3.0"
 #endif /* COHERENT */
 
 #ifdef DGUX540
@@ -125,11 +132,15 @@
 
 #ifdef MIPS
 #define HERALD " MIPS RISC/OS (System V R3)"
-#endif
+#endif /* MIPS */
 
 #ifdef NEXT
 #define HERALD " NeXT"
-#endif
+#endif /* NEXT */
+
+#ifdef PTX
+#define HERALD " DYNIX/PTX 1.3"
+#endif /* PTX */
 
 #ifdef PCIX
 #define HERALD " PC/IX"

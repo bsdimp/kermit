@@ -1,17 +1,18 @@
-char *fnsv = "C-Kermit functions, 5A(071) 8 Feb 92";
+char *fnsv = "C-Kermit functions, 5A(073) 8 Feb 92";
 
 /*  C K C F N S  --  System-independent Kermit protocol support functions.  */
 
 /*  ...Part 1 (others moved to ckcfn2,3 to make this module small enough) */
 
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 /*
  System-dependent primitives defined in:
@@ -1048,12 +1049,13 @@ rcvfil(n) char *n; {
 #endif /* DTILDE */
     screen(SCR_FN,0,0l,(char *)srvcmd);	/* Put it on screen if local */
     debug(F110,"rcvfil",(char *)srvcmd,0); /* Debug log entry */
+    debug(F101,"rcvfil cmarg2","",cmarg2);
     tlog(F110,"Receiving",(char *)srvcmd,0L); /* Transaction log entry */
     if (cmarg2 != NULL) {               /* Check for alternate name */
         if (*cmarg2 != '\0') {
             strcpy((char *)srvcmd,cmarg2); /* Got one, use it. */
         }
-    }
+    } else cmarg2 = "";
 /*
   NOTE: Much of this code should be moved to opena(), where the file is
   actually opened, AFTER we have received the Attribute packet(s).  That
@@ -1069,11 +1071,9 @@ rcvfil(n) char *n; {
     xp = xname;				/* OK to proceed. */
     if (fncnv && !*cmarg2)
       zrtol((char *)srvcmd,xp);		/* convert name to local form */
-    else{				/* otherwise, */
-         strcpy(xname,(char *)srvcmd);	/* use it literally */
-         if (cmarg2) 
-		*cmarg2 = '\0';
-    }
+    else				/* otherwise, */
+      strcpy(xname,(char *)srvcmd);	/* use it literally */
+    cmarg2 = "";			/* Remove alternate name */
     debug(F110,"rcvfil as",xname,0);
 
 #ifdef COMMENT				/* Old code... */
@@ -1621,14 +1621,19 @@ spar(s) CHAR *s; {			/* Set parameters */
 	    x = xunchar(s[y+1]);
 	    debug(F101,"spar window","",x);
 	    wslotn = x > MAXWS ? MAXWS : x;
-#ifdef COMMENT
+/* #ifdef COMMENT */
 /*
   During testing of windows, this code required the user to SET WINDOW n
   on BOTH Kermits.  Now that windows appear to be working pretty well, let's
-  use whatever the other Kermit requests.
+  use whatever the other Kermit requests.  (Edit 177)
+  BUT THEN...  It seems that certain commercial Kermit implementations do not
+  "do windows" correctly, even though they claim to in their initialization
+  packets.  If the following line is not active, there is no way for the
+  C-Kermit user to override the use of windows when the other Kermit requests
+  them.  (Edit 179)
 */
 	    if (wslotn > wslotr) wslotn = wslotr;
-#endif /* COMMENT */
+/* #endif */  /* COMMENT */
 	    if (wslotn > 1) swcapu = 1; /* We do windows... */
 	} else {
 	    wslotn = 1;		/* We don't do windows... */

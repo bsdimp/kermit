@@ -2,13 +2,14 @@ char *connv = "CONNECT Command for UNIX, 5A(036) 8 Feb 92";
 
 /*  C K U C O N  --  Dumb terminal connection to remote system, for UNIX  */
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 #include "ckcdeb.h"			/* Common things first */
@@ -531,19 +532,11 @@ newfork:
 	printf("\r\nCommunications disconnect (Back at %s)\r\n",
 	       *myhost ?
 	       myhost :
-#ifdef COHERENT
-		"Local COHERENT system"
-
-#else
 #ifdef UNIX
 	       "local UNIX system"
 #else
 	       "local system"
 #endif /* UNIX */
-
-
-#endif /* COHERENT */
-
 	       );
 	}
 	printf("\n");
@@ -818,11 +811,7 @@ newfork:
 	}
 #endif /* SUNX25 */
 	if (!quiet)
-#ifdef COHERENT
-	  printf("(Back at %s)", *myhost ? myhost : "local COHERENT system");
-#else
 	  printf("(Back at %s)", *myhost ? myhost : "local UNIX system");
-#endif /* COHERENT */
 	printf("\n");
 	what = W_NOTHING;		/* So console modes set right. */
 #ifndef NOCSETS

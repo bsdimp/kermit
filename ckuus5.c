@@ -3,13 +3,14 @@
 /*  C K U U S 5 --  "User Interface" for Unix Kermit, part 5  */
  
 /*
- Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
- Columbia University Center for Computing Activities.
- First released January 1985.
- Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New 
- York.  Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained.
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /* Includes */
@@ -389,6 +390,9 @@ cmdini() {
 #else /* not OS2 */
     lp = line;
     lp[0] = '\0';
+#ifdef GEMDOS
+    zkermini(line,rcflag, kermrc);
+#else
 #ifdef VMS
     zkermini(line,LINBUFSIZ,kermrc);
 #else /* not VMS */
@@ -402,6 +406,7 @@ cmdini() {
 	strcat(lp,kermrc);		/* and use the default name */
     }
 #endif /* VMS */
+#endif /* GEMDOS */
 
 #ifdef AMIGA
     reqoff();				/* disable requestors */
@@ -488,9 +493,12 @@ parser(m) int m; {
     ifcmd[0] = 0;		/* Command-level related variables */
     iftest[0] = 0;		/* initialize variables at top level */
     count[0] = 0;		/* of stack... */
-    inlevel = maclvl;		/* Current macro level */
+    inlevel = cmdlvl;		/* Current macro level */
     debug(F101,"&parser entry maclvl","",maclvl);
     debug(F101,"&parser entry inlevel","",inlevel);
+    debug(F101,"&parser entry tlevel","",tlevel);
+    debug(F101,"&parser entry cmdlvl","",cmdlvl);
+    debug(F101,"&parser entry m","",m);
 #endif /* NOSPL */
 
 /*
@@ -515,7 +523,9 @@ parser(m) int m; {
 	bgchk();			/* Check background status */
 #endif /* MAC */
 
+	debug(F101,"tlevel","",tlevel);
 #ifndef NOSPL				/* In case we just reached top level */
+	debug(F101,"cmdlvl","",cmdlvl);
 	if (cmdlvl == 0) concb((char)escape);
 #else
 	if (tlevel < 0) concb((char)escape);
@@ -531,7 +541,7 @@ parser(m) int m; {
 	    if (cmdstk[cmdlvl].src == CMD_MD && merror) {
 		printf("Command error: macro terminated.");
 		popclvl();
-		if (m && (maclvl < inlevel))
+		if (m && (cmdlvl < inlevel))
 		  return((int) sstate);
 	    }
 	}
@@ -594,7 +604,7 @@ parser(m) int m; {
 			putchar(BEL);
 		    }
 		}		
-	    }
+	    } 
 	    debug(F101,"parser maclvl","",maclvl);
 	    maclvl = cmdstk[cmdlvl].lvl; /* No interrupt, get current level */
 	    cbp = cmdbuf;		/* Copy next cmd to command buffer. */
@@ -631,9 +641,12 @@ parser(m) int m; {
 		if (*cmdbuf == NUL) {	/* If nothing was copied, */
 		    popclvl();		/* pop command level. */
 		    debug(F101,"macro level popped","",maclvl);
-		    if (m && (maclvl < inlevel))
+		    debug(F101,"tlevel","",tlevel);
+		    debug(F101,"cmdlvl","",cmdlvl);
+		    debug(F101,"cmdstk[cmdlvl].src","",cmdstk[cmdlvl].src);
+		    if (m && (cmdlvl < inlevel))
 		      return((int) sstate);
-		    else if (!m) continue;
+		    else /* if (!m) */ continue;
 		} else {		/* otherwise, tack CR onto end */
 		    *cbp++ = CR;	/* NOTE: NOT '\r' !!! */
 		    *cbp = '\0';
@@ -825,7 +838,7 @@ again:
 	}
 #ifndef NOSPL
 	debug(F101,"parser breaks out of while loop","",maclvl);
-	if (m && (maclvl < inlevel))  return((int) sstate);
+	if (m && (cmdlvl < inlevel))  return((int) sstate);
 #endif /* NOSPL */
     }
 
@@ -1582,6 +1595,12 @@ shover() {
 #ifdef DCLPOPEN
     prtopt(" DCLPOPEN");
 #endif /* DCLPOPEN */
+#ifdef NOSETBUF
+    prtopt(" NOSETBUF");
+#endif /* NOSETBUF */
+#ifdef NOFDZERO
+    prtopt(" NOFDZERO");
+#endif /* NOFDZERO */
 #ifdef NOPOPEN
     prtopt(" NOPOPEN");
 #endif /* NOPOPEN */
@@ -1690,6 +1709,9 @@ shover() {
 #ifdef SVR4
     prtopt(" SVR4");
 #endif /* SVR4 */
+#ifdef PTX
+    prtopt(" PTX");
+#endif /* PTX */
 #ifdef POSIX
     prtopt(" POSIX");
 #endif /* POSIX */
@@ -2377,6 +2399,14 @@ shmdmlin() {				/* Briefly show modem & line */
 #endif /* NODIAL */
     }
 }
+
+#ifdef GEMDOS
+isxdigit(c) int c; {
+    return(isdigit(c) ||
+	   (c >= 'a' && c <= 'f') ||
+	   (c >= 'A' && c <= 'F'));
+}
+#endif /* GEMDOS */
 
 #ifndef NOSPL
 #define SCRNLEN 21
@@ -3196,9 +3226,14 @@ docd() {				/* Do the CD command */
 	  tlevel < 0
 #endif /* NOSPL */
 	  ) printf("%s\n", line);
+#else /* Not AMIGA */
+#ifdef GEMDOS
+    if ((x = cmdir("Name of local directory, or carriage return",homdir,&s,
+		   NULL)) < 0 )
 #else
     if ((x = cmdir("Name of local directory, or carriage return",homdir,&s,
 		   xxstring)) < 0 )
+#endif /* GEMDOS */
       return(x);
     if (x == 2) {
 	printf("?Wildcards not allowed in directory name\n");

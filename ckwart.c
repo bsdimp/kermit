@@ -23,16 +23,16 @@ char *wartv = "Wart Version 2A(009) 14 Jan 92";
 /* W A R T */
 
 /*
- A small subset of "lex".
+  A small subset of "lex".
 
- Authors: Jeff Damens, Frank da Cruz
- Columbia University Center for Computing Activites.
- First released November 1984.
- Copyright (C) 1984, 1992,
- Trustees of Columbia University in the City of New York.
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided 
- this copyright notice is retained. 
+  Authors: Jeff Damens, Frank da Cruz
+  Columbia University Center for Computing Activites.
+  First released November 1984.
+  Copyright (C) 1984, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
 */
 
 /*

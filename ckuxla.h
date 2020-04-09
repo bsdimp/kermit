@@ -1,12 +1,21 @@
 /*
- File CKUXLA.H
- Language and Character Set Support for UNIX and VAX/VMS.
+  File CKUXLA.H
+  Language and Character Set Support for UNIX and VAX/VMS.
 
- This file should be used as a template for the language support files
- for other C-Kermit implementations -- Macintosh, OS/2, Amiga, etc.
-
- Author: F. da Cruz, Columbia University, 1990-1991.
+  This file should be used as a template for the language support files
+  for other C-Kermit implementations -- Macintosh, OS/2, Amiga, etc.
 */
+/*
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
+  Columbia University Center for Computing Activities.
+  First released January 1985.
+  Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
+  York.  Permission is granted to any individual or institution to use this
+  software as long as it is not sold for profit.  This copyright notice must be
+  retained.  This software may not be included in commercial products without
+  written permission of Columbia University.
+*/
+
 #ifndef CKUXLA_H
 #define CKUXLA_H
 
