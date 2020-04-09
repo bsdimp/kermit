@@ -1,14 +1,14 @@
 WART
 
-Wart is a program that implements a small subset of the Unix 'lex' lexical
-analyzer generator.  Unlike lex, wart may be distributed without requirement
-for a Unix license.  Wart was written by Jeff Damens at the Columbia University
+Wart is a program that implements a small subset of the Unix 'lex'
+lexical analyzer generator.  Unlike lex, wart may be distributed without
+requirement for a Unix license.  Wart was written at the Columbia University
 Center of Computing Activities to facilitate development of Unix Kermit.
 
-Wart is intended for production of state table switchers.  It allows a set of
-states to be defined, along with a function for getting input, and a table of
-state transitions.  A C program is generated which performs actions and
-switches states based on the current state and the input.
+Wart is intended for production of state table switchers.  It allows a
+set of states to be defined, along with a function for getting input.  The
+performs actions and switches states based on the current state and the
+input.
 
 The following short program demonstrates some of the capabilities and
 limitations of Wart.  The program accepts from the command line a binary
@@ -63,9 +63,9 @@ table, with entries of the form
 
   <state>X { action }
 
-which is read as "if in state <state> with input X perform { action }"
+which read as "if in state <state> with input X perform { action }"
 
-The optional <state> field tells the current state or states the program must
+The optional <state> field tells the current state or state the program must
 be in to perform the indicated action.  If no state is specified, then it
 means the action will be performed regardless of the current state.  If more
 than one state is specifed, then the action will be performed in any of the
@@ -92,10 +92,16 @@ from the state table.
 
 Wart is invoked as follows:
 
-	wart          (Input from stdin, output to stdout)
+	wart
 
-	wart fn1      (Input from fn1, output to stdout)
+Input from stdin, output to stdout
 
-	wart fn1 fn2  (Input from fn1, output to fn2.  Example:  wart a.w a.c)
+	wart fn1
+
+Input from fn1, output to stdout
+
+	wart fn1 fn2
+
+Input from fn1, output to fn2.  Example:  wart a.w a.c
 
 Wart programs have the conventional filetype '.w'.

@@ -1,4 +1,4 @@
-char *loginv = "Script Command, V2.0(006)+1 26 Jun 85";
+char *loginv = "Script Command, V2.0(007) 5 Jul 85";
 
 /*  C K U S C R  --  Login script for logging onto remote system */
 
@@ -55,7 +55,6 @@ scrtime() {				/* modem read failure handler, */
     longjmp(alrmRng,1);		/* notifies parent process to stop */
 }
 
-
 
 /*
  Sequence interpreter -- pick up next sequence from command string,
@@ -129,7 +128,6 @@ sequenc()  {
 }
 
 
-
 /*
  Receive sequence -- see if expected response comes return success
  (or failure) in got_it
@@ -177,7 +175,6 @@ recvSeq()  {
 }
 
 
-
 /*
  Output A Sequence starting at pointer s,
  return 0 if okay,
@@ -215,7 +212,6 @@ outSeq()  {
     }
 }
 
-
 
 /*  L O G I N  --  Login to remote system */
 
@@ -260,7 +256,6 @@ login(cmdstr) char *cmdstr; {
 
 /* cont'd... */
 
-
 
 /* ...login, cont'd */
 

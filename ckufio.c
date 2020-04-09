@@ -1,4 +1,4 @@
-char *ckzv = "Unix file support, 4C(028) 18 Jun 85";
+char *ckzv = "Unix file support, 4C(033) 8 Sep 86";
 
 /* C K U F I O  --  Kermit file system support for Unix systems */
 
@@ -29,8 +29,13 @@ char *ckzv = "Unix file support, 4C(028) 18 Jun 85";
 #define BSD42
 char *ckzsys = " 4.2 BSD";
 #else
+#ifdef FT17
+#define BSD41
+char *ckzsys = " For:Pro Fortune 1.7";
+#else
 #define BSD41
 char *ckzsys = " 4.1 BSD";
+#endif
 #endif
 #endif
 
@@ -93,7 +98,6 @@ char *WHOCMD = "finger ";		/* For seeing who's logged in */
 char *WHOCMD = "who ";			/* For seeing who's logged in */
 #endif
 
-
 /*
   Functions (n is one of the predefined file numbers from ckermi.h):
 
@@ -121,9 +125,14 @@ char *WHOCMD = "who ";			/* For seeing who's logged in */
  */
 
 
-
+#ifdef FT17
+#define PROVX1
+#endif
 #ifndef PROVX1
 #include <sys/file.h>			/* File access */
+#endif
+#ifdef FT17
+#undef PROVX1
 #endif
 
 /* Some systems define these in include files, others don't... */
@@ -153,9 +162,13 @@ char *WHOCMD = "who ";			/* For seeing who's logged in */
 #endif
 
 #ifdef PROVX1
-#define MAXWLD 100			/* Maximum wildcard filenames */
+#define MAXWLD 50			/* Maximum wildcard filenames */
+#else
+#ifdef BSD29
+#define MAXWLD 50			/* Maximum wildcard filenames */
 #else
 #define MAXWLD 500
+#endif
 #endif
 
 /* Declarations */
@@ -165,13 +178,13 @@ FILE *fp[ZNFILS] = { 			/* File pointers */
 
 static int pid;	    			/* pid of child fork */
 static int fcount;			/* Number of files in wild group */
+static char nambuf[MAXNAMLEN+1];	/* Buffer for a filename */
 char *malloc(), *getenv(), *strcpy();	/* System functions */
 extern errno;				/* System error code */
 
 static char *mtchs[MAXWLD],		/* Matches found for filename */
      **mtchptr;				/* Pointer to current match */
 
-
 /*  Z K S E L F  --  Kill Self: log out own job, if possible.  */
 
 zkself() {				/* For "bye", but no guarantee! */
@@ -184,13 +197,16 @@ zkself() {				/* For "bye", but no guarantee! */
 #ifdef TOWER1
     return(kill(0,9));
 #else
+#ifdef FT17
+    return(kill(0,9));
+#else
     return(kill(getppid(),1));
+#endif
 #endif
 #endif
 #endif
 }
 
-
 /*  Z O P E N I  --  Open an existing file for input. */
 
 zopeni(n,name) int n; char *name; {
@@ -239,15 +255,18 @@ zopeno(n,name) int n; char *name; {
 
 /*  Z C L O S E  --  Close the given file.  */
 
+/*  Returns 0 if arg out of range, 1 if successful, -1 if close failed.  */
+
 zclose(n) int n; {
+    int x;
     if (chkfn(n) < 1) return(0);	/* Check range of n */
     if ((n == ZIFILE) && fp[ZSYSFN]) {	/* If system function */
-    	zclosf();			/* do it specially */
+    	x = zclosf();			/* do it specially */
     } else {
-    	if ((fp[n] != stdout) && (fp[n] != stdin)) fclose(fp[n]);
+    	if ((fp[n] != stdout) && (fp[n] != stdin)) x = fclose(fp[n]);
 	fp[n] = NULL;
     }
-    return(1);
+    return((x == EOF) ? -1 : 1);
 }
 
 /*  Z C H I N  --  Get a character from the input file.  */
@@ -263,7 +282,6 @@ zchin(n,c) int n; char *c; {
     return(0);
 }
 
-
 /*  Z S O U T  --  Write a string to the given file, buffered.  */
 
 zsout(n,s) int n; char *s; {
@@ -285,7 +303,8 @@ zsoutl(n,s) int n; char *s; {
 
 zsoutx(n,s,x) int n, x; char *s; {
     if (chkfn(n) < 1) return(-1);
-    return(write(fp[n]->_file,s,x));
+/*  return(write(fp[n]->_file,s,x));  */
+    return(write(fileno(fp[n]),s,x));
 }
 
 
@@ -296,7 +315,8 @@ zsoutx(n,s,x) int n, x; char *s; {
 zchout(n,c) int n; char c; {
     if (chkfn(n) < 1) return(-1);
     if (n == ZSFILE)
-    	return(write(fp[n]->_file,&c,1)); /* Use unbuffered for session log */
+/*    	return(write(fp[n]->_file,&c,1));  */
+    	return(write(fileno(fp[n]),&c,1)); /* Use unbuffered for session log */
     else {				/* Buffered for everything else */
 	if (putc(c,fp[n]) == EOF)	/* If true, maybe there was an error */
 	    return(ferror(fp[n]));	/* Check to make sure */
@@ -305,7 +325,6 @@ zchout(n,c) int n; char c; {
     }
 }
 
-
 /*  C H K F N  --  Internal function to verify file number is ok  */
 
 /*
@@ -333,7 +352,6 @@ chkfn(n) int n; {
     return( (fp[n] == NULL) ? 0 : 1 );
 }
 
-
 /*  Z C H K I  --  Check if input file exists and is readable  */
 
 /*
@@ -374,7 +392,6 @@ zchki(name) char *name; {
     }
 }
 
-
 /*  Z C H K O  --  Check if output file can be created  */
 
 /*
@@ -410,7 +427,6 @@ zchko(name) char *name; {
     }
 }
 
-
 /*  Z D E L E T  --  Delete the named file.  */
 
 zdelet(name) char *name; {
@@ -427,6 +443,7 @@ zrtol(name,name2) char *name, *name2; {
     	*name2++ = isupper(*name) ? tolower(*name) : *name;
     }
     *name2 = '\0';
+    debug(F110,"zrtol:",name2,0);
 }
 
 
@@ -476,12 +493,14 @@ zhome() {
     return(getenv("HOME"));
 }
 
-
 /*  Z X C M D -- Run a system command so its output can be read like a file */
 
 zxcmd(comand) char *comand; {
     int pipes[2];
-    if (pipe(pipes) != 0) return(0);	/* can't make pipe, fail */
+    if (pipe(pipes) != 0) {
+	debug(F100,"zxcmd pipe failure","",0);
+	return(0);			/* can't make pipe, fail */
+    }
     if ((pid = fork()) == 0) {		/* child */
 
 /*#if BSD4*/		/* Code from Dave Tweten@AMES-NAS */
@@ -520,11 +539,14 @@ zxcmd(comand) char *comand; {
 	while (*shptr != '\0') if (*shptr++ == '/') shname = shptr;
 	debug(F100,"zxcmd...","",0);
 	debug(F110,shpath,shname,0);
-	execl(shpath,shname,"-c",comand,0); /* Execute the command */
+	execl(shpath,shname,"-c",comand,NULL); /* Execute the command */
 
-/****	execl("/bin/sh","sh","-c",comand,0); /* Execute the command */
+/****	execl("/bin/sh","sh","-c",comand,NULL); /* Execute the command */
 
 	exit(0);			/* just punt if it didnt work */
+    } else if (pid == -1) {
+	debug(F100,"zxcmd fork failure","",0);
+	return(0);
     }
     close(pipes[1]);			/* don't need the output side */
     fp[ZIFILE] = fdopen(pipes[0],"r");	/* open a stream for it */
@@ -536,12 +558,16 @@ zxcmd(comand) char *comand; {
 
 zclosf() {
     int wstat;
+    if (kill(pid,9) == 0) {
+	debug(F101,"zclosf pid =","",pid);
+        while ((wstat = wait(0)) != pid && wstat != -1) ;
+        pid = 0;
+    }
     fclose(fp[ZIFILE]);
     fp[ZIFILE] = fp[ZSYSFN] = NULL;
-    while ((wstat = wait(0)) != pid && wstat != -1) ;
+    return(1);
 }
 
-
 /*  Z X P A N D  --  Expand a wildcard string into an array of strings  */
 /*
   Returns the number of files that match fn1, with data structures set up
@@ -573,40 +599,53 @@ znext(fn) char *fn; {
 /*  Z N E W N  --  Make a new name for the given file  */
 
 znewn(fn,s) char *fn, **s; {
+#ifdef BSD4
+    static char buf[256];
+#else
     static char buf[100];
+#endif
     char *bp, *xp;
-    int len = 0, n = 0, d = 0, t;
+    int len = 0, n = 0, d = 0, t, i, power = 1;
 #ifdef MAXNAMLEN
     int max = MAXNAMLEN;
 #else
     int max = 14;
 #endif
-
     bp = buf;
     while (*fn) {			/* Copy name into buf */
 	*bp++ = *fn++;
 	len++;
     }
-    if (len > max-3) bp -= 3;		/* Don't let it get too long */
-
-    *bp++ = '*';			/* Put a star on the end */
-    *bp-- = '\0';
-
-    n = zxpand(buf);			/* Expand the resulting wild name */
-    
-    while (n-- > 0) {			/* Find any existing name~d files */
-	xp = *mtchptr++;
-	xp += len;
-	if (*xp == '~') {
-	    t = atoi(xp+1);
-	    if (t > d) d = t;		/* Get maximum d */
-	}
+    if (len > max-2) { 			/* Don't let it get too long */
+	bp = buf + max-2;
+	len = max - 2;
     }
-    sprintf(bp,"~%d",d+1);		/* Make name~(d+1) */
-    *s = buf;
+	
+    for (i = 1; i < 4; i++) {		/* Try up to 999 times */
+	power *= 10;
+	*bp++ = '*';			/* Put a star on the end */
+	*bp-- = '\0';
+	
+	n = zxpand(buf);		/* Expand the resulting wild name */
+    
+	while (n-- > 0) {		/* Find any existing name~d files */
+	    xp = *mtchptr++;
+	    xp += len;
+	    if (*xp == '~') {
+		t = atoi(xp+1);
+		if (t > d) d = t;	/* Get maximum d */
+	    }
+	}
+	if (d < power-1) {
+	    sprintf(bp,"~%d",d+1);	/* Make name~(d+1) */
+	    *s = buf;
+	    return;
+	}
+	bp--; len--;
+    }
+/* If we ever get here, we'll overwrite the xxx~100 file... */
 }
 
-
 /* Directory Functions for Unix, written by Jeff Damens, CUCCA, 1984. */
 
 /*
@@ -621,7 +660,15 @@ struct path {
               struct path *fwd;		/* forward ptr */
             };
 
+#ifdef PROVX1
+#define SSPACE 500
+#else
+#ifdef BSD29
+#define SSPACE 500
+#else
 #define SSPACE 2000			/* size of string-generating buffer */
+#endif
+#endif
 static char sspace[SSPACE];             /* buffer to generate names in */
 static char *freeptr,**resptr;         	/* copies of caller's arguments */
 static int remlen;                      /* remaining length in caller's array*/
@@ -649,7 +696,8 @@ char *p;
  while (*p != '\0')
  {
    cur = (struct path *) malloc(sizeof (struct path));
-   if (!cur) fatal("malloc fails in splitpath()");
+   debug(F101,"splitpath malloc","",cur);
+   if (cur == NULL) fatal("malloc fails in splitpath()");
    cur -> fwd = NULL;
    if (head == NULL) head = cur;
    else prv -> fwd = cur;       /* link into chain */
@@ -663,7 +711,6 @@ char *p;
  return(head);
 }
 
-
 /*
  * fgen:
  *  This is the actual name generator.  It is passed a string,
@@ -710,7 +757,6 @@ int len;
  return(numfnd);			/* and return the number of matches */
 }
 
-
 /* traverse:
  *  Walks the directory tree looking for matches to its arguments.
  *  The algorithm is, briefly:
@@ -744,9 +790,14 @@ char *sofar,*endcur;
  DIR *fd, *opendir();
  struct direct *dirbuf;
 #else
+#ifdef BSD29
+ DIR *fd, *opendir();
+ struct direct *dirbuf;
+#else
  int fd;
  struct direct dir_entry;
  struct direct *dirbuf = &dir_entry;
+#endif
 #endif
  struct stat statbuf;
  if (pl == NULL)
@@ -770,7 +821,6 @@ char *sofar,*endcur;
  }
 /* cont'd... */
 
-
 /*...traverse, cont'd */
 
 /* segment contains wildcards, have to search directory */
@@ -781,24 +831,37 @@ char *sofar,*endcur;
  if ((fd = opendir(sofar)) == NULL) return;  	/* can't open, forget it */
  while (dirbuf = readdir(fd))
 #else
+#ifdef BSD29			/* ==BSD29 */
+ if ((fd = opendir(sofar)) == NULL) return;  	/* can't open, forget it */
+ while (dirbuf = readdir(fd))
+#else
+
  if ((fd = open(sofar,O_RDONLY)) < 0) return;  	/* can't open, forget it */
- while ( read(fd,dirbuf,sizeof dir_entry) )
+ while ( read(fd,dirbuf,sizeof dir_entry) ) 
 #endif
-  if (dirbuf->d_ino != 0 && match(pl -> npart,dirbuf->d_name)) {
+#endif
+{
+  strncpy(nambuf,dirbuf->d_name,MAXNAMLEN); /* Get a null terminated copy!!! */
+  nambuf[MAXNAMLEN] = '\0';
+  if (dirbuf->d_ino != 0 && match(pl -> npart,nambuf)) {
     char *eos;
-    strcpy(endcur,dirbuf->d_name);
-    eos = endcur + strlen(dirbuf->d_name);
+    strcpy(endcur,nambuf);
+    eos = endcur + strlen(nambuf);
     *eos = '/';                    /* end this segment */
     traverse(pl -> fwd,sofar,eos+1);
   }
+}
 #ifdef BSD42			/* ==BSD4 */
+ closedir(fd);
+#else
+#ifdef BSD29
  closedir(fd);
 #else
  close(fd);
 #endif
+#endif
 }
 
-
 /*
  * addresult:
  *  Adds a result string to the result array.  Increments the number
@@ -839,7 +902,6 @@ char *str;
  return(0);
 }
 
-
 /*
  * match:
  *  pattern matcher.  Takes a string and a pattern possibly containing

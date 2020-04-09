@@ -1,6 +1,6 @@
 C-Kermit File Naming Conventions:
 
-(Version 4C, 30 May 1985)
+(Version 4D, 29 April 1986)
 
 File names will be lowercase on Unix systems, and probably will be uppercase
 on other systems.  C-Kermit file names are of the form:
@@ -22,13 +22,14 @@ where:
   bwr: A "beware" file - list of known bugs, restrictions
   ann: The text of an announcement of a particular version
   bld: Instructions for building
-  mak: A Unix Makefile (should be renamed to "makefile")
+  mak: A Makefile or other build procedure (rename to "makefile" for UNIX)
   com: (VMS only) a DCL command procedure
 
 <system> is a single character to tell what system the file applies to:
 
   a: Descriptive material, documentation
   c: All systems with C compilers
+  i: Commodore Amiga (Intuition)
   m: Macintosh
   u: Unix or systems that simulate (some features of) Unix
   v: VAX/VMS
@@ -93,5 +94,6 @@ are listed in the appropriate makefile or equivalent:
      Unix: ckuker.mak
 Macintosh: ckmker.mak
   VAX/VMS: ckvker.com
+    Amiga: ckiker.mak
 
 (end of ckaaaa.hlp)

@@ -1,20 +1,22 @@
 /*  C K U U S R . H  --  Symbol definitions for C-Kermit ckuus*.c modules  */
-
+ 
 /*
  Author: Frank da Cruz (SY.FDC@CU20B),
  Columbia University Center for Computing Activities, January 1985.
  Copyright (C) 1985, Trustees of Columbia University in the City of New York.
  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+ copyright notice is retained.
 */
-
+ 
+#ifndef AMIGA
 #ifndef vax11c
 #include <pwd.h>
 #endif
-
+#endif
+ 
 /* Values associated with top-level commands, must be 0 or greater. */
-
+ 
 #define XXBYE   0	/* BYE */
 #define XXCLE   1	/* CLEAR */
 #define XXCLO   2	/* CLOSE */
@@ -55,11 +57,12 @@
 #define XXTRA  37	/* TRANSMIT */
 #define XXTYP  38	/* (Local) TYPE */
 #define XXWHO  39	/* (Local) WHO */
-#define XXDIAL 40	/* (Local) dial */
-#define XXLOGI 41	/* (Local) logon */
-
+#define XXDIAL 40	/* (Local) DIAL */
+#define XXLOGI 41	/* (Local) SCRIPT */
+#define XXCOM  42	/* Comment */
+ 
 /* SET parameters */
-
+ 
 #define XYBREA  0	/* BREAK simulation */
 #define XYCHKT  1	/* Block check type */
 #define XYDEBU  2	/* Debugging */
@@ -97,9 +100,9 @@
 #define XYMODM 30	/* Modem type */
 #define XYSEND 31	/* SEND parameters, used with some of the above */
 #define XYRECV 32   	/* RECEIVE parameters, ditto */
-
+ 
 /* REMOTE command symbols */
-
+ 
 #define XZCPY  0	/* Copy */
 #define XZCWD  1	/* Change Working Directory */
 #define XZDEL  2	/* Delete */
@@ -119,9 +122,9 @@
 #define XZSUB 16	/* Submit */
 #define XZTYP 17	/* Type */
 #define XZWHO 18	/* Who */
-
+ 
 /* Symbols for logs */
-
+ 
 #define LOGD 0	    	/* Debugging */
 #define LOGP 1          /* Packets */
 #define LOGS 2          /* Session */

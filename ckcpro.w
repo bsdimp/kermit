@@ -1,8 +1,8 @@
-char *protv = "C-Kermit Protocol Module 4C(026), 12 Jun 85"; /* -*-C-*- */
+char *protv = "C-Kermit Protocol Module 4C(030), 19 Mar 86"; /* -*-C-*- */
 
 /* C K C P R O  -- C-Kermit Protocol Module, in Wart preprocessor notation. */
 /*
- Author: Frank da Cruz (SY.FDC@CU20B),
+ Authors: Frank da Cruz (SY.FDC@CU20B), Bill Catchings, Jeff Damens;
  Columbia University Center for Computing Activities, January 1985.
  Copyright (C) 1985, Trustees of Columbia University in the City of New York.
  Permission is granted to any individual or institution to use, copy, or
@@ -13,32 +13,35 @@ char *protv = "C-Kermit Protocol Module 4C(026), 12 Jun 85"; /* -*-C-*- */
 #include "ckcker.h"
 /*
  Note -- This file may also be preprocessed by the Unix Lex program, but 
- you must indent the above #include statement before using Lex, and then
- restore it to the left margin in the resulting C program before compilation.
+ you must indent the above #include statements before using Lex, and then
+ restore them to the left margin in the resulting C program before compilation.
  Also, the invocation of the "wart()" function below must be replaced by an
  invocation  of the "yylex()" function.  It might also be necessary to remove
  comments in the %%...%% section.
 */
 
 /* State definitions for Wart (or Lex) */
-%states ipkt rfile rdata ssinit ssdata sseof sseot serve generic get rgen
+%states ipkt rfile rdata ssinit ssfile ssdata sseof sseot
+%states serve generic get rgen
 
 /* External C-Kermit variable declarations */
   extern char sstate, *versio, *srvtxt, *cmarg, *cmarg2;
   extern char data[], filnam[], srvcmd[], ttname[], *srvptr;
   extern int pktnum, timint, nfils, image, hcflg, xflg, speed, flow, mdmtyp;
   extern int prvpkt, cxseen, czseen, server, local, displa, bctu, bctr, quiet;
+  extern int tsecs;
   extern int putsrv(), puttrm(), putfil(), errpkt();
   extern char *DIRCMD, *DELCMD, *TYPCMD, *SPACMD, *SPACM2, *WHOCMD;
 
 /* Local variables */
   static char vstate = 0;  		/* Saved State   */
   static char vcmd = 0;    		/* Saved Command */
-  static int x;				/* General-purpose integer */
+  int x;				/* General-purpose integer */
+  char *s;				/* General-purpose string pointer */
 
 /* Macros - Note, BEGIN is predefined by Wart (and Lex) */
 #define SERVE  tinit(); BEGIN serve
-#define RESUME if (server) { SERVE; } else return
+#define RESUME if (server) { SERVE; } else { sleep(2); return; }
 
 %%
 /* Protocol entry points, one for each start state (sstate) */
@@ -47,22 +50,22 @@ s { tinit();	    	    	    	/* Do Send command */
     if (sinit()) BEGIN ssinit;
        else RESUME; }
 
-v { tinit(); sleep(1); nack(); BEGIN get; } 	    	    	/* Receive */
-r { tinit(); vstate = get;  vcmd = 0;   sipkt(); BEGIN ipkt; }	/* Get */
-c { tinit(); vstate = rgen; vcmd = 'C'; sipkt(); BEGIN ipkt; }	/* Host */
-g { tinit(); vstate = rgen; vcmd = 'G'; sipkt(); BEGIN ipkt; }	/* Generic */
+v { tinit(); BEGIN get; } 	     	     	  /* Receive */
+r { tinit(); vstate = get;  vcmd = 0;   sipkt('I'); BEGIN ipkt; } /* Get */
+c { tinit(); vstate = rgen; vcmd = 'C'; sipkt('I'); BEGIN ipkt; } /* Host */
+g { tinit(); vstate = rgen; vcmd = 'G'; sipkt('I'); BEGIN ipkt; } /* Generic */
 
 x { sleep(1); SERVE; }	    	    	/* Be a Server */
 
-a { errpkt("User cancelled transaction"); /* Tell other side what's going on */
-    x = quiet; quiet = 1; 		/* Close files silently */
-    clsif(); clsof(); 
+a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
+    x = quiet; quiet = 1; 		/* Close files silently. */
+    clsif(); clsof(1); 
     quiet = x; return(0); }		/* Return from protocol. */
 
-
 /* Dynamic states: <current-states>input-character { action } */
 
-<rgen,get,serve>S { rinit(data); bctu = bctr; BEGIN rfile; } /* Send-Init */
+<rgen,get,serve>S { rinit(data); bctu = bctr; /* Get Send-Init */
+    	   rtimer(); BEGIN rfile; }
 
 <ipkt>Y  { spar(data);			/* Get ack for I-packet */
     	   if (vcmd) { scmd(vcmd,cmarg); vcmd = 0; }
@@ -119,56 +122,63 @@ a { errpkt("User cancelled transaction"); /* Tell other side what's going on */
 
 <generic>. { errpkt("Unimplemented generic server function"); SERVE; }
 
-
 /* Dynamic states, cont'd */
 
 
 <rgen>Y { decode(data,puttrm); RESUME; }    /* Got reply in ACK data */
 
-<rgen,rfile>F { if (rcvfil()) { ack(); BEGIN rdata; }	/* A file is coming */
+<rgen,rfile>F { if (rcvfil()) { ack1(filnam); BEGIN rdata; } /* File header */
 		else { errpkt("Can't open file"); RESUME; } }
 
 <rgen,rfile>X { opent(); ack(); BEGIN rdata; }	/* Screen data is coming */
 
-<rfile>B { ack(); reot(); RESUME; }	/* Got End Of Transmission */
+<rfile>B { ack(); tsecs = gtimer(); reot(); RESUME; } /* Got EOT */
 
 <rdata>D { if (cxseen) ack1("X");	/* Got data. */
-    	   else if (czseen) ack1("Z");
-	   else ack();
+    	       else if (czseen) ack1("Z");
+	       else ack();
 	   decode(data,putfil); }
 
-<rdata>Z { ack(); reof(); BEGIN rfile; }    /* Got End Of File */
+<rdata>Z  { if (reof() < 0) {	    	/* Got End Of File */
+    	      errpkt("Can't close file"); RESUME;
+    	    } else { ack(); BEGIN rfile; } }
 
-<ssinit>Y {  int x; char *s;		/* Got ACK to Send-Init */
-    	     spar(data);
-    	     bctu = bctr;
-	     if (xflg) { x = sxpack(); s = "Can't execute command"; }
-	    	  else { x = sfile(); s = "Can't open file"; }
-	     if (x) BEGIN ssdata; else { errpkt(s); RESUME; }
-          }	    
+<ssinit>Y { spar(data); bctu = bctr;	/* Got ACK to Send-Init */
+    	    x = sfile(xflg);		/* Send X or F header packet */
+	    if (x) { rtimer(); BEGIN ssfile; }
+	   	else { s = xflg ? "Can't execute command" : "Can't open file";
+		    errpkt(s); RESUME; }
+          }
 
-<ssdata>Y { if (canned(data) || !sdata()) { /* Got ACK to data */
-		clsif(); seof();
-		BEGIN sseof; } }
+<ssfile>Y { srvptr = srvcmd;		    	 /* Got ACK to F */
+	    decode(data,putsrv); putsrv('\0');
+	    if (*srvcmd) tlog(F110," stored as",srvcmd,0);
+	    if (sdata() < 0) { clsif(); seof(""); BEGIN sseof; }
+    	    	else BEGIN ssdata; }
 
-<sseof>Y { if (gnfile() > 0) {		/* Got ACK to EOF, get next file */
-		if (sfile()) BEGIN ssdata;
+<ssdata>Y { if (canned(data)) { clsif(); seof("D"); BEGIN sseof; }
+	    	else if (sdata() < 0) { clsif(); seof(""); BEGIN sseof; } }
+
+<sseof>Y  { if (gnfile() > 0) {		/* Got ACK to EOF, get next file */
+		if (sfile(xflg)) BEGIN ssdata;
 		else { errpkt("Can't open file") ; RESUME; }
-	   } else {			/* If no next file, EOT */
+	    } else {			/* If no next file, EOT */
+		tsecs = gtimer();
 		seot();
-		BEGIN sseot; } }
+		BEGIN sseot; }
+	  }
 
 <sseot>Y { RESUME; }			/* Got ACK to EOT */
 
-E { ermsg(data);			/* Error packet, issue message */
-    x = quiet; quiet = 1;		/* Close files silently */
-    clsif(); clsof();
+E { ermsg(data);			/* Error packet, issue message. */
+    x = quiet; quiet = 1;		/* Close files silently, */
+    clsif(); clsof(1);			/* discarding any output file. */
+    tsecs = gtimer();
     quiet = x; RESUME; }
 
-. { nack(); }				/* Anything else, send NAK */
+. { errpkt("Unknown packet type"); RESUME; } /* Anything else, send error */
 %%
 
-
 /*  P R O T O  --  Protocol entry function  */
 
 proto() {
@@ -187,7 +197,7 @@ proto() {
 
     x = -1;
     if (ttopen(ttname,&x,mdmtyp) < 0) {
-	debug(F111,"proto ttopen local",ttname,local);
+	debug(F111,"failed: proto ttopen local",ttname,local);
 	screen(SCR_EM,0,0l,"Can't open line");
 	return;
     }

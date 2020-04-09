@@ -25,14 +25,13 @@ extern int parity, speed, turn, turnch,
  delay, displa, pktlog, tralog, seslog, xflg, mypadn;
 extern long filcnt, ffc, flci, flco, tlci, tlco, tfc, fsize;
 extern int deblog, hcflg, binary, fncnv, local, server, cxseen, czseen;
-extern char padch, mypadc, eol, seol, ctlq, myctlq, sstate, *hlptxt;
-extern char filnam[], sndpkt[], recpkt[], data[], srvcmd[], *srvptr, stchr, 
+extern CHAR padch, mypadc, eol, seol, ctlq, myctlq, sstate, *hlptxt;
+extern CHAR filnam[], sndpkt[], recpkt[], data[], srvcmd[], *srvptr, stchr, 
  mystch;
 extern char *cmarg, *cmarg2, **cmlist;
 char *strcpy();
 CHAR dopar();
 
-
 /*  I N P U T  --  Attempt to read packet number 'pktnum'.  */
 
 /*
@@ -76,7 +75,11 @@ input() {
 	    strcpy(data,"Timed out.");	/* and send a timeout error packet. */
 	    return('E');
 	}
-	resend();			/* Else, send last packet again, */
+	if (type == 'N' && num == (pktnum+1) & 63) { /* NAK for next packet */
+	    return('Y');		/* is ACK for current. */
+	} else {    
+	    resend();			/* Else, send last packet again, */
+	}
 	if (sstate != 0) {		/* If an interrupt routine has set */
 	    type = sstate;		/* sstate behind our back, return */
 	    sstate = 0;			/* that. */
@@ -86,43 +89,43 @@ input() {
 	chkint();			/* Look again for interruptions. */
 	if (type == sndtyp) type = rpack(&len,&num,data);
     }
-    return(type);			/* Success, return packet type. */
+    ttflui();			/* Got what we want, clear input buffer. */
+    return(type);		/* Success, return packet type. */
 }
 
-
 /*  S P A C K  --  Construct and send a packet  */
 
 spack(type,num,len,dat) char type, *dat; int num, len; {
-    int i,j;
+    int i,j,k;
     
     j = dopar(padch);
     for (i = 0; i < npad; sndpkt[i++] = j)  /* Do any requested padding */
     	;
     sndpkt[i++] = dopar(mystch);	/* Start packet with the start char */
+    k = i;
     sndpkt[i++] = dopar(tochar(len+bctu+2));	/* Put in the length */
     sndpkt[i++] = dopar(tochar(num));		/* The packet number */
-    sndpkt[i++] = sndtyp = dopar(type);		/* Packet type */
+    sndpkt[i++] = dopar(sndtyp = type);		/* Packet type */
 
     for (j = len; j > 0; j-- ) sndpkt[i++] = dopar(*dat++); /* Data */
 
     sndpkt[i] = '\0';			/* Mark end for block check */
     switch(bctu) {
 	case 1: 			/* Type 1 - 6 bit checksum */
-	    sndpkt[i++] = dopar(tochar(chk1(sndpkt+1)));
+	    sndpkt[i++] = dopar(tochar(chk1(sndpkt+k)));
 	    break;
 	case 2:				/* Type 2 - 12 bit checksum*/
-	    j = chk2(sndpkt+1);
+	    j = chk2(sndpkt+k);
 	    sndpkt[i++] = dopar(tochar((j & 07700) >> 6));
 	    sndpkt[i++] = dopar(tochar(j & 077));
 	    break;
         case 3:				/* Type 3 - 16 bit CRC-CCITT */
-	    j = chk3(sndpkt+1);
+	    j = chk3(sndpkt+k);
 	    sndpkt[i++] = dopar(tochar(( (unsigned)(j & 0170000)) >> 12));
 	    sndpkt[i++] = dopar(tochar((j & 07700) >> 6));
 	    sndpkt[i++] = dopar(tochar(j & 077));
 	    break;
 	}
-    for (j = npad; j > 0; j-- ) sndpkt[i++] = dopar(padch); /* Padding */
 
     sndpkt[i++] = dopar(seol);		/* EOL character */
     sndpkt[i] = '\0';			/* End of the packet */
@@ -153,15 +156,14 @@ dopar(ch) char ch; {
     }
 }
 
-
 /*  C H K 1  --  Compute a type-1 Kermit 6-bit checksum.  */
 
 chk1(pkt) char *pkt; {
-    int chk;
+    unsigned int chk;
     chk = chk2(pkt);
-    return((((chk & 0300) >> 6) + chk) & 077);
+    chk = (((chk & 0300) >> 6) + chk) & 077;
+    return(chk);
 }
-
 
 /*  C H K 2  --  Compute the numeric sum of all the bytes in the packet.  */
 
@@ -198,7 +200,6 @@ chk3(s) char *s; {
     return(crc);
 }
 
-
 /* Functions for sending various kinds of packets */
 
 ack() {					/* Send an ordinary acknowledgment. */
@@ -224,7 +225,10 @@ resend() {				/* Send the old packet again. */
 	if (!ttchk() ) ttinc(1);	/* be extra sure no stuff in SIII/V */
 	if (!ttchk() ) break;
     }
-    if (*sndpkt) ttol(sndpkt,spktl);	/* Resend if buffer not empty */
+    if (*sndpkt)
+    	ttol(sndpkt,spktl);		/* Resend if buffer not empty */
+    else nack();
+    
     screen(SCR_PT,'%',(long)pktnum,sndpkt); /* Display that resend occurred */
     if (pktlog && *sndpkt) zsoutl(ZPFILE,sndpkt); /* Log packet if desired */
 }
@@ -232,6 +236,7 @@ resend() {				/* Send the old packet again. */
 errpkt(reason) char *reason; {		/* Send an error packet. */
     encstr(reason);
     spack('E',pktnum,size,data);
+    clsif(); clsof(1);
     screen(SCR_TC,0,0l,"");
 }
 
@@ -255,29 +260,30 @@ sigint() {				/* Terminal interrupt handler */
     doexit(GOOD_EXIT);			/* Exit program */
 }
 
-
 /* R P A C K  --  Read a Packet */
 
 rpack(l,n,dat) int *l, *n; char *dat; {
-    int i, j, x, done, pstart, pbl;
-    char chk[4], xchk[4], t, type;
+    int i, j, x, done, pstart, pbl, cccount, tries, gotsoh;
+    CHAR chk[4], xchk[4], t, type;
 
-    chk[3] = xchk[3] = 0;
-    i = inlin();			/* Read a line */
-    if (i != 0) {
-	debug(F101,"rpack: inlin","",i);
-	screen(SCR_PT,'T',(long)pktnum,"");
-	return('T');
+/* Try 3 times to get a line that has a start-of-packet char in it. */
+/* This allows skipping of blank lines that some hosts might send.  */
+
+    for (gotsoh = tries = 0; (tries < 3) && (gotsoh == 0); tries++) {
+	j = inlin();			/* Read a line */
+	if (j < 0) {
+	    debug(F101,"rpack: inlin fails","",j);
+	    screen(SCR_PT,'T',(long)pktnum,"");
+	    return('T');
+	}
+	debug(F111,"rpack: inlin ok, recpkt",recpkt,j);
+	for (i = 0; ((t = recpkt[i]) != stchr) && (i < j); i++)
+	    ;				/* Look for start of packet char */
+	gotsoh = (t == stchr);
     }
-    debug(F110,"rpack: inlin ok, recpkt",recpkt,0);
+    if (gotsoh) i++; else return('Q');	/* No SOH in 3 tries, fail. */
 
-/* Look for start of packet */
-
-    for (i = 0; ((t = recpkt[i]) != stchr) && (i < RBUFL) ; i++)
-    	;
-    if (++i >= RBUFL) return('Q');	/* Skip rest if not found */
-
-/* now "parse" the packet */
+/* Got something that starts out like a packet, now "parse" it. */
 
     debug(F101,"entering rpack with i","",i);
     done = 0;
@@ -289,23 +295,26 @@ rpack(l,n,dat) int *l, *n; char *dat; {
 
 	if ((t = recpkt[i++]) == stchr) continue; /* Resynch if SOH */
 
-/*** this allows ^A^B to cause exit, comment it out when not debugging ***/
-/***  	if (t == 2) doexit(0); ***/
+  	if (t == 3) cccount++;		/* Count any control-C's */
 
 	if (t == eol) return('Q');
 	*l = unchar(t);			/* Packet length */
 	debug(F101," pkt len","",*l);
+	if (*l + i + 2 > RBUFL) { 	/* Sticks out too far? */
+	    debug(F101," ** overrun","",i);
+	    return('Q'); 				
+	}
 
 /* sequence number */
 
 	if ((t = recpkt[i++]) == stchr) continue;
+	if (cccount && (t == 3)) { conoll("^C^C exit..."); doexit(0); }
 	if (t == eol) return('Q');
 	*n = unchar(t);
 	debug(F101,"rpack: n","",*n);
 
 /* cont'd... */
 
-
 /* ...rpack(), cont'd */
 
 
@@ -350,7 +359,6 @@ rpack(l,n,dat) int *l, *n; char *dat; {
 
 /* cont'd... */
 
-
 /* ...rpack(), cont'd */
 
 
@@ -404,12 +412,10 @@ rpack(l,n,dat) int *l, *n; char *dat; {
 
 /* Good packet, return its type */
 
-    ttflui();				/* Done, flush any remaining. */
     screen(SCR_PT,type,(long)(*n),recpkt); /* Update screen */
     return(type);
 }
 
-
 /*  I N C H R  --  Input character from communication line, with timeout  */
     	
 inchr(timo) int timo; {
@@ -425,7 +431,8 @@ inchr(timo) int timo; {
 
 /*  I N L I N  -- Input a line (up to break char) from communication line  */
 
-/*  Returns 0 on success, nonzero on failure  */
+/*  Returns number of chars input on success, -1 on failure.  */
+/*  Number of chars guaranteed to be within RBUFL.  */
 
 inlin() {
     int i, j, k, maxt;
@@ -440,10 +447,10 @@ inlin() {
     	while ((j != e) && (i < RBUFL) && (k < maxt)) {
 	    j = inchr(1);		/* Get char, 1 second timeout */
 	    debug(F101,"inlin inchr","",j);
-	    if (j < 0) k++;		/* Timed out. */
+	    if (j < 0) k++;		/* Timed out, count. */
 	    else {
-		if (j) recpkt[i++] = j;	/* Save it */
-		k = 0;			/* Reset timeout counter. */
+		if (j) recpkt[i++] = j;	/* Got one, save it, */
+		k = 0;			/* and reset timeout counter. */
 	    }
 	}
     } else {
@@ -453,10 +460,10 @@ inlin() {
     recpkt[i+1] = '\0';			/* Terminate near end of packet */
     debug(F111,"inlin",recpkt,i);	/* Debug report... */
     debug(F101," timeouts","",k);
-    if (i < 1) return(1);		/* No characters, return. */
+    if (i < 1) return(-1);		/* No characters, return. */
     if (pktlog) zsoutl(ZPFILE,recpkt);	/* Log any we got, if logging. */
-    if (k > maxt) return(1);		/* If too many tries, give up. */
+    if (k > maxt) return(-1);		/* If too many tries, give up. */
     tlci += i;				/* All OK, Count the characters. */
     flci += i;
-    return(0);
+    return(i);
 }

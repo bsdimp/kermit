@@ -1,4 +1,4 @@
-char *connv = "Connect Command for Unix, V4C(012)+2 27 Jun 85";
+char *connv = "Connect Command for Unix, V4C(015) 19 Mar 86";
 
 /*  C K U C O N  --  Dumb terminal connection to remote system, for Unix  */
 /*
@@ -31,6 +31,7 @@ char *connv = "Connect Command for Unix, V4C(012)+2 27 Jun 85";
 #endif
 
 extern int local, speed, escape, duplex, parity, flow, seslog, mdmtyp;
+extern int errno;
 extern char ttname[], sesfil[];
 extern CHAR dopar();
 
@@ -45,11 +46,11 @@ char lbuf[LBUFL];
 
 static jmp_buf env_con;			/* Envir ptr for connect errors */
 
+static
 conn_int() {				/* Modem read failure handler, */
     longjmp(env_con,1);			/* notifies parent process to stop */
 }
 
-
 /*  C O N E C T  --  Perform terminal connection  */
 
 conect() {
@@ -100,12 +101,18 @@ conect() {
 
 /* cont'd... */
 
-
 /* ...connect, cont'd */
 
 
 	parent_id = getpid();		/* get parent id for signalling */
 	pid = fork();			/* All ok, make a fork */
+	if (pid == -1) {
+	    conres();			/* Reset the console. */
+	    perror("Can't create keyboard fork");
+	    printf("[Back at Local System]\n");
+	    return(0);
+	}
+	    
 	if (pid) {			
 	  active = 1;			/* This fork reads, sends keystrokes */
 	  if (!setjmp(env_con)) {	/* comm error in child process */
@@ -139,7 +146,9 @@ conect() {
 
 	    while (1) {			/* Fresh read, wait for a character */
 		if ((c = ttinc(0)) < 0) { /* Comm line hangup detected */
-		    perror("\r\nCan't get character");
+		    if (errno == 9999)	/* this value set by ckutio.c myread */
+			 printf("\r\nCommunications disconnect ");
+		    else perror("\r\nCan't get character");
 		    kill(parent_id,SIGUSR1);	/* notify parent. */
 		    pause();		/* Wait to be killed by parent. */
                 }
@@ -158,23 +167,22 @@ conect() {
     	}
 }
 
-
 /*  H C O N N E  --  Give help message for connect.  */
 
 hconne() {
     int c;
-    static char *hlpmsg[] = {
-"\r\nC to close the connection, or:",
+    static char *hlpmsg[] = {"\
+\r\nC to close the connection, or:",
+"\r\n  0 (zero) to send a null",
 "\r\n  B to send a BREAK",
-"\r\n  H to hang up the phone",
+"\r\n  H to hangup and close connection",
 "\r\n  S for status",
-"\r\n  0 to send a null",
 "\r\n  ? for help",
 "\r\n escape character twice to send the escape character.\r\n\r\n",
 "" };
 
     conola(hlpmsg);			/* Print the help message. */
-    conol("Command> ");			/* Prompt for command. */
+    conol("Command>");			/* Prompt for command. */
     c = coninc(0);
     conoc(c);				/* Echo it. */
     conoll("");
@@ -197,7 +205,6 @@ chstr(c) int c; {
     return(cp);
 }
 
-
 /*  D O E S C  --  Process an escape character argument  */
 
 doesc(c) char c; {
@@ -216,16 +223,15 @@ doesc(c) char c; {
 	case '\03':
 	    active = 0; conol("\r\n"); return;
 
-	case 'b':			/* Send a BREAK */
+	case 'b':			/* Send a BREAK signal */
 	case '\02':
 	    ttsndb(); return;
 
 	case 'h':			/* Hangup */
-	case '\08':
+	case '\010':
 	    tthang(); active = 0; conol("\r\n"); return;
 
 	case 's':			/* Status */
-	case '\023':
 	    conol("\r\nConnected thru ");
 	    conol(ttname);
 	    if (speed >= 0) {

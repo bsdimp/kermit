@@ -1,25 +1,52 @@
-char *dialv = "Dial Command, V2.0(007) 28 Jun 85";
+char *dialv = "Dial Command, V2.0(008) 26 Jul 85";
 
 /*  C K U D I A  --  Dialing program for connection to remote system */
 
 /*
+ Author: Herm Fischer (HFISCHER@USC-ECLB)
+ Contributed to Columbia University for inclusion in C-Kermit.
+ Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436
+ Permission is granted to any individual or institution to use, copy, or
+ redistribute this software so long as it is not sold for profit, provided this
+ copyright notice is retained. 
+
+ ------
+
  This module should work under all versions of Unix.  It calls externally
  defined system-depended functions for i/o, but depends upon the existence
  of various modem control functions.
 
- Author: Herm Fischer (HFISCHER@USC-ECLB)
- Contributed to Columbia University for inclusion in C-Kermit.
- Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd #201, Encino CA 91436
- Permission is granted to any individual or institution to use, copy, or
- redistribute this software so long as it is not sold for profit, provided this
- copyright notice is retained. 
+ This module, and the supporting routines in the ckutio.c module, assume
+ that the computer and modem properly utilize the following data communi-
+ cations signals (that means one should prepare the modem to use, not
+ circumvent, these signals):
+
+     Data Terminal Ready:  This signal is asserted by the computer
+     when Kermit is about to ask the modem to dial a call, and is
+     removed when Kermit wishes to have the modem hang up a call.
+     The signal is asserted both while Kermit is asking the modem
+     to dial a specific number, and after connection, while Kermit
+     is in a data exchange mode.  
+
+     Carrier detect:  This signal must be asserted by the modem when
+     a carrier is detected from a remote modem on a communications
+     circuit.  It must be removed by the modem when the circuit
+     disconnects or is hung up.  (Carrier detect is ignored while
+     Kermit is asking the modem to dial the call, because there is
+     no consistant usage of this signal during the dialing phase
+     among different modem manufacturers.)
+
 */
 
 /*
  * Modifications:
  *
+ *	21-Jul-85	Fixed failure returns hanging on no carrier signal
+ *			Requires tthang change too (ckutio.c revision)
+ *							-- Herm Fischer
+ *
  *	28-Jun-85	Fixed bug with defaulting the modem-failure message
- *			in LBUF.
+ *			in lbuf.
  *							-- Dan Schullman
  *
  *	27-Jun-85	Merged in code from Joe Orost at Berkeley for
@@ -366,7 +393,7 @@ MDMINF *ptrtab[] =
     };
 
 /*
- * Declare modem names and associated pointers for command parsing,
+ * Declare modem names and associated numbers for command parsing,
  * and also for doing number-to-name translation.
  *
  * The entries MUST be in alphabetical order by modem name.
@@ -389,7 +416,7 @@ struct keytab mdmtab[] =
 
 int nmdm = (sizeof(mdmtab) / sizeof(struct keytab));	/* number of modems */
 
-#define DIALING 4		/* for ttvt parameter */
+#define DIALING 4		/* for ttpkt parameter */
 #define CONNECT 5
 
 #define CONNECTED 1		/* for completion status */
@@ -402,6 +429,10 @@ int nmdm = (sizeof(mdmtab) / sizeof(struct keytab));	/* number of modems */
 #define F_int		2	/* interrupt */
 #define	F_modem		3	/* modem-detected failure */
 #define	F_minit		4	/* cannot initialize modem */
+
+static
+char *F_reason[5] = { 		/* failure reasons for message */
+    "Unknown",  "Timeout", "Interrupt", "Modem", "Initialize" };
 
 static int tries = 0;
 
@@ -440,7 +471,7 @@ ttolSlow(s,millisec) char *s; int millisec; {  /* output s-l-o-w-l-y */
 static
 waitFor(s) char *s;
     {
-    register char *c;
+    CHAR c;
     while ( c = *s++ )			/* while more characters remain... */
 	while ( ( ttinc(0) & 0177 ) != c ) ;	/* wait for the character */
     }
@@ -478,7 +509,7 @@ dial(telnbr) char *telnbr; {
     MDMINF *pmdminf;	/* pointer to modem-specific info */
     int augmdmtyp;	/* "augmented" modem type, to handle modem modes */
     int mdmEcho = 0;	/* assume modem does not echo */
-    int n;
+    int n, n1;
     char *pc;		/* pointer to a character */
 
 	if (!mdmtyp) {
@@ -519,7 +550,7 @@ dial(telnbr) char *telnbr; {
 
        printf("Dialing thru %s, speed %d, number %s.\r\n",ttname,speed,telnbr);
        printf("The timeout for completing the call is %d seconds.\r\n",waitct);
-       printf("Type the interrupt character to abort the dialing.\r\n");
+       printf("Type the interrupt character to cancel the dialing.\r\n");
 
 /* Hang up the modem (in case it wasn't "on hook") */
 
@@ -541,7 +572,19 @@ dial(telnbr) char *telnbr; {
 
     if ( n = setjmp(sjbuf) )		/* if a "failure jump" was taken... */
 	{
-	reset ();			/* reset alarms, etc. */
+	alarm ( 0 );			/* disable timeouts */
+	if ( n1 = setjmp(sjbuf) )	/* failure while handling failure */
+	    {
+	    printf ( "%s failure while handling failure.\r\n", F_reason[n1] );
+	    }
+	else				/* first (i.e., non-nested) failure */
+	    {
+	    signal ( SIGALRM, dialtime );	/* be sure to catch signals */
+	    if ( signal ( SIGINT, SIG_IGN ) != SIG_IGN ) 
+		signal ( SIGINT, dialint );
+	    alarm ( 5 );		/* be sure to get out of this section */
+	    ttclos ();			/* hangup and close the line */
+	    }
 	switch ( n )			/* type of failure */
 	    {
 	    case F_time:		/* timed out */
@@ -558,7 +601,7 @@ dial(telnbr) char *telnbr; {
 		{
 		printf ( "Failed (\"" );
 		for ( pc=lbuf; *pc; pc++ )
-	    	    if ( isprint(*pc) )
+		    if ( isprint(*pc) )
 			putchar(*pc);	/* display printable reason */ 
 		printf ( "\").\r\n" );
 		break;
@@ -569,8 +612,8 @@ dial(telnbr) char *telnbr; {
 		break;
 		}
 	    }
-	ttclos ();			/* hangup and close the line */
-	return(-2);
+	reset ();			/* reset alarms, etc. */
+	return ( -2 );			/* exit with failure code */
 	}
 
 /*
@@ -648,7 +691,7 @@ switch (augmdmtyp) {
 
     default:			/* place modem into command mode */
 	ttolSlow(pmdminf->wake_str, pmdminf->wake_rate);
-	if (pmdminf->wake_prompt) waitFor(pmdminf->wake_prompt);
+	waitFor(pmdminf->wake_prompt);
 	break;
     }
     alarm(0);			/* turn off alarm */
@@ -719,7 +762,6 @@ switch (augmdmtyp) {
 		     * and/or carrier are not present.  Another reason to
 		     * (also) wait for carrier?
 		     */
-
 		    if (didWeGet(lbuf,"Busy")) status = FAILED;
 		    if (didWeGet(lbuf,"Disconnected")) status = FAILED;
 		    if (didWeGet(lbuf,"Error")) status = FAILED;
@@ -788,11 +830,14 @@ switch (augmdmtyp) {
 	}				/* switch (augmdmtyp) */
     }					/* while status == 0 */
 
+
+    alarm(0);				/* turn off alarm on connecting */
     if ( status != CONNECTED )		/* modem-detected failure */
-	longjmp( sjbuf, F_modem );	/* exit (with reason in LBUF) */
+	longjmp( sjbuf, F_modem );	/* exit (with reason in lbuf) */
+    alarm(3);				/* precaution in case of trouble */
+    ttpkt(speed,CONNECT);		/* cancel dialing state ioctl */
+    reset ();				/* reset alarms, etc. */
     if ( ! quiet )
 	printf ( "Call completed.\07\r\n" );
-    reset ();				/* reset alarms, etc. */
-    ttpkt(speed,CONNECT);		/* cancel dialing state ioctl */
     return ( 0 );			/* return, and presumably connect */
 }

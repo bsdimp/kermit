@@ -46,12 +46,24 @@ typedef char CHAR;
 typedef long LONG;
 typedef int void;
 #else
-#ifdef	V7
+#ifdef  V7
+typedef char CHAR;
+typedef long LONG;
+#else
+#ifdef  C70
+typedef char CHAR;
+typedef long LONG;
+#else
+#ifdef BSD29
 typedef char CHAR;
 typedef long LONG;
 #else
 typedef unsigned char CHAR;
+#ifndef LONG_DEF
 typedef long LONG;
+#endif
+#endif
+#endif
 #endif
 #endif
 
@@ -67,9 +79,9 @@ typedef int void;
  character will be converted to CRLF upon output, and CRLF will be converted
  to that character on input.
 */
-#ifdef MAC				/* Macintosh */
+#ifdef MAC                              /* Macintosh */
 #define NLCHAR 015
-#else					/* All Unix-like systems */
+#else                                   /* All Unix-like systems */
 #define NLCHAR 012
 #endif
 /*
@@ -99,14 +111,46 @@ typedef int void;
 /* Program return codes for VMS, DECUS C, and Unix */
 
 #ifdef vax11c
-#define	GOOD_EXIT   (SS$_NORMAL | STS$M_INHIB_MSG)
-#define	BAD_EXIT    SS$_ABORT
+#define GOOD_EXIT   (SS$_NORMAL | STS$M_INHIB_MSG)
+#define BAD_EXIT    SS$_ABORT
 #else
 #ifdef decus
-#define	GOOD_EXIT   IO_NORMAL
-#define	BAD_EXIT    IO_ERROR
+#define GOOD_EXIT   IO_NORMAL
+#define BAD_EXIT    IO_ERROR
 #else
 #define GOOD_EXIT   0
 #define BAD_EXIT    1
 #endif
 #endif
+
+/* /* Special definitions for AMIGA */
+/*
+/* These have been commented out because they are no longer necessary, and
+/* seem to cause some problems.  Once it is certain they are not needed
+/* for anything, they can be removed entirely.  Meanwhile, it has also been
+/* suggested that in order to get the program to build successfully on the
+/* Amiga, it might also be necessary to create a dummy (empty) pwd.h file
+/* so the #include won't fail.
+/*
+/* #ifdef AMIGA
+/*
+/* /* redefine printf and putchar/getchar to use AMIGA window */
+/* /* (I know this is a kludge, but it works) */
+/*
+/* #define printf          conol
+/* #define puts            conolNL
+/* #undef  putchar
+/* #define putchar         conocNL
+/* #undef  getchar
+/* #define getchar()       coninc(0)
+/* 
+/* #define isatty(x)       1            /* always a terminal */
+/* 
+/* #else
+/*
+/* #define printf2         printf       /* make printf2 and printf3 be */
+/* #define printf3         printf       /*  normal printf for all others */
+/*
+/* #endif
+/*
+/* End of commented-out Amiga conditionals */

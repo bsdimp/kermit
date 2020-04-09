@@ -1,4 +1,4 @@
-char *fnsv = "C-Kermit functions, 4C(041)+1 25 Jun 85";
+char *fnsv = "C-Kermit functions, 4D(049) 4 Jun 86";
 
 /*  C K C F N S  --  System-independent Kermit protocol support functions.  */
 
@@ -26,17 +26,17 @@ char *fnsv = "C-Kermit functions, 4C(041)+1 25 Jun 85";
 
 /* Externals from ckcmai.c */
 extern int spsiz, rpsiz, timint, rtimo, npad, chklen, ebq, ebqflg, rpt, rptq,
- rptflg, capas;
+ rptflg, capas, keep;
 extern int pktnum, prvpkt, sndtyp, bctr, bctu,
- size, osize, maxsize, spktl, nfils, stdouf, warn, timef;
+ size, osize, maxsize, spktl, nfils, stdouf, warn, timef, spsizf;
 extern int parity, speed, turn, turnch, 
  delay, displa, pktlog, tralog, seslog, xflg, mypadn;
-extern long filcnt, ffc, flci, flco, tlci, tlco, tfc, fsize;
-extern int deblog, hcflg, binary, fncnv, local, server, cxseen, czseen;
-extern char padch, mypadc, eol, ctlq, myctlq, sstate, *hlptxt;
-extern char filnam[], sndpkt[], recpkt[], data[], srvcmd[], *srvptr, stchr, 
- mystch;
-extern char *cmarg, *cmarg2, **cmlist;
+extern long filcnt, ffc, flci, flco, tlci, tlco, tfc, tsecs, fsize;
+extern int deblog, hcflg, binary, savmod, fncnv, local, server, cxseen, czseen;
+extern CHAR padch, mypadc, eol, seol, ctlq, myctlq, sstate;
+extern CHAR filnam[], sndpkt[], recpkt[], data[], srvcmd[], stchr, mystch;
+extern char *cmarg, *cmarg2, *hlptxt, **cmlist;
+extern CHAR *srvptr;
 long zchki();
 char *strcpy();
 
@@ -52,10 +52,10 @@ static int  sndsrc;			/* Flag for where to send from: */
 					/* >0: list in cmlist */
 
 static int  memstr,			/* Flag for input from memory string */
-     t,					/* Current character */
-     next;				/* Next character */
+    first;				/* Flag for first char from input */
+static CHAR t,				/* Current character */
+    next;				/* Next character */
 
-
 /*  E N C S T R  --  Encode a string from memory. */
 
 /*  Call this instead of getpkt() if source is a string, rather than a file. */
@@ -67,22 +67,21 @@ encstr(s) char* s; {
 
     memptr = s;				/* Point to the string. */
     memstr = 1;				/* Flag memory string as source. */
-    next = -1;				/* Initialize character lookahead. */
+    first = 1;				/* Initialize character lookahead. */
     getpkt(spsiz);			/* Fill a packet from the string. */
     memstr = m;				/* Restore memory string flag */
     memptr = p;				/* and pointer */
-    next = -1;				/* Put this back as we found it. */
+    first = 1;				/* Put this back as we found it. */
 }
 
-
 /* E N C O D E - Kermit packet encoding procedure */
 
-encode(a) int a; {			/* The current character */
+encode(a) CHAR a; {			/* The current character */
     int a7;				/* Low order 7 bits of character */
     int b8;				/* 8th bit of character */
 
-    if (rptflg)	{			/* Repeat processing? */
-        if (a == next) {		/* Got a run... */
+    if (rptflg)	{   	    		/* Repeat processing? */
+        if (a == next && (first == 0)) { /* Got a run... */
 	    if (++rpt < 94)		/* Below max, just count */
                 return;
 	    else if (rpt == 94) {	/* Reached max, must dump */
@@ -127,7 +126,6 @@ encode(a) int a; {			/* The current character */
     data[size] = '\0';			/* itself, and mark the end. */
 }
 
-
 /* D E C O D E  --  Kermit packet decoding procedure */
 
 /* Call with string to be decoded and an output function. */
@@ -197,38 +195,42 @@ putfil(c) char c; {			/*  Output char to file. */
     return(0);
 }
 
-
 /*  G E T P K T -- Fill a packet data field  */
 
 /*
  Gets characters from the current source -- file or memory string.
  Encodes the data into the packet, filling the packet optimally.
+ Set first = 1 when calling for the first time on a given input stream
+ (string or file).
 
  Uses global variables:
  t     -- current character.
+ first -- flag: 1 to start up, 0 for input in progress, -1 for EOF.
  next  -- next character.
  data  -- the packet data buffer.
  size  -- number of characters in the data buffer.
 
 Returns the size as value of the function, and also sets global size,
-and fills (and null-terminates) the global data array.
-
-Before calling getpkt the first time for a given source (file or string),
-set the variable 'next' to -1.
+and fills (and null-terminates) the global data array.  Returns 0 upon eof.
 */
 
 getpkt(maxsize) int maxsize; {		/* Fill one packet buffer */
-    int i;				/* Loop index. */
-
+    int i, x;				/* Loop index. */
+	
     static char leftover[6] = { '\0', '\0', '\0', '\0', '\0', '\0' };
 
-    debug(F101,"getpkt, entering with next","",next);
-    debug(F101," t","",t);
-
-    if (next < 0) {		/* If first time through, */
-	t = getch();		/* get first character of file, */
-	*leftover = '\0';   	/* discard any interrupted leftovers. */
-    }
+    if (first == 1) {		/* If first time thru...  */
+	first = 0;		/* remember, */
+	*leftover = '\0';   	/* discard any interrupted leftovers, */
+	x = getchx(&t);		/* get first character of file into t, */
+	if (x == 0) {	    	/* watching out for null file, */
+	    first = 1;
+	    return(size = 0);	
+	}
+    } else if (first == -1) {	/* EOF from last time? */
+	first = 1;		/* Setup for next time. */
+        return(size = 0);
+    } else x = 1;
 
     /* Do any leftovers */
 
@@ -239,16 +241,16 @@ getpkt(maxsize) int maxsize; {		/* Fill one packet buffer */
     /* Now fill up the rest of the packet. */
 
     rpt = 0;				/* Clear out any old repeat count. */
-    while(t >= 0) {			/* Until EOF... */
-	next = getch();			/* Get next character for lookahead. */
+    while (x > 0) {			/* Until EOF... */
+	x = getchx(&next);		/* Get next character for lookahead. */
+	if (x == 0) first = -1;		/* Flag eof for next time. */
 	osize = size;			/* Remember current position. */
         encode(t);			/* Encode the current character. */
-        t = next;			/* Next is now current. */
-	next = 0;			/* No more next. */
+	t = next;			/* Next is now current. */
 
 	if (size == maxsize) { 		/* If the packet is exactly full, */
 	    debug(F101,"getpkt exact fit","",size);
-            return(size);		/* and return. */
+            return(size);		/* ... return. */
 	}
 	if (size > maxsize) {		/* If too big, save some for next. */
 	    for (i = 0; (leftover[i] = data[osize+i]) != '\0'; i++)
@@ -259,13 +261,12 @@ getpkt(maxsize) int maxsize; {		/* Fill one packet buffer */
 	    data[size] = '\0';
 	    return(size);
 	}
-    }
-    debug(F101,"getpkt eof/eot","",size);
-    return(size);			/* Return any partial final buffer. */
+    }					/* Otherwise, keep filling. */
+    debug(F111,"getpkt eof/eot",data,size); /* Fell thru before packet full, */
+    return(size);		   /* return partially filled last packet. */
 }
 
-
-/*  G E T C H  -- Get the next character from file (or pipe). */
+/*  G E T C H X  --  Get the next character from file (or pipe). */
  
 /*
  On systems like Unix, the Macintosh, etc, that use a single character
@@ -273,14 +274,17 @@ getpkt(maxsize) int maxsize; {		/* Fill one packet buffer */
  when in text/ascii mode (binary == 0), this function maps the newline
  character to CRLF.  If NLCHAR is not defined, then this mapping is
  not done, even in text mode.
+
+ Returns 1 on success with ch set to the character, or 0 on failure (EOF)
 */
-getch()	{				/* Get next character */
+getchx(ch) char *ch; {			/* Get next character */
     int x; CHAR a;			/* The character to return. */
     static int b = 0;			/* A character to remember. */
     
     if (b > 0) {			/* Do we have a LF saved? */
 	b = 0;				/* Yes, return that. */
-	return(LF);
+	*ch = LF;
+	return(1);
     }
 
     if (memstr)				/* Try to get the next character */
@@ -289,16 +293,21 @@ getch()	{				/* Get next character */
     	x = (zchin(ZIFILE,&a) == -1);
 
     if (x)
-    	return(-1);			/* No more, return -1 for EOF. */
+    	return(0);			/* No more, return 0 for EOF. */
     else {				/* Otherwise, read the next char. */
 	ffc++, tfc++;			/* Count it. */
 #ifdef NLCHAR
 	if (!binary && (a == NLCHAR)) {	/* If nl and we must do nl-CRLF */
 	    b = 1;			/* mapping, remember a linefeed, */
-	    return(CR);			/* and return a carriage return. */
-	} else return(a);		/* General case, return the char. */
+	    *ch = CR;			/* and return a carriage return. */
+	    return(1);
+	} else {
+	    *ch = a;			/*  General case, return the char. */
+	    return(1);	
+        }
 #else
-    	return(a);
+        *ch = a;
+        return(1);	
 #endif
     }
 }
@@ -314,7 +323,6 @@ canned(buf) char *buf; {
     return((czseen || cxseen) ? 1 : 0);
 }
 
-
 /*  T I N I T  --  Initialize a transaction  */
 
 tinit() {
@@ -322,16 +330,20 @@ tinit() {
     memstr = 0;				/* Reset memory-string flag */
     memptr = NULL;			/*  and pointer */
     bctu = 1;				/* Reset block check type to 1 */
+    ebq = ebqflg = 0;			/* Reset 8th-bit quoting stuff */
+    if (savmod) {			/* If binary file mode was saved, */
+    	binary = 1;			/*  restore it, */
+	savmod = 0;			/*  unsave it. */
+    }
     filcnt = 0;				/* Reset file counter */
     tfc = tlci = tlco = 0;		/* Reset character counters */
     prvpkt = -1;			/* Reset packet number */
     pktnum = 0;
     cxseen = czseen = 0;		/* Reset interrupt flags */
     *filnam = '\0';			/* Clear file name */
-    if (server) {			/* If acting as server, */
+    *sndpkt = '\0';			/* Clear retransmission buffer */
+    if (server) 			/* If acting as server, */
 	timint = 30;			/* Use 30 second timeout, */
-	nack();				/* Send first NAK */
-    }
 }
 
 
@@ -347,7 +359,6 @@ rinit(d) char *d; {
     ack1(d);
 }
 
-
 /*  S I N I T  --  Make sure file exists, then send Send-Init packet */
 
 sinit() {
@@ -387,31 +398,26 @@ sinit() {
 	if (x < 1) return(0);		/* (if any) */
     } else if (sndsrc == 0) {		/* stdin or memory always exist... */
 	if ((cmarg2 != NULL) && (*cmarg2)) {
-	    strcpy(filnam,cmarg2);	/* If F packet, filnam is used */
+	    strcpy(filnam,cmarg2);	/* If F packet, "as" name is used */
 	    cmarg2 = "";		/* if provided, */
         } else				/* otherwise */
 	    strcpy(filnam,"stdin");	/* just use this. */
-	tlog(F110,"Sending from",cmdstr,0l); /* If X packet, cmdstr is used. */
     }
-
     debug(F101,"sinit: nfils","",nfils);
     debug(F110," filnam",filnam,0);
     debug(F110," cmdstr",cmdstr,0);
     ttflui();				/* Flush input buffer. */
-    x = rpar(data);			/* Send a Send-Init packet. */
     if (!local && !server) sleep(delay);
-    spack('S',pktnum,x,data);
+    sipkt('S');				/* Send the Send-Init packet. */
     return(1);
 }
-
-sipkt() {
+sipkt(c) char c; {			/* Send S or I packet. */
     int x;
     ttflui();				/* Flush pending input. */
     x = rpar(data);			/* Send an I-Packet. */
-    spack('I',pktnum,x,data);
+    spack(c,pktnum,x,data);
 }
 
-
 /*  R C V F I L -- Receive a file  */
 
 rcvfil() {
@@ -419,7 +425,8 @@ rcvfil() {
     ffc = flci = flco = 0;		/* Init per-file counters */
     srvptr = srvcmd;			/* Decode file name from packet. */
     decode(data,putsrv);
-    if (*srvcmd == '\0') *srvcmd = 'x';	/* Watch out for null F packet. */
+    if (*srvcmd == '\0')		/* Watch out for null F packet. */
+    	strcpy(srvcmd,"NONAME");
     screen(SCR_FN,0,0l,srvcmd);		/* Put it on screen */
     tlog(F110,"Receiving",srvcmd,0l);	/* Transaction log entry */
     if (cmarg2 != NULL) {               /* Check for alternate name */
@@ -443,115 +450,110 @@ rcvfil() {
 /*  R E O F  --  Receive End Of File  */
 
 reof() {
-
-    if (cxseen == 0) cxseen = (*data == 'D');
-    clsof();
+    int x;
+    if (cxseen == 0) cxseen = (*data == 'D');	/* Got discard directive? */
+    x = clsof(cxseen | czseen);
     if (cxseen || czseen) {
 	tlog(F100," *** Discarding","",0l);
-    } else {
-	tlog(F100," end of file","",0l);
-	tlog(F101,"  file characters        ","",ffc);
-	tlog(F101,"  communication line in  ","",flci);
-	tlog(F101,"  communication line out ","",flco);
-    }
+	cxseen = 0;
+    } else
+	fstats();
+    return(x);
 }
+
 
 /*  R E O T  --  Receive End Of Transaction  */
 
 reot() {
-    char *tp;
-    cxseen = czseen = 0; 
-    ztime(&tp);
-    tlog(F110,"End of transaction",tp,0l);
-    if (filcnt > 1) {
-	tlog(F101," files","",filcnt);
-	tlog(F101," total file characters   ","",tfc);
-	tlog(F101," communication line in   ","",tlci);
-	tlog(F101," communication line out  ","",tlco);
-    }
+    cxseen = czseen = 0;		/* Reset interruption flags */
+    tstats();
 }
 
+/*  S F I L E -- Send File header or teXt header packet  */
 
-/*  S F I L E -- Send File header packet for global "filnam" */
+/*  Call with x nonzero for X packet, zero for F packet  */
+/*  Returns 1 on success, 0 on failure                   */
 
-sfile() {
+sfile(x) int x; {
     char pktnam[100];			/* Local copy of name */
+    char *s;
 
-    if (*cmarg2 != '\0') {		/* If we have a send-as name, */
-	strcpy(pktnam,cmarg2);		/* copy it literally, */
-	cmarg2 = "";			/* and blank it out for next time. */
-    } else {				/* Otherwise use actual file name: */
-	if (fncnv) {			/* If converting names, */
-	    zltor(filnam,pktnam);	/* convert it to common form, */
-	} else {			/* otherwise, */
-	    strcpy(pktnam,filnam);	/* copy it literally. */
-        }
+    if (x == 0) {			/* F-Packet setup */
+
+    	if (*cmarg2 != '\0') {		/* If we have a send-as name, */
+	    strcpy(pktnam,cmarg2);	/* copy it literally, */
+	    cmarg2 = "";		/* and blank it out for next time. */
+    	} else {			/* Otherwise use actual file name: */
+	    if (fncnv) {		/* If converting names, */
+	    	zltor(filnam,pktnam);	/* convert it to common form, */
+	    } else {			/* otherwise, */
+	    	strcpy(pktnam,filnam);	/* copy it literally. */
+            }
+    	}
+    	debug(F110,"sfile",filnam,0);	/* Log debugging info */
+    	debug(F110," pktnam",pktnam,0);
+    	if (openi(filnam) == 0) 	/* Try to open the file */
+	    return(0); 		
+    	s = pktnam;			/* Name for packet data field */
+
+    } else {				/* X-packet setup */
+
+    	debug(F110,"sxpack",cmdstr,0);	/* Log debugging info */
+    	s = cmdstr;			/* Name for data field */
     }
-    debug(F110,"sfile",filnam,0);
-    debug(F110," pktnam",pktnam,0);
-    if (openi(filnam) == 0) 		/* Try to open the file */
-	return(0); 		
 
-    flci = flco = ffc = 0;		/* OK, Init counters, etc. */
-    encstr(pktnam);			/* Encode the name. */
+    flci = flco = ffc = 0;		/* Init counters, etc. */
+    encstr(s);				/* Encode the name into data[]. */
     nxtpkt(&pktnum);			/* Increment the packet number */
-    ttflui();				/* Clear pending input */
-    spack('F',pktnum,size,data); 	/* Send the F packet */
-    if (displa) {
-	screen(SCR_FN,'F',(long)pktnum,filnam);	/* Update screen */
-	screen(SCR_AN,0,0l,pktnam);
-	screen(SCR_FS,0,(long)fsize,"");
-	intmsg(++filcnt);		/* Count file, give interrupt msg */
+    spack(x ? 'X' : 'F', pktnum, size, data); /* Send the F or X packet */
+
+    if (x == 0) {			/* Display for F packet */
+    	if (displa) {			/* Screen */
+	    screen(SCR_FN,'F',(long)pktnum,filnam);
+	    screen(SCR_AN,0,0l,pktnam);
+	    screen(SCR_FS,0,(long)fsize,"");
+    	}
+    	tlog(F110,"Sending",filnam,0l);	/* Transaction log entry */
+    	tlog(F110," as",pktnam,0l);
+
+    } else {				/* Display for X-packet */
+
+    	screen(SCR_XD,'X',(long)pktnum,cmdstr);	/* Screen */
+    	tlog(F110,"Sending from:",cmdstr,0l);	/* Transaction log */
     }
-    tlog(F110,"Sending",filnam,0l);	/* Transaction log entry */
-    tlog(F110," as",pktnam,0l);
-    next = -1;				/* Init file character lookahead. */
-    return(1);
-}
-
-
-/* Send an X Packet -- Like SFILE, but with Text rather than File header */
-
-sxpack() {				/* Send an X packet */
-    debug(F110,"sxpack",cmdstr,0);
-    encstr(cmdstr);			/* Encode any data. */
-    rpt = flci = flco = ffc = 0;	/* Init counters, etc. */
-    next = -1;				/* Init file character lookahead. */
-    nxtpkt(&pktnum);			/* Increment the packet number */
-    spack('X',pktnum,size,data);	/* No incrementing pktnum */
-    screen(SCR_XD,'X',(long)pktnum,cmdstr); /* Update screen. */
-    intmsg(++filcnt);
-    tlog(F110,"Sending from:",cmdstr,0l);
+    intmsg(++filcnt);			/* Count file, give interrupt msg */
+    first = 1;				/* Init file character lookahead. */
     return(1);
 }
 
-
 /*  S D A T A -- Send a data packet */
+
+/*  Return -1 if no data to send, else send packet and return length  */
 
 sdata() {
     int len;
-    if (cxseen || czseen) return(0);	/* If interrupted, done. */
-    if ((len = getpkt(spsiz-chklen-3)) == 0) return(0); /* If no data, done. */
+    if (cxseen || czseen) return(-1);	/* If interrupted, done. */
+    if ((len = getpkt(spsiz-chklen-3)) == 0) /* Done if no data. */
+    	return(-1);
     nxtpkt(&pktnum);			/* Increment the packet number */
     spack('D',pktnum,len,data);		/* Send the packet */
-    return(1);
+    return(len);
 }
 
 
 /*  S E O F -- Send an End-Of-File packet */
 
-seof() {
+/*  Call with a string pointer to character to put in the data field, */
+/*  or else a null pointer or "" for no data.  */
+
+seof(s) char *s; {
     nxtpkt(&pktnum);			/* Increment the packet number */
-    if (czseen || cxseen) {
-	spack('Z',pktnum,1,"D");
-	cxseen = 0;			/* Clear this now */
+    if ((s != NULL) && (*s != '\0')) {
+	spack('Z',pktnum,1,s);
 	tlog(F100," *** interrupted, sending discard request","",0l);
     } else {
 	spack('Z',pktnum,0,"");
-	tlog(F100," end of file","",0l);
-	tlog(F101,"  file characters        ","",ffc);
-	tlog(F101,"  communication line in  ","",flci);
-	tlog(F101,"  communication line out ","",flco);
+	fstats();
     }
 }
 
@@ -559,21 +561,55 @@ seof() {
 /*  S E O T -- Send an End-Of-Transaction packet */
 
 seot() {
-    char *tp;
     nxtpkt(&pktnum);			/* Increment the packet number */
-    spack('B',pktnum,0,"");
-    cxseen = czseen = 0; 
-    ztime(&tp);
-    tlog(F110,"End of transaction",tp,0l);
+    spack('B',pktnum,0,"");		/* Send the EOT packet */
+    cxseen = czseen = 0;		/* Reset interruption flags */
+    tstats();				/* Log timing info */
+}
+
+/*  F S T A T S  --  Record file statistics in transaction log  */
+
+fstats() {
+    tlog(F100," end of file","",0l);
+    tlog(F101,"  file characters        ","",ffc);
+    tlog(F101,"  communication line in  ","",flci);
+    tlog(F101,"  communication line out ","",flco);
+}
+
+
+/*  T S T A T S  --  Record statistics in transaction log  */
+
+tstats() {
+    char *tp; int x;
+
+    ztime(&tp);				/* Get time stamp */
+    tlog(F110,"End of transaction",tp,0l);  /* Record it */
+
+    if (filcnt < 1) return;		/* If no files, done. */
+
+/* If multiple files, record character totals for all files */
+
     if (filcnt > 1) {
 	tlog(F101," files","",filcnt);
 	tlog(F101," total file characters   ","",tfc);
 	tlog(F101," communication line in   ","",tlci);
 	tlog(F101," communication line out  ","",tlco);
     }
+
+/* Record timing info for one or more files */
+
+    tlog(F101," elapsed time (seconds)  ","",tsecs);
+    if (tsecs > 0) {
+	x = (tfc / tsecs) * 10;
+	tlog(F101," effective baud rate     ","",x);
+	if (speed > 0) {
+	    x = (x * 100) / speed;
+	    tlog(F101," efficiency (percent)    ","",x);
+	}
+    }
+    tlog(F100,"","",0);			/* Leave a blank line */
 }
 
-
 /*   R P A R -- Fill the data array with my send-init parameters  */
 
 rpar(data) char data[]; {
@@ -583,11 +619,13 @@ rpar(data) char data[]; {
     data[3] = ctl(mypadc);		/* Padding character I want */
     data[4] = tochar(eol);		/* End-Of-Line character I want */
     data[5] = CTLQ;			/* Control-Quote character I send */
-    if (parity || ebqflg) {		/* 8-bit quoting */
-    	data[6] = '&';
-	ebqflg = 1;
-    } else {
-	data[6] = 'Y';
+    if (parity || ebqflg) {		/* 8-bit quoting... */
+    	data[6] = '&';	    	    	    /* If parity or flag on, send &. */
+	if ((ebq > 0040 && ebq < 0100) ||   /* If flag off, then turn it on  */
+	    (ebq > 0140 && ebq < 0177) ||   /* if other side has asked us to */
+	    (ebq == 'Y')) ebqflg = 1;
+    } else {				    /* Normally, */
+	data[6] = 'Y';			    /* just say we're willing. */
     }
     data[7] = bctr + '0';		/* Block check type */
     data[8] = MYRPTQ;			/* Do repeat counts */
@@ -595,7 +633,6 @@ rpar(data) char data[]; {
     return(9);				/* Return the length. */
 }
 
-
 /*   S P A R -- Get the other system's Send-Init parameters.  */
 
 spar(data) char data[]; {
@@ -603,14 +640,13 @@ spar(data) char data[]; {
 
     len = strlen(data);		    	/* Number of fields */
 
-    spsiz = (len-- > 0) ? unchar(data[0]) : DSPSIZ; 	/* Packet size */
-    if (spsiz < 10) spsiz = DSPSIZ;
+    x = (len-- > 0) ? unchar(data[0]) : DSPSIZ;	        /* Packet size */
+    if (spsizf == 0)
+	spsiz = (x < 10) ? DSPSIZ : x;
 
-    x = (len-- > 0) ? unchar(data[1]) : DMYTIM;	/* Timeout */
-    if (!timef) {			/* Only use if not overridden */
-	timint = x;
-	if (timint < 0) timint = DMYTIM;
-    }
+    x = (len-- > 0) ? unchar(data[1]) : DMYTIM;		/* Timeout */
+    if (timef == 0)
+	timint = (x < 0) ? DMYTIM : x;
 
     npad = 0; padch = '\0';		    	    	/* Padding */
     if (len-- > 0) {
@@ -618,12 +654,12 @@ spar(data) char data[]; {
 	if (len-- > 0) padch = ctl(data[3]); else padch = 0;
     }
 
-    eol = (len-- > 0) ? unchar(data[4]) : '\r';	    	/* Terminator  */
-    if ((eol < 2) || (eol > 037)) eol = '\r';
+    seol = (len-- > 0) ? unchar(data[4]) : '\r';	/* Terminator  */
+    if ((seol < 2) || (seol > 037)) seol = '\r';
 
     ctlq = (len-- > 0) ? data[5] : CTLQ;    	    	/* Control prefix */
 
-    if (len-- > 0) {
+    if (len-- > 0) {			    	    	/* 8th-bit prefix */
 	ebq = data[6];
 	if ((ebq > 040 && ebq < 0100) || (ebq > 0140 && ebq < 0177)) {
 	    ebqflg = 1;
@@ -650,7 +686,6 @@ spar(data) char data[]; {
     if (deblog) sdebu(len);
 }
 
-
 /*  S D E B U  -- Record spar results in debugging log  */
 
 sdebu(len) int len; {
@@ -668,7 +703,6 @@ sdebu(len) int len; {
     debug(F101," rptflg","",rptflg);
 }
 
-
 /*  G N F I L E  --  Get the next file name from a file group.  */
 
 /*  Returns 1 if there's a next file, 0 otherwise  */
@@ -725,7 +759,6 @@ gnfile() {
     return(1);
 }
 
-
 /*  O P E N I  --  Open an existing file for input  */
 
 openi(name) char *name; {
@@ -759,7 +792,6 @@ openi(name) char *name; {
     }
 }
 
-
 /*  O P E N O  --  Open a new file for output.  */
 
 /*  Returns actual name under which the file was opened in string 'name2'. */
@@ -809,7 +841,6 @@ opent() {
     return(zopeno(ZCTERM,""));
 }
 
-
 /*  C L S I F  --  Close the current input file. */
 
 clsif() {
@@ -828,31 +859,40 @@ clsif() {
 
 /*  C L S O F  --  Close an output file.  */
 
-clsof() {
-    zclose(ZOFILE);			/* Close it. */
-    if (czseen || cxseen) {
-	if (*filnam) zdelet(filnam);	/* Delete it if interrupted. */
+/*  Call with disp != 0 if file is to be discarded.  */
+/*  Returns -1 upon failure to close, 0 or greater on success. */
+
+clsof(disp) int disp; {
+    int x;
+    if ((x = zclose(ZOFILE)) < 0) {	/* Try to close the file */
+	tlog(F100,"Failure to close",filnam,0l);
+	screen(SCR_ST,ST_ERR,0l,"");
+    } else if (disp && (keep == 0)) {	/* Delete it if interrupted, */
+	if (*filnam) zdelet(filnam);	/* and not keeping incomplete files */
 	debug(F100,"Discarded","",0);
 	tlog(F100,"Discarded","",0l);
 	screen(SCR_ST,ST_DISC,0l,"");
-    } else {
-	debug(F100,"Closed","",0);
+    } else {				/* Nothing wrong, just keep it */
+	debug(F100,"Closed","",0);	/* and give comforting messages. */
 	screen(SCR_ST,ST_OK,0l,"");
     }
-    cxseen = 0;				/* Reset file interruption flag */
-    *filnam = '\0';			/* and current file name. */
+    *filnam = '\0';			/* Zero the current file name. */
+    return(x);				/* Send back zclose() return code. */
 }
 
-
 /*  S N D H L P  --  Routine to send builtin help  */
 
 sndhlp() {
     nfils = 0;				/* No files, no lists. */
     xflg = 1;				/* Flag we must send X packet. */
     strcpy(cmdstr,"help text");		/* Data for X packet. */
-    next = -1;				/* Init getch lookahead */
+    first = 1;				/* Init getchx lookahead */
     memstr = 1;				/* Just set the flag. */
     memptr = hlptxt;			/* And the pointer. */
+    if (binary) {			/* If file mode is binary, */
+	binary = 0;			/*  turn it back to text for this, */
+	savmod = 1;			/*  remember to restore it later. */
+    }
     return(sinit());
 }
 
@@ -895,6 +935,10 @@ syscmd(prefix,suffix) char *prefix, *suffix; {
 	debug(F100,"syscmd zopeni ok",cmdstr,0);
 	nfils = sndsrc = 0;		/* Flag that input from stdin */
 	xflg = hcflg = 1;		/* And special flags for pipe */
+	if (binary) {			/* If file mode is binary, */
+	    binary = 0;			/*  turn it back to text for this, */
+	    savmod = 1;			/*  remember to restore it later. */
+	}
 	return (sinit());		/* Send S packet */
     } else {
 	debug(F100,"syscmd zopeni failed",cmdstr,0);
