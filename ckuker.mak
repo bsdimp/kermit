@@ -1,4 +1,4 @@
-# CKUKER.MAK, Version 2.06, 5 Feb 87
+# CKUKER.MAK, Version 2.11, 29 January 1988
 #
 # -- Makefile to build C-Kermit for Unix and Unix-like systems --
 #
@@ -6,27 +6,42 @@
 # ckuker.bwr (the "beware file"), and then rename this file to "makefile"
 # or "Makefile", and then:
 #
+# for Amdahl UTS 2.4 on IBM 370 series & compatible mainframes, "make uts24"
+# for Amdahl UTSV IBM 370 series & compatible mainframes, "make sys3"
+# for AT&T 3Bx systems, "make att3bx"
+# for AT&T 7300 Unix PC, "make att7300" (accesses built-in dialer)
+# for AT&T generic System III/System V, "make sys3" or "make sys3nid"
+# for ATT System V R3, use "make sys5r3".  This is different from the above.
+# for BBN C/70 with IOS 2.0, "make c70"
+# for Bell Unix Version 7 (aka 7th Edition), "make v7" (but see below)
 # for Berkeley Unix 4.x, "make bsd" (tested with 4.1, 4.2, and 4.3)
 # for Berkeley Unix 2.9 (DEC PDP-11 or Pro-3xx), "make bsd29"
+# for CDC VX/VE 5.2.1 Sys V emulation, "make vxve"
+# for CIE Systems 680/20 with Regulus, "make cie"
 # for DEC Ultrix 1.1 or 1.2, "make bsd"
-# for AT&T 3Bx systems, "make att3bx"
-# for AT&T generic System III/System V, "make sys3" or "make sys3nid"
-# for Bell Unix Version 7 (aka 7th Edition), "make v7" (but see below)
-# for Microsoft Xenix (/286, PC/AT, etc), "make xenix"
-# for Interactive System III (PC/IX) on PC/XT, "make pcix"
-# for Interactive Sys III on other systems, "make is3"
-# for Masscomp variation on Sys III, "make rtu"
 # for DEC Pro-350 with Pro/Venix V1.x, "make provx1"
 # for DEC Pro-350 with Pro/Venix V2.0 (Sys V), "make sys3nid" 
 # for DEC Pro-380 with Pro/Venix V2.0 (Sys V), "make sys3" or "make sys3nid"
+# for Fortune 32:16, For:Pro 1.8, "make ft18"
+# for HP-9000 Series with HP-UX, "make hpux"
+# for IBM 370 Series with IX/370, "make ix370"
+# for Interactive System III (PC/IX) on PC/XT, "make pcix"
+# for Interactive Sys III on other systems, "make is3"
+# for Masscomp variation on Sys III, "make rtu"
+# for Microsoft,IBM Xenix (/286, PC/AT, etc), "make xenix" (but see below)
 # for NCR Tower 1632, OS 1.02, "make tower1"
 # for NCR Tower 1632 with System V, "make sys3"
-# for Fortune 16:32, For:Pro 1.7, "make ft17"
-# for Valid Scaldstar, "make valid"
-# for BBN C/70 with IOS 2.0, "make c70"
-# for Amdahl UTS 2.4 on IBM 370 series & compatible mainframes, "make uts24"
-# for Amdahl UTSV IBM 370 series & compatible mainframes, "make sys3"
+# for SCO Xenix/286 2.2.1 with development system 2.2 on 80286, "make sco286"
+# for SCO Xenix/286 2.2.1 with development system 2.2 on 8086/8 "make sco86"
 # for Sequent Balance 8000, "make bsd"
+# for Valid Scaldstar, "make valid"
+#
+# The result is a runnable program called "wermit" in the current directory.
+# After satisfactory testing, you can rename wermit to "kermit" and put it
+# where users can find it.
+#
+# To remove intermediate and object files, "make clean".
+# To run lint on the source file, "make lint".
 #
 ##############################################################################
 #
@@ -36,16 +51,18 @@
 #  to add it if you trust your optimizer.  The ckuus2.c module, in particular,
 #  tends to make optimizers blow up.
 #
-#  "make bsd" should produce a working C-Kermit for both 4.1, 4.2, and
-#  (hopefully) 4.3bsd on VAX, SUN, Pyramid, and other 4.x systems.
+#  "make bsd" should produce a working C-Kermit for 4.1, 4.2, and
+#  4.3bsd on VAX, SUN, Pyramid, and other 4.x systems.
 #
 #  Either "make sys3" or "make sys3nid" tends to produce a working version on
-#  any ATT System III or System V system, including Motorola Four Phase, Callan
-#  Unistar, Cadmus, NCR Tower, HP9836 Series 200, Plexus,
+#  any ATT System III or System V R2 or earlier system, including Motorola Four
+#  Phase, Callan, Unistar, Cadmus, NCR Tower, HP9836 Series 200, Plexus,
 #  Heurikon, etc etc (for exceptions, see below; AT&T 3Bx systems have their
 #  own entry).  As far as C-Kermit goes, there is no functional difference
-#  between ATT System III and System V, so there is no need for a separate
+#  between ATT System III and System V R2, so there is no need for a separate
 #  "make sys5" entry (but there is one anyway; it merely invokes "make sys3").
+#  But for ATT System V R3, use "make sys5r3".  This is different from the 
+#  above because of the redefinition of signal().
 #
 #  "make sys3nid" is equivalent to "make sys3" but leaves out the -i option,
 #  which is used indicate that separate instruction and data (text) spaces are
@@ -53,7 +70,17 @@
 #  may require it.  If one of these options doesn't work on your System III
 #  or System V system, try the other.
 #
-#  For version 7, several variables must be defined to the values
+#  For Xenix...  What's Xenix?  There are so many different products & versions
+#  sold under this name, the name "xenix" is almost meaningless.  IBM, SCO,
+#  Microsoft, etc, IBM Xenix 1.0 =(?) Microsoft Xenix 3.0 = ???  Nevertheless,
+#  try "make xenix" for IBM or Microsoft, or "make sco286" or "make sco86" for
+#  for SCO Xenix.  If these don't work, try the following modifications to
+#  this Makefile:
+#    Change "CC= cc" to "CC = cc -LARGE"
+#    In the "xenix:" make entry, add "-M2m -UM_I86" to the compiler switches
+#    (for the IBM PC family), and "-Mm -lx" to the link switches.
+#
+#  For Unix Version 7, several variables must be defined to the values
 #  associated with your system.  BOOTNAME=/edition7 is the kernel image on
 #  okstate's Perkin-Elmer 3230.  Others will probably be /unix.  PROCNAME=proc
 #  is the name of the structure assigned to each process on okstate's system.
@@ -86,10 +113,6 @@
 #
 #  Other systems require some special treatment:
 #
-#  For HP9000 series 500, use "make sys3nid", but
-#  1. In ckutio.c, don't #include <sys/file.h> or ioctl.h.
-#  2. In ckufio.c, don't #include <sys/file.h>.
-#
 #  For Ridge32 (ROS3.2), use "make sys3", but
 #  1. Use "CFLAGS = -DUXIII -i -O" "LNKFLAGS = -i"
 #  2. Don't #include <sys/file.h> in cku[tf]io.c.
@@ -117,11 +140,11 @@
 #  V7-specific variables.
 #  These are set up for Perkin-Elmer 3230 V7 Unix:
 # 
-PROC=proc
+PROC=_proc
 DIRECT=
-NPROC=nproc
+NPROC=_proccnt
 NPTYPE=int
-BOOTFILE=/edition7
+BOOTFILE=/unix
 #
 # ( For TRS-80 Xenix, use PROC=_proc, DIRECT=-DDIRECT, NPROC=_Nproc, 
 #   NPTYPE=short, BOOTFILE=/xenix )
@@ -131,6 +154,7 @@ BOOTFILE=/edition7
 #  Compile and Link variables:
 #
 LNKFLAGS=
+SHAREDLIB=
 CC= cc
 CC2= cc
 #
@@ -143,11 +167,12 @@ make:
 
 wermit: ckcmai.o ckucmd.o ckuusr.o ckuus2.o ckuus3.o ckcpro.o ckcfns.o \
 		 ckcfn2.o ckucon.o ckutio.o ckufio.o ckudia.o ckuscr.o
-	$(CC2) $(LNKFLAGS) -o wermit ckcmai.o ckutio.o ckufio.o ckcfns.o \
+	$(CC2) $(LNKFLAGS) $(SHAREDLIB) -o wermit ckcmai.o ckutio.o \
+		 ckufio.o ckcfns.o \
 		 ckcfn2.o ckcpro.o ckucmd.o ckuus2.o ckuus3.o ckuusr.o \
 		 ckucon.o ckudia.o ckuscr.o
 
-ckcmai.o: ckcmai.c ckcker.h ckcdeb.h
+ckcmai.o: ckcmai.c ckcker.h ckcdeb.h ckcsym.h
 
 ckuusr.o: ckuusr.c ckucmd.h ckcker.h ckuusr.h ckcdeb.h
 
@@ -162,9 +187,9 @@ ckcpro.o: ckcpro.c ckcker.h ckcdeb.h
 ckcpro.c: ckcpro.w wart
 	./wart ckcpro.w ckcpro.c
 
-ckcfns.o: ckcfns.c ckcker.h ckcdeb.h
+ckcfns.o: ckcfns.c ckcker.h ckcdeb.h ckcsym.h
 
-ckcfn2.o: ckcfn2.c ckcker.h ckcdeb.h
+ckcfn2.o: ckcfn2.c ckcker.h ckcdeb.h ckcsym.h
 
 ckufio.o: ckufio.c ckcker.h ckcdeb.h
 
@@ -177,7 +202,7 @@ wart: ckwart.o
 
 ckwart.o: ckwart.c
 
-ckudia.o: ckudia.c ckcker.h ckcdeb.h
+ckudia.o: ckudia.c ckcker.h ckcdeb.h ckucmd.h
 
 ckuscr.o: ckuscr.c ckcker.h ckcdeb.h
 #
@@ -186,12 +211,15 @@ ckuscr.o: ckuscr.c ckcker.h ckcdeb.h
 # Make commands for specific systems:
 #
 #
-#Berkeley Unix 4.1 or 4.2 (and presumably also 4.3)
+#Berkeley Unix 4.1 or 4.2 (and presumably also 4.3), also Ultrix-32 1.x, 2.0
 bsd:
 	make wermit "CFLAGS= -DBSD4 -DDEBUG -DTLOG"
 
 
-#Berkeley Unix 2.8, 2.9 for PDP-11s with I&D space
+#Berkeley Unix 2.8, 2.9 for PDP-11s with I&D space, maybe also Ultrix-11???
+#If you have trouble with this, try removing "-l ndir".  If you still have
+#trouble, remove "-DDEBUG -DTLOG".  Or try defining CC and/or CC2 as "pcc"
+#instead of "cc".
 bsd29:
 	make wermit "CFLAGS= -DBSD29 -DDEBUG -DTLOG" \
 		"LNKFLAGS= -i -lndir" "CC= cc " "CC2= cc"
@@ -202,20 +230,35 @@ v7:
 	-DBOOTNAME=\\\"$(BOOTFILE)\\\" -DNPROCNAME=\\\"$(NPROC)\\\" \
 	-DNPTYPE=$(NPTYPE) $(DIRECT)"
 
+#Version 9 Unix
+v9:
+	make wermit "CFLAGS=-DV9 -DFIONREAD -DDEBUG -DTLOG \
+	-DPROCNAME=\\\"$(PROC)\\\" -DBOOTNAME=\\\"$(BOOTFILE)\\\" \
+	-DNPROCNAME=\\\"$(NPROC)\\\" -DNPTYPE=$(NPTYPE) $(DIRECT)"
+
+#System V R3, some things changed since Sys V R2...
+sys5r3:
+	make wermit "CFLAGS = -DSVR3 -DUXIII -DDEBUG -DTLOG -i -O" \
+		"LNKFLAGS = -i"
+
 #In case they type "make sys5"...
 sys5:
 	make sys3
 
-
 #Generic ATT System III or System V (with I&D space)
 sys3:
-	make wermit "CFLAGS = -DUXIII -DDEBUG -DTLOG -i -O" "LNKFLAGS = -i"
+	make wermit "CFLAGS = -DUXIII -DDEBUG -DTLOG -i -O" \
+		"LNKFLAGS = -i" 
 
+#AT&T 7300 Unix PC
+att7300:
+	make wermit "CFLAGS = -DUXIII -DATT7300 -DDEBUG -DTLOG -i -O" \
+		"LNKFLAGS = -i" \
+		"SHAREDLIB = /lib/crt0s.o /lib/shlib.ifile"
 
 #Generic ATT System III or System V (no I&D space)
 sys3nid:
 	make wermit "CFLAGS = -DUXIII -DDEBUG -DTLOG -O" "LNKFLAGS ="
-
 
 #AT&T 3B-series computers running System V
 #  Only difference from sys3 is lock file stuff...
@@ -223,12 +266,28 @@ att3bx:
 	make wermit "CFLAGS = -DUXIII -DATT3BX -DDEBUG -DTLOG -i -O" \
 		"LNKFLAGS = -i"
 
+#HP 9000 series 300, 500, 800.
+hpux:
+	make wermit "CFLAGS = -DUXIII -DHPUX -DDEBUG -DTLOG -O" "LNKFLAGS ="
+
+#Regulus on CIE Systems 680/20
+cie:
+	make wermit "CFLAGS = -DUXIII -DCIE -DDEBUG -DTLOG -O" "LNKFLAGS ="
 
 #Microsoft "Xenix/286" e.g. for IBM PC/AT
 xenix:
 	make wermit "CFLAGS= -DXENIX -DUXIII -DDEBUG -DTLOG -F 3000 -i" \
 		"LNKFLAGS = -F 3000 -i"
 
+#SCO Xenix/286 2.2.1, e.g. for IBM PC/AT, PS/2 Model 50, etc.
+sco286:
+	make wermit "CFLAGS= -DXENIX -DUXIII -DDEBUG -DTLOG -F 3000 -i -M2le" \
+		"LNKFLAGS = -F 3000 -i -M2le"
+
+#SCO Xenix 2.2.1 for IBM PC, XT, PS2/30, or other 8088 or 8086 machine
+sco86:
+	make wermit "CFLAGS= -DXENIX -DUXIII -DDEBUG -DTLOG -F 3000 -i -Mle" \
+		"LNKFLAGS = -F 3000 -i -Mle"
 
 #PC/IX, Interactive Corp System III for IBM PC/XT
 pcix:
@@ -257,21 +316,24 @@ provx1:
 	make wermit "CFLAGS = -DPROVX1 -DDEBUG -DTLOG -md780" \
 		"LNKFLAGS= -u _sleep -lc -md780"
 
-
 #NCR Tower 1632, OS 1.02
 tower1:
 	make wermit "CFLAGS= -DDEBUG -DTLOG -DTOWER1"
 
-#Fortune 16:32, For:Pro 1.7 (mostly like 4.1bsd)
-ft17:
-	make wermit "CFLAGS= -DDEBUG -DTLOG -DBSD4 -DFT17"
-
+#Fortune 32:16, For:Pro 1.8 (mostly like 4.1bsd)
+ft18:
+	make wermit "CFLAGS= -DTLOG -DBSD4 -DFT18"
 
 #Valid Scaldstar
 #Berkeleyish, but need to change some variable names.
 valid:
 	make wermit "CFLAGS= -DBSD4 -Dcc=ccx -DFREAD=1"
 
+#IBM IX/370 on IBM 370 Series mainframes
+#Mostly like sys3, but should buffer packets.
+ix370:
+	make wermit "CFLAGS = -DIX370 -DUXIII -DDEBUG -DTLOG -i -O" \
+	"LNKFLAGS = -i"
 
 #Amdahl UTS 2.4 on IBM 370 series compatible mainframes.
 #Mostly like V7, but can't do initrawq() buffer peeking.
@@ -280,8 +342,26 @@ uts24:
 	-DUTS24 -DBOOTNAME=\\\"$(BOOTFILE)\\\" -DNPROCNAME=\\\"$(NPROC)\\\" \
 	-DNPTYPE=$(NPTYPE) $(DIRECT)"
 
-
 #BBN C/70 with IOS 2.0
 #Mostly Berkeley-like, but with some ATTisms
 c70:
 	make wermit "CFLAGS= -DBSD4 -DC70 -DDEBUG -DTLOG"
+
+#Zilog ZEUS 3.21
+zilog:
+	make wermit "CFLAGS = -DUXIII -DZILOG -DTLOG -i -O" "LNKFLAGS = -i"
+
+#CDC VX/VE 5.2.1
+vxve:
+	make wermit "CFLAGS = -DUXIII -DVXVE -i -O" "LNKFLAGS = -i"
+
+#Clean up intermediate and object files
+clean:
+	-rm -f ckcmai.o ckucmd.o ckuusr.o ckuus2.o ckuus3.o ckcpro.o \
+	ckcfns.o ckcfn2.o ckucon.o ckutio.o ckufio.o ckudia.o ckuscr.o \
+	ckwart.o ckcpro.c
+
+#Run Lint on this mess for the BSD version.
+lint:
+	-lint -x -DBSD4 -DDEBUG -DTLOG ck[cu]*.[hc] > ck.lint.bsd4
+

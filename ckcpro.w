@@ -1,4 +1,4 @@
-char *protv = "C-Kermit Protocol Module 4C(030), 19 Mar 86"; /* -*-C-*- */
+char *protv = "C-Kermit Protocol Module 4E(031), 31 Jul 87"; /* -*-C-*- */
 
 /* C K C P R O  -- C-Kermit Protocol Module, in Wart preprocessor notation. */
 /*
@@ -25,13 +25,14 @@ char *protv = "C-Kermit Protocol Module 4C(030), 19 Mar 86"; /* -*-C-*- */
 %states serve generic get rgen
 
 /* External C-Kermit variable declarations */
-  extern char sstate, *versio, *srvtxt, *cmarg, *cmarg2;
+  extern char sstate, *versio, *srvtxt, *cmarg, *cmarg2, *rpar();
   extern char data[], filnam[], srvcmd[], ttname[], *srvptr;
-  extern int pktnum, timint, nfils, image, hcflg, xflg, speed, flow, mdmtyp;
+  extern int pktnum, timint, nfils, hcflg, xflg, speed, flow, mdmtyp;
   extern int prvpkt, cxseen, czseen, server, local, displa, bctu, bctr, quiet;
-  extern int tsecs;
+  extern int tsecs, parity, backgrd;
   extern int putsrv(), puttrm(), putfil(), errpkt();
   extern char *DIRCMD, *DELCMD, *TYPCMD, *SPACMD, *SPACM2, *WHOCMD;
+  extern char *rdatap;
 
 /* Local variables */
   static char vstate = 0;  		/* Saved State   */
@@ -64,10 +65,12 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
 
 /* Dynamic states: <current-states>input-character { action } */
 
-<rgen,get,serve>S { rinit(data); bctu = bctr; /* Get Send-Init */
-    	   rtimer(); BEGIN rfile; }
+<rgen,get,serve>S { rinit(rdatap); bctu = bctr; /* Get Send-Init */
+	   resetc();			/* Reset counters */
+    	   rtimer();			/* Reset timer */
+	   BEGIN rfile; }
 
-<ipkt>Y  { spar(data);			/* Get ack for I-packet */
+<ipkt>Y  { spar(rdatap);		/* Get ack for I-packet */
     	   if (vcmd) { scmd(vcmd,cmarg); vcmd = 0; }
     	   if (vstate == get) srinit();
 	   BEGIN vstate; }
@@ -76,19 +79,19 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
     	   vcmd = 0; if (vstate == get) srinit();
 	   BEGIN vstate; }
 
-<serve>R { srvptr = srvcmd; decode(data,putsrv); /* Get Receive-Init */
+<serve>R { srvptr = srvcmd; decode(rdatap,putsrv); /* Get Receive-Init */
 	   cmarg = srvcmd;  nfils = -1;
     	   if (sinit()) BEGIN ssinit; else { SERVE; } }
 
-<serve>I { spar(data); rpar(data); ack1(data);	 /* Get Init Parameters */
+<serve>I { spar(rdatap); ack1(rpar());	           /* Get Init Parameters */
 	   pktnum = 0; prvpkt = -1; }
 
-<serve>G { srvptr = srvcmd; decode(data,putsrv); /* Get & decode command. */
+<serve>G { srvptr = srvcmd; decode(rdatap,putsrv); /* Get & decode command. */
 	   putsrv('\0'); putsrv('\0');
 	   sstate = srvcmd[0]; BEGIN generic; }
 
 <serve>C { srvptr = srvcmd;		    	 /* Get command for shell */
-	   decode(data,putsrv); putsrv('\0');
+	   decode(rdatap,putsrv); putsrv('\0');
 	   if (syscmd(srvcmd,"")) BEGIN ssinit;
 	   else { errpkt("Can't do system command"); SERVE; } }
 
@@ -113,7 +116,7 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
     	     else { errpkt("Can't type file"); SERVE; } }
 
 <generic>U { x = *(srvcmd+1);			/* Disk Usage query */
-    	     x = ((x == '\0') || (x == unchar(0)));
+    	     x = ((x == '\0') || (x == SP));
 	     x = (x ? syscmd(SPACMD,"") : syscmd(SPACM2,srvcmd+2));
     	     if (x) BEGIN ssinit; else { errpkt("Can't check space"); SERVE; }}
 
@@ -125,7 +128,7 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
 /* Dynamic states, cont'd */
 
 
-<rgen>Y { decode(data,puttrm); RESUME; }    /* Got reply in ACK data */
+<rgen>Y { decode(rdatap,puttrm); RESUME; }    /* Got reply in ACK data */
 
 <rgen,rfile>F { if (rcvfil()) { ack1(filnam); BEGIN rdata; } /* File header */
 		else { errpkt("Can't open file"); RESUME; } }
@@ -137,26 +140,26 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
 <rdata>D { if (cxseen) ack1("X");	/* Got data. */
     	       else if (czseen) ack1("Z");
 	       else ack();
-	   decode(data,putfil); }
+	   decode(rdatap,putfil); }
 
 <rdata>Z  { if (reof() < 0) {	    	/* Got End Of File */
     	      errpkt("Can't close file"); RESUME;
     	    } else { ack(); BEGIN rfile; } }
 
-<ssinit>Y { spar(data); bctu = bctr;	/* Got ACK to Send-Init */
+<ssinit>Y { spar(rdatap); bctu = bctr;	/* Got ACK to Send-Init */
     	    x = sfile(xflg);		/* Send X or F header packet */
-	    if (x) { rtimer(); BEGIN ssfile; }
+	    if (x) { resetc(); rtimer(); BEGIN ssfile; }
 	   	else { s = xflg ? "Can't execute command" : "Can't open file";
 		    errpkt(s); RESUME; }
           }
 
 <ssfile>Y { srvptr = srvcmd;		    	 /* Got ACK to F */
-	    decode(data,putsrv); putsrv('\0');
+	    decode(rdatap,putsrv); putsrv('\0');
 	    if (*srvcmd) tlog(F110," stored as",srvcmd,0);
 	    if (sdata() < 0) { clsif(); seof(""); BEGIN sseof; }
     	    	else BEGIN ssdata; }
 
-<ssdata>Y { if (canned(data)) { clsif(); seof("D"); BEGIN sseof; }
+<ssdata>Y { if (canned(rdatap)) { clsif(); seof("D"); BEGIN sseof; }
 	    	else if (sdata() < 0) { clsif(); seof(""); BEGIN sseof; } }
 
 <sseof>Y  { if (gnfile() > 0) {		/* Got ACK to EOF, get next file */
@@ -170,11 +173,13 @@ a { errpkt("User cancelled transaction"); /* "Abort" -- Tell other side. */
 
 <sseot>Y { RESUME; }			/* Got ACK to EOT */
 
-E { ermsg(data);			/* Error packet, issue message. */
+E { ermsg(rdatap);			/* Error packet, issue message. */
     x = quiet; quiet = 1;		/* Close files silently, */
     clsif(); clsof(1);			/* discarding any output file. */
     tsecs = gtimer();
-    quiet = x; RESUME; }
+    quiet = x;
+    if (backgrd && !server) fatal("Protocol error");
+    RESUME; }
 
 . { errpkt("Unknown packet type"); RESUME; } /* Anything else, send error */
 %%
@@ -205,7 +210,7 @@ proto() {
     debug(F111,"proto ttopen local",ttname,local);
 
     x = (local) ? speed : -1;
-    if (ttpkt(x,flow) < 0) {		/* Put line in packet mode, */
+    if (ttpkt(x,flow,parity) < 0) {	/* Put line in packet mode, */
 	screen(SCR_EM,0,0l,"Can't condition line");
 	return;
     }
@@ -220,8 +225,11 @@ proto() {
 	    }
 	}
     } else server = 0;
+    if (sstate == 'v' && !local && !quiet)
+      conoll("Escape back to your local system and give a SEND command...");
+    if (sstate == 's' && !local && !quiet)
+      conoll("Escape back to your local system and give a RECEIVE command...");
     sleep(1);
-
 /*
  The 'wart()' function is generated by the wart program.  It gets a
  character from the input() routine and then based on that character and
@@ -229,7 +237,6 @@ proto() {
  table above, which is transformed by the wart program into a big case
  statement.  The function is active for one transaction.
 */
-
     wart();				/* Enter the state table switcher. */
     
     if (server) {			/* Back from packet protocol. */
@@ -237,5 +244,6 @@ proto() {
     	if (!quiet)  			/* Give appropriate message */
 	    conoll("C-Kermit server done");
     }
+    ttres();
     screen(SCR_TC,0,0l,"");		/* Transaction complete */
 }

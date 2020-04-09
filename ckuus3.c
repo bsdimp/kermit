@@ -19,17 +19,27 @@
 #include "ckcker.h"
 #include "ckucmd.h"
 #include "ckuusr.h"
+#ifdef UXIII
+#include <termio.h>
+#endif
+ 
+#ifdef datageneral
+extern int con_reads_mt,            /* Flag if console read asynch is active */
+           conint_ch,               /* The character read by asynch read */
+           conint_avl;              /* Flag that char available */
+#endif
  
 /* Variables */
- 
-extern int size, spsiz, rpsiz, npad, timint, rtimo, speed, local, server, 
-  image, flow, displa, binary, fncnv, delay, parity, deblog, escape, xargc,
+
+extern int size, spsiz, rpsiz, urpsiz, npad, timint, rtimo, speed,
+  local, server, lpcapr, fmask, cmask, backgrd,
+  flow, displa, binary, fncnv, delay, parity, deblog, escape, xargc,
   turn, duplex, cxseen, czseen, nfils, ckxech, pktlog, seslog, tralog, stdouf,
-  turnch, chklen, bctr, bctu, dfloc, mdmtyp, keep,
+  turnch, bctr, bctu, dfloc, mdmtyp, keep, maxtry,
   rptflg, ebqflg, warn, quiet, cnflg, timef, spsizf, mypadn;
  
 extern long filcnt, tlci, tlco, ffc, tfc, fsize;
- 
+
 extern char *versio, *protv, *ckxv, *ckzv, *fnsv, *connv, *dftty, *cmdv;
 extern char *cmarg, *cmarg2, **xargv, **cmlist;
 extern CHAR stchr, mystch, sstate, padch, mypadc, eol, seol, ctlq;
@@ -105,7 +115,7 @@ struct keytab hshtab[] = {
     "cr",   015, 0,
     "esc",  033, 0,
     "lf",   012, 0,
-    "none", 999, 0,  /* (can't use negative numbers) */
+    "none", 999, 0,			/* (can't use negative numbers) */
     "xoff", 023, 0,
     "xon",  021, 0
 };
@@ -148,6 +158,12 @@ struct keytab onoff[] = {
 struct keytab ifdtab[] = {
     "discard",   0, 0,
     "keep",      1, 0
+};
+
+/* Terminal parameters table */
+
+struct keytab trmtab[] = {
+    "bytesize",  0, 0
 };
 
 /*  D O P R M  --  Set a parameter.  */
@@ -207,7 +223,7 @@ case XYDEBU:
 case XYDELA:
     y = cmnum("Number of seconds before starting to send","5",10,&x);
     debug(F101,"XYDELA: y","",y);
-    return(setnum(&delay,x,y));
+    return(setnum(&delay,x,y,94));
  
 case XYDUPL:
     if ((y = cmkey(dpxtab,2,"","full")) < 0) return(y);
@@ -239,8 +255,16 @@ case XYFILE:
 	case XYFILT:			/* Type */
 	    if ((x = cmkey(fttab,2,"type of file","text")) < 0)
 	    	return(x);
-	    if ((z = cmcfm()) < 0) return(z);
+	    if ((y = cmnum("file byte size (7 or 8)","8",10,&z)) < 0)
+	        return(y);
+	    if (z != 7 && z != 8) {
+		printf("\n?The choices are 7 and 8\n");
+		return(-2);
+	    }
+	    if ((y = cmcfm()) < 0) return(y);
 	    binary = x;
+	    if (z == 7) fmask = 0177;
+	      else if (z == 8) fmask = 0377;
 	    return(0);
  
 	case XYFILW:			/* Warning/Write-Protect */
@@ -291,7 +315,28 @@ case XYPROM:
     cmsetp(s);
     return(0);
  
+case XYRETR:				/* Per-packet retry limit */
+    y = cmnum("Maximum retries per packet","10",10,&x);
+    return(setnum(&maxtry,x,y,94));
  
+case XYTERM:				/* Terminal parameters */
+    if ((y = cmkey(trmtab,1,"","bytesize")) < 0) return(y);
+    switch (y) {
+      case 0:
+	if ((y = cmnum("bytesize for terminal connection","8",10,&x)) < 0)
+	  return(y);
+	if (x != 7 && x != 8) {
+	    printf("\n?The choices are 7 and 8\n");
+	    return(-2);
+	}
+	if ((y = cmcfm()) < 0) return(y);
+	if (x == 7) cmask = 0177;
+	else if (x == 8) cmask = 0377;
+        return(y);
+      default:       /* Add more cases when we think of more parameters */
+	return(-2);
+    }    
+
 /* SET SEND/RECEIVE... */
  
 case XYRECV:
@@ -305,20 +350,25 @@ case XYSEND:
     switch (y) {
  
 case XYEOL:
-    y = cmnum("Decimal ASCII code for packet terminator","0",10,&x);
+    y = cmnum("Decimal ASCII code for packet terminator","13",10,&x);
     if ((y = setcc(&z,x,y)) < 0) return(y);
     if (xx == XYRECV) eol = z; else seol = z;
     return(y);
  
 case XYLEN:
     y = cmnum("Maximum number of characters in a packet","90",10,&x);
-    if ((y = setnum(&z,x,y)) < 0) return(y);
     if (xx == XYRECV) {			/* Receive... */
-	rpsiz = z;  	    	    	/*   Just set it. */
+	if ((y = setnum(&z,x,y,MAXRP)) < 0)
+	  return(y);
+	urpsiz = z;
+	rpsiz =  (z > 94) ? 94 : z;
     } else {				/* Send... */
+	if ((y = setnum(&z,x,y,MAXSP)) < 0)
+	  return(y);
 	spsiz = z;			/*   Set it and flag that it was set */
 	spsizf = 1;			/*   to allow overriding Send-Init. */
     }
+    if (z > 94 && !backgrd) printf("Extended-length packets requested\n");
     return(y);
  
 case XYMARK:
@@ -329,7 +379,7 @@ case XYMARK:
 
 case XYNPAD:				/* Padding */
     y = cmnum("How many padding characters for inbound packets","0",10,&x);
-    if ((y = setnum(&z,x,y)) < 0) return(y);
+    if ((y = setnum(&z,x,y,94)) < 0) return(y);
     if (xx == XYRECV) mypadn = z; else npad = z;
     return(y);
  
@@ -341,7 +391,7 @@ case XYPADC:				/* Pad character */
  
 case XYTIMO:
     y = cmnum("Interpacket timeout interval","5",10,&x);
-    if ((y = setnum(&z,x,y)) < 0) return(y);
+    if ((y = setnum(&z,x,y,94)) < 0) return(y);
     if (xx == XYRECV) {
 	timef = 1;
 	timint = z;
@@ -365,7 +415,7 @@ case XYSPEE:
     	printf("?Unsupported line speed - %d\n",x);
     else {
     	speed = y;
-	printf("%s: %d baud\n",ttname,speed);
+	if (!backgrd) printf("%s: %d baud\n",ttname,speed);
     }
     return(0);
  
@@ -383,6 +433,7 @@ chkspd(x) int x; {
 #ifndef AMIGA
 	case 0:
 #endif
+#ifndef datageneral
 	case 110:
 	case 150:
 	case 300:
@@ -392,13 +443,34 @@ chkspd(x) int x; {
 	case 2400:
 	case 4800:
 	case 9600:
-#ifdef aegis
+#ifdef apollo
         case 19200:
-#endif
+#else
 #ifdef AMIGA
         case 19200:
 	case 38400:
 	case 57600:
+#else
+/* #ifdef B19200       (this high speed stuff needs much more work...)
+/*      case 19200:    (have to make corresponding changes in ckuus2, ckutio)
+/* #else
+/* #ifdef B38400
+/*      case 38400:
+/* #endif
+/* #endif
+*/
+#endif
+#endif
+#endif
+
+#ifdef datageneral
+	case 50:
+	case 75:
+	case 134:
+	case 3600:
+	case 7200:
+	case 19200:
+	case 38400:
 #endif
 	    return(x);
 	default: 
@@ -427,11 +499,11 @@ seton(prm) int *prm; {
 /*
  Call with x - number from cnum parse, y - return code from cmnum
 */
-setnum(prm,x,y) int x, y, *prm; {
+setnum(prm,x,y,max) int x, y, *prm, max; {
     debug(F101,"setnum","",y);
     if (y < 0) return(y);
-    if (x > 94) {
-	printf("\n?Sorry, 94 is the maximum\n");
+    if (x > max) {
+	printf("\n?Sorry, %d is the maximum\n",max);
 	return(-2);
     }
     if ((y = cmcfm()) < 0) return(y);
@@ -470,10 +542,13 @@ case XZCWD:				/* CWD */
 					/* get password on separate line. */
         if (tlevel > -1) {		/* From take file... */
  
-	    *line = NUL;
 	    if (fgets(sbuf,50,tfile[tlevel]) == NULL)
-	    	ermsg("take file ends prematurely in 'remote cwd'");
+	    	fatal("take file ends prematurely in 'remote cwd'");
 	    debug(F110," pswd from take file",s2,0);
+	    for (x = strlen(sbuf);
+	     	 x > 0 && (sbuf[x-1] == '\n' || sbuf[x-1] == '\r');
+		 x--)
+		sbuf[x-1] = '\0';
  
         } else {			/* From terminal... */
  
@@ -488,7 +563,7 @@ case XZCWD:				/* CWD */
 	    	    putchar(BEL);
 		else if (x == BS || x == 0177)
 		    s2--;
-		else if (x == 025) {
+		else if (x == 025) {	/* Ctrl-U */
 		    s2 = sbuf;
 		    *sbuf = NUL;
 		}
@@ -678,10 +753,13 @@ intmsg(n) long n; {
 #endif
     if (n == 1) {
 #ifdef UXIII
-#ifndef aegis
+
+#ifndef apollo
+#ifndef datageneral
 				/* we need to signal before kb input */
 	sprintf(buf,"Type escape (%s) followed by:",chstr(escape));
 	screen(SCR_TN,0,0l,buf);
+#endif
 #endif
 #endif
  screen(SCR_TN,0,0l,"CTRL-F to cancel file,  CTRL-R to resend current packet");
@@ -698,13 +776,31 @@ chkint() {
     int ch, cn;
  
     if ((!local) || (quiet)) return(0);	/* Only do this if local & not quiet */
+#ifdef datageneral
+    cn = (con_reads_mt) ? 1 : conchk();	/* Any input waiting? */
+#else
     cn = conchk();			/* Any input waiting? */
+#endif
     debug(F101,"conchk","",cn);
  
     while (cn > 0) {			/* Yes, read it. */
 	cn--;
 			/* give read 5 seconds for interrupt character */
+#ifdef datageneral
+        /* We must be careful to just print out one result for each character
+         * read.  The flag, conint_avl, controls duplication of characters.
+         * Only one character is handled at a time, which is a reasonable
+         * limit.  More complicated schemes could handle a buffer.
+         */
+        if (con_reads_mt) {
+            if ((ch = conint_ch) <= 0) return(0);   /* I/O error, or no data */
+            else if (conint_avl == 0) return(0);    /* Char already read */
+            else conint_avl = 0;                    /* Flag character as read */
+        }
+        else { if ((ch = coninc(5)) < 0) return(0);  }
+#else
 	if ((ch = coninc(5)) < 0) return(0);
+#endif
 	switch (ch & 0177) {
 	    case 0001:			/* CTRL-A */
 		screen(SCR_TN,0,0l,"^A  Status report:");
@@ -750,14 +846,17 @@ chkint() {
    f=0 is special: print s1,s2, and interpret n as a char.
 */
 #ifdef DEBUG
+#define DBUFL 1000
 debug(f,s1,s2,n) int f, n; char *s1, *s2; {
-    static char s[200];
+    static char s[DBUFL];
     char *sp = s;
  
     if (!deblog) return;		/* If no debug log, don't */
     switch (f) {
     	case F000:			/* 0, print both strings, */
-	    sprintf(sp,"%s%s%c\n",s1,s2,n); /*  and interpret n as a char */
+	    if (strlen(s1) + strlen(s2) + 3 > DBUFL)
+	      sprintf(sp,"DEBUG string too long\n");
+	    else sprintf(sp,"%s%s%c\n",s1,s2,n); /* interpret n as a char */
 	    zsout(ZDFILE,s);
 	    break;
     	case F001:			/* 1, "=n" */
@@ -765,26 +864,36 @@ debug(f,s1,s2,n) int f, n; char *s1, *s2; {
 	    zsout(ZDFILE,s);
 	    break;
     	case F010:			/* 2, "[s2]" */
-	    sprintf(sp,"[%s]\n",s2);
+	    if (strlen(s2) + 4 > DBUFL)
+	      sprintf(sp,"DEBUG string too long\n");
+	    else sprintf(sp,"[%s]\n",s2);
 	    zsout(ZDFILE,"");
 	    break;
     	case F011:			/* 3, "[s2]=n" */
-	    sprintf(sp,"[%s]=%d\n",s2,n);
+	    if (strlen(s2) + 15 > DBUFL)
+	      sprintf(sp,"DEBUG string too long\n");
+	    else sprintf(sp,"[%s]=%d\n",s2,n);
 	    zsout(ZDFILE,s);
 	    break;
     	case F100:			/* 4, "s1" */
 	    zsoutl(ZDFILE,s1);
 	    break;
     	case F101:			/* 5, "s1=n" */
-	    sprintf(sp,"%s=%d\n",s1,n);
+	    if (strlen(s1) + 15 > DBUFL)
+	      sprintf(sp,"DEBUG string too long\n");
+	    else sprintf(sp,"%s=%d\n",s1,n);
 	    zsout(ZDFILE,s);
 	    break;
     	case F110:			/* 6, "s1[s2]" */
-	    sprintf(sp,"%s[%s]\n",s1,s2);
+	    if (strlen(s1) + strlen(s2) + 4 > DBUFL)
+	      sprintf(sp,"DEBUG string too long\n");
+	    else sprintf(sp,"%s[%s]\n",s1,s2);
 	    zsout(ZDFILE,s);
 	    break;
     	case F111:			/* 7, "s1[s2]=n" */
-	    sprintf(sp,"%s[%s]=%d\n",s1,s2,n);
+	    if (strlen(s1) + strlen(s2) + 15 > DBUFL)
+	      sprintf(sp,"DEBUG string too long\n");
+	    else sprintf(sp,"%s[%s]=%d\n",s1,s2,n);
 	    zsout(ZDFILE,s);
 	    break;
 	default:
@@ -795,6 +904,7 @@ debug(f,s1,s2,n) int f, n; char *s1, *s2; {
 #endif
 
 #ifdef TLOG
+#define TBUFL 300
 /*  T L O G  --  Log a record in the transaction file  */
 /*
  Call with a format and 3 arguments: two strings and a number:
@@ -803,13 +913,15 @@ debug(f,s1,s2,n) int f, n; char *s1, *s2; {
    n  - Int, argument 3.
 */
 tlog(f,s1,s2,n) int f; long n; char *s1, *s2; {
-    static char s[200];
+    static char s[TBUFL];
     char *sp = s; int x;
     
     if (!tralog) return;		/* If no transaction log, don't */
     switch (f) {
     	case F000:			/* 0 (special) "s1 n s2"  */
-	    sprintf(sp,"%s %ld %s\n",s1,n,s2);
+	    if (strlen(s1) + strlen(s2) + 15 > TBUFL)
+	      sprintf(sp,"?T-Log string too long\n");
+	    else sprintf(sp,"%s %ld %s\n",s1,n,s2);
 	    zsout(ZTFILE,s);
 	    break;
     	case F001:			/* 1, " n" */
@@ -819,32 +931,42 @@ tlog(f,s1,s2,n) int f; long n; char *s1, *s2; {
     	case F010:			/* 2, "[s2]" */
 	    x = strlen(s2);
 	    if (s2[x] == '\n') s2[x] = '\0';
-	    sprintf(sp,"[%s]\n",s2);
+	    if (x + 6 > TBUFL)
+	      sprintf(sp,"?T-Log string too long\n");
+	    else sprintf(sp,"[%s]\n",s2);
 	    zsout(ZTFILE,"");
 	    break;
     	case F011:			/* 3, "[s2] n" */
 	    x = strlen(s2);
 	    if (s2[x] == '\n') s2[x] = '\0';
-	    sprintf(sp,"[%s] %ld\n",s2,n);
+	    if (x + 6 > TBUFL)
+	      sprintf(sp,"?T-Log string too long\n");
+	    else sprintf(sp,"[%s] %ld\n",s2,n);
 	    zsout(ZTFILE,s);
 	    break;
     	case F100:			/* 4, "s1" */
 	    zsoutl(ZTFILE,s1);
 	    break;
     	case F101:			/* 5, "s1: n" */
-	    sprintf(sp,"%s: %ld\n",s1,n);
+	    if (strlen(s1) + 15 > TBUFL)
+	      sprintf(sp,"?T-Log string too long\n");
+	    else sprintf(sp,"%s: %ld\n",s1,n);
 	    zsout(ZTFILE,s);
 	    break;
     	case F110:			/* 6, "s1 s2" */
 	    x = strlen(s2);
 	    if (s2[x] == '\n') s2[x] = '\0';
-	    sprintf(sp,"%s %s\n",s1,s2);
+	    if (strlen(s1) + x + 4 > TBUFL)
+	      sprintf(sp,"?T-Log string too long\n");
+	    else sprintf(sp,"%s %s\n",s1,s2);
 	    zsout(ZTFILE,s);
 	    break;
     	case F111:			/* 7, "s1 s2: n" */
 	    x = strlen(s2);
 	    if (s2[x] == '\n') s2[x] = '\0';
-	    sprintf(sp,"%s %s: %ld\n",s1,s2,n);
+	    if (strlen(s1) + x + 15 > TBUFL)
+	      sprintf(sp,"?T-Log string too long\n");
+	    else sprintf(sp,"%s %s: %ld\n",s1,s2,n);
 	    zsout(ZTFILE,s);
 	    break;
 	default:

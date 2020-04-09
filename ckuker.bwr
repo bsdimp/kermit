@@ -1,16 +1,26 @@
-C-Kermit Version 4D(061):
+C-Kermit Version 4E(070):
 Status, Bugs, and Problems
-As of: 12:07pm  Thursday, 19 March 1987
+As of: 4:23pm  Wednesday, 23 March 1988
 
-Note: Version numbering system changed from decimal notation (like 4.2)
-to number-letter notation (like 4C) to avoid confusion with Berkeley Unix
-version numbers.
+See ckuker.upd for a list of changes since the last release.  4E(066) was a
+beta test release.  It was tested at Columbia on various VAXes running Ultrix
+1.2 and 2.0 (4.2 and 4.3 BSD equivalents, more or less), a Pro-380 running
+2.9BSD, and an AT&T 3B20 running Sys V R2.  The Unix versions need testing,
+especially in local (dialout) mode on SUNs, PC's with Xenix, etc.  During the
+beta test, users reported that it worked on the Macintosh, on VAX/VMS (once a
+the definition of syscleanup() was supplied in CKVTIO.C), on Xenix systems
+once some extra #includes of "file.h" were removed, on the Pyramid once a
+minor change was made to ckutio.c, and various other systems.  4E(067) just
+applies these fixes, so that it can replace 4D(061) as the standard
+distributed version.  4E(068) adds the ability to suspend Kermit on systems
+with job control, plus support for the ATT 7300 internal modem, and
+improvements to the C-Kermit server's handling of the 'remote cwd' command.
+See ckuker.upd for details.
 
-See ckuker.upd for list of bugs already fixed.
 
 -- SUPPORT FOR DIFFERENT SYSTEMS: --
 
-4.2BSD: "make bsd" works.  Should work on VAX, SUN, Pyramid, & others.
+4.2BSD: "make bsd" works.  Should work on VAX, SUN, Pyramid, Convex, & others.
 
 4.3BSD: "make bsd" works.
 
@@ -24,13 +34,7 @@ Version 7: works ok on the systems tested so far using "make v7", but some
 
 PC/IX: should work ok with "make pcix".
 
-ATT 3Bx systems: should work ok with "make att3bx".  One person reported that
-under Sys V R2, the macro 'unchar' declared in ckcker.h has a name conflict
-with the unsigned character typedef included from sys/types.h, preventing
-successful compilation, and changing the name to something like 'myunchar'
-fixes the problem (can do this in the makefile, as in -Dunchar=myunchar).
-Another reports compiler warnings whenever the value returned by signal() is
-assigned or compared.
+ATT 3Bx systems: should work ok with "make att3bx".
 
 Xenix: This word no longer means anything specific.  Is it an old Xenix that
 looks like V6 or V7 Unix?  Is it a System-V-like Xenix?  Is it IBM's, or SCO's,
@@ -40,16 +44,19 @@ Xenix and use the appropriate make option.  Usually 'make xenix' or 'make sys3'
 work, so long as you're using the most up-to-date version of C-Kermit, 4D(061)
 or later.
 
-Zilog Zeus: works with "make sys3" but all occurences of setjmp/longjmp in
-the source have to be replaced by setret/longret (you could do this with
-a -D in the makefile entry).
-
 HP Integral PC -- "make sys3", but either remove code that sets up lock files,
 or have the lock files put in a directory that is guaranteed to be there,
 like /tmp.  Some problems reported when running under csh.
 
+AT&T System V R3 has redefined the type of the signal() function.  Use
+"make sys5r3".  If that doesn't work (as reportedly it does not on certain
+recent Xenix systems), "make sys3" or "make xenix".
+
+AT&T 7300 has its own make option, "make att7300" as of 4E(068), to allow
+operation with its internal modem and system support thereof.
+
 Most other System V or System III based systems can build a working Kermit with
-"make sys3"
+"make sys3" or "make sys3nid" or "make att3bx" or (for Sys 5 R3) "make sys5r3".
 
 PDP-11's running a System III or V based Unix and which have no I & D space
 should use "make sys3nid".
@@ -65,24 +72,20 @@ For other Unix systems, see the makefile, and for further notes, consult the
 messages appended chronologically below.
 
 VAX/VMS: support added by Stew Rubenstein at Harvard and Martin Minow at DEC.
-  Has to be built with CKV*.COM, needs development to handle all the VMS/RMS
-  features and to improve performance.  Has its own build procedure.  See
-  CKV*.*.  VMS-specific bugs in CKVKER.BWR.
+Has to be built with CKV*.COM, needs development to handle all the VMS/RMS
+features and to improve performance.  See CKV*.*.  VMS-specific bugs in
+CKVKER.BWR.  Somebody is working on upgrading the VMS support.
 
-Macintosh: Support added at Columbia, has own makefile, etc.  For now,
-  at least, requires SUMACC Unix-based cross development environment to
-  build.  Hoping somebody someday will convert to native Macintosh C.
-  Mac-specific files are in CKM*.*.
+Macintosh: Support originally added at Columbia for SUMACC C cross
+compiler.  Has own makefile, etc.  Adapted by Jim Noble of PRC to
+compile under Megamax C directly on the Mac.  See CKM*.*.  SUMACC no longer
+supported, only Megamax.  In fact, the current code should not be used as
+the basis of any development, because a very different new version is about
+to be released, written in MPW C.
 
 Commodore Amiga: Support added by Davide Cervone, U of Rochester, later
-  replaced (with Davide's consent) by new code from Phil Julian & Jack Rouse
-  of SAS Institute.  See CKI*.*.
-
-Support for other systems is also being worked on at various places.  Systems
-include DG AOS, AOS/VS, Apollo Aegis, MS-DOS (an old version of C-Kermit was
-already adapted to MS-DOS in Lattice C with the Greenleaf comm library,
-with sliding window protocol added, distributed as WKERMIT), Prime Primos,
-etc etc.  See AAWAIT.HLP for details.
+replaced (with Davide's consent) by new code from Phil Julian & Jack Rouse
+of SAS Institute.  See CKI*.*.
 
 -- HINTS --
 
@@ -148,7 +151,9 @@ General problems:
 
 - Program's return code might be wrong in some cases (in 4.0, it was always
   zero; in 4C some attempt is made to return correct codes for failure and
-  success).
+  success).  Actually, no attempt has been made to correlate return codes
+  with success or failure of file transfer -- a bad return code only reflects
+  a fatal error.
 
 - On some systems (e.g. TRS-80 Model 16 with Xenix V7, or HP-9000 HP-UX)
   C-Kermit reportedly runs VERY SLOWLY.  The program could certainly do with
@@ -158,19 +163,8 @@ General problems:
   them in critical code (one user reports a 1250% improvement doing this on 
   the TRS-80 Model 16!).  Another speedup could come from allowing more
   systems to take advantage of "myread()" -- the nonblocking version of
-  read(); see below.
-
-- Even on systems that use myread(), performance is much worse when parity
-  is "on" because single character reads are still used so as to allow
-  detection of the end of packet.  This will be improved in a future release.
-
-- Micros like the DEC Pro-350, when in "IBM mode" (set flow none, set
-  handshake xon), might not be able to keep up with incoming packets, even
-  at relatively low baud rates.  The Pro-350 OS relies heavily on
-  XON/XOFF to avoid losing characters at the port, but XON/XOFF must be
-  disabled for communicating with IBM mainframes.  The only solution is
-  to lower the packet size to 20 or 30 to reduce the probability that
-  data is lost in any particular packet, and maybe also reduce the baud rate.
+  read(); see below.  (4E fixes this to a great extent with rewritten ttinl(),
+  elimination of inlin(), etc.)
 
 - In reality, TANDEM flow control (XON/XOFF) is not really done on most
   systems, because Kermit opens the communication line in rawmode, which
@@ -178,8 +172,13 @@ General problems:
   to allow 8-bit data.  Using cooked mode & CRMOD would be possible for
   text files, but 8th-bit prefixing would be required for 8-bit binary
   files.  But at least this would allow in-band flow control to take place.
+  Allegedly, 4.3BSD and Sys 5 R3 allow XON/XOFF and rawmode to coexist,
+  but this hasn't been verified.  It doesn't seem to happen on Ultrix 2.0.
 
-- Need 'set' commands for retry-threshhold and server timeout.
+- Need 'set' command for server timeout.
+
+- The timeout interval is not automatically adjusted according to the
+  packet length.
 
 - The program could be a little bit less cavalier in its treatment of files.
   For instance, when receiving a file (with "warning" turned off) it will
@@ -214,11 +213,6 @@ General problems:
   conflict with those used by the Kermit command parser.  In any case, there
   is no way to change Kermit's editing characters to conform to user's taste.
 
-- Status info should be updated only for real file transfers, not transactions
-  like "finish".  It's frustrating to transfer a huge file with a server,
-  then "finish" it, connect back, and ask for statistics, only to have it give
-  you the statistics for the "finish" command rather than the file transfer.
-
 - "!" command requires a space after, contrary to the Unix user's normal
   expectation.
 
@@ -227,19 +221,26 @@ General problems:
   it if the user has her own .kermrc file.  This notion might be extended
   to include the entire hierarchy system -- home -- current directory.
 
-- A deeper problem with the initialization files is that the file is only
-  taken when the program enters interactive command dialog.  To be consistent,
-  it should also be taken when the program is run via command line arguments.
-
 - Some users report that it would be more desirable to have an error during
   execution of a take file return directly to command level, rather than
   pop to the invoking take file, in case the error in question is of such
   severity that it would cause all subsequent commands in the stack of TAKE
   files to fail.  Best to have a SET command to control this behavior.
+  (This desired behavior does occur -- or at least should occur -- when the
+  program is in the background.)
 
 - Some users report that the program should make no internal distinction
   between running in foreground or background, so that program exit codes
   are consistent, making it easier to debug shell scripts that invoke Kermit.
+
+- Speaking of background, not all systems seem to define it the same way.
+  If your prompt disappears, you probably have one of those systems.  See
+  function conint() in ckutio.c, and try to figure out what's amiss.
+
+- Speaking of conint(), it has been reported that there may be something
+  wrong with the way Unix Kermit responds to hangups.  Although it traps
+  the SIGHUP signal and cleans up and exits when a phone connection drops,
+  some users report that the line is unusable after that.
 
 - Since Kermit opens and closes the communication line with each command line
   invocation, it is not convenient to use it in scripts in which it is
@@ -250,6 +251,10 @@ General problems:
   another, and from site to site and system to system.  The lack of a
   consistent, reliable way to get guaranteed exclusive access to a
   communication is one of Unix's biggest shortcomings.
+
+- There very little provision in the program (as yet) for running setuid.
+  Nor for dealing with bidirectional terminal lines.  Nor with system-provided
+  dialer programs.  Every system does these things differently.
 
 - Variable names are sometimes confusing, especially the send/receive parameter
   pairs (spsiz/rpsize, mystch/stchr, npad/mypadn, rtimo/timint, etc).  This
@@ -284,33 +289,13 @@ General problems:
   another program could read the list of those files and do something to
   them (like (re)move them).
 
-- The debug log may contain bare CR's, which can be disconcerting.  The
-  debug() function should remove them.
-
-- On some systems, "unchar", which Kermit uses to perform the inverse
-  operation from "tochar", is a reserved word (e.g. in ctypes.h).  Get
-  around this by doing something like "-Dunchar=xnchar" in the makefile.
-
-- Reportedly, when receiving a file into stdin (kermit -k), extraneous
-  CRLFs are inserted.
-
 ckucmd.c:
-
-- Some editing commands don't work exactly right, like ^W after "show param".
 
 - Interactive Kermit commands that come in from a pipe (as in
   "cat foo | kermit") are echoed.  Some people think they should not be.
   The fix can be made (at some expense) in getwd() by adding a line to
   the first if () {} block, "if (!isatty(0)) echof = 1;".
-
-ckcfn*.c:
-
-- Some people have reported that CRLF between packets rather than just
-  CR make rpack spuriously detect an invalid packet (not verified).
-
-ckuus*.c:
-
-- 'show parameters' gets some of the send and receive parameters mixed up?
+  (Not sure if this is still true...)
 
 ckufio.c:
 
@@ -327,7 +312,10 @@ ckutio.c:
   reads, but can find out how many characters are in the input buffer -- this
   would eliminate calling read() in a loop for each character during packet
   transmission (e.g. Pro/Venix V1 could use "ioctl(x,TIOCQCNT,&y)", V7 could
-  use its buffer-queue-peeking trick, etc).
+  use its buffer-queue-peeking trick, etc).  (Myread() was eliminated from
+  BSD, and the same technique is used as in ckucon.c -- do a single-char
+  blocking read, then check how many more chars are in the buffer, then read
+  that many -- it's faster.)
 
 - There should be a timed option for ttoc() for use during connect so you
   can escape from XOFF'd or other stuck conditions.
@@ -358,8 +346,7 @@ ckudia.c:
   to ignore the modem control signals and treat the line as a direct line by
   issuing a "setline -d xxx" command, where "xxx" is the device node (e.g.
   com1), rather than "setline -m xxx".
-- Hayes modem dial string should be ATD, not ATDT, so that dialing will occur
-  in the mode that the modem is set up for (does everyone agree?).
+- Should do "demon dialing" (keep trying till there's a connection).
 
 ckuus*.c:
 
@@ -367,28 +354,16 @@ ckuus*.c:
   alternate name is uppercase, the name is lowercased.  Alternate names
   should be taken literally.
 
-- The send command should have the same syntax as the get command to allow
-  multiple filenames to be given on a single line:
-
-	send foo bar baz  <-- send all these files
-  or:
-	send
-	 Local file(s) to send: foo bar baz
-         Name(s) to send it/them under: x y z
-
-  The latter form could be risky, of course, when mixed with wildcards,
-  and in any case would require major rewriting of many parts of the program
-  (which probably will never be done).
-
 - Baud rate selection currently requires user to type a number, which is
   then verified against a system-dependent table.  Better to have a baud rate
   keyword (cmkey) table defined in the system-dependent module, so user
-  can abbreviate (e.g. '9' for '9600').
+  can abbreviate (e.g. '9' for '9600').  Also, it's a pain having parallel
+  tables in ckuus3.c, ckutio.c, etc.  Should consolidate this.
 
 - No way to put trailing comments on commands.
 
-- ckuus2.c makes the C optimizer run out of space under PC/IX and some other
-  systems.
+- ckuus2.c reportedly makes the C optimizer run out of space under PC/IX and
+  some other systems.
 
 Protocol (ckcpro.w, ckcfn*.c):
 
@@ -400,12 +375,6 @@ Protocol (ckcpro.w, ckcfn*.c):
   But doing this will make the state table a lot more complicated...
   Maybe change ^C trap to get back to command mode rather than exit
   the program.
-
-- When parity is in use and the other Kermit cannot do 8th bit prefixing,
-  the user is not warned that binary files will not be transferred correctly.
-  This can be easily remedied by calling screen(SCR_WM,...) after the
-  send-init exchange has occurred, but this would make a dialog box pop
-  up during protocol on the Macintosh...
 
 ckucon.c:
 
@@ -424,13 +393,12 @@ ckucon.c:
   and off or to change settings, because the fork that reads keyboard input
   doesn't share variables with the fork that does port i/o.
 
-- The program may become stuck if the two sides get into an XOFF deadlock.
-  There should probably be a timer around (or in) the ttoc() call.
-
 - Reportedly, a control-S typed at the keyboard doesn't always seem to "take"
   when doing terminal emulation under Pro/Venix V2 (DEC micros, terminals,
   devices, systems are notorious for their insistence on doing XON/XOFF and
   attendant problems.  Remember the VT180?)
+
+- Should have a shell escape ("push").
 
 ------------------------------
 
@@ -458,72 +426,6 @@ keep people from mucking in the source file.
 
 ------------------------------
 
-Date:  Tue Nov 26 11:45:41 EST 1985
-From: dolqci!irsdcp!scsnet!sunder@seismo.CSS.GOV
-Subject: Zilog Zeus Kermit, Os9 Kermit Warning
-
-I am the contributer of the Zilog Zeus support for C-Kermit.
-Kermit WILL NOT WORK with the newest version of the Zeus operating system,
-i.e. 3.21.  We have gotten C-Kermit to run under this new release but we had
-to rewrite ckutio.c.  Do you want us to submit this new mod?
-
-[Ed. - Sure, especially if the new ckutio.c also works with the old release
-of Zeus.  Or do we have to have two separate compile-time options for Zeus
-systems?]
-
-------------------------------
-
-Date: Fri 28 Feb 86 11:15:39-EST 
-From: Chris Lent <OC.PEDHEM@CU20B.COLUMBIA.EDU>
-Subject: Kermit new versions, fixes, problems and comments
-
-Just put C-kermit on a Pixel 1000 which is a 68000 based Berkley
-Unix box.  Make bsd almost works but it seems the getppid() function
-which is used to determine the parent process id of the shell running
-C-kermit is missing from the run-time library.  So I made a
-change to ckufio.c adding an #ifdef PIXEL and substituted a
-kill(0,9) for kill(getppid(),1).
-The unix diffs of the current version of ckufio.c and ckuker.mak follow:
-$ diff ckufio.c ckufiopix.c
-198a199,201
-> #ifdef PIXEL
->     return(kill(0,9));
-> #else
-199a203
-> #endif
-$ diff ckuker.mak ckukerpix.mak
-174a175,179
-> #Pixel 1000 (Almost) Berkeley Unix 4.1 or 4.2 (and presumably also 4.3)
-> #Pixel 1000 V2.1 (Has no getppid() function)
-> pixel:
-> 	make wermit "CFLAGS= -DBSD4 -DDEBUG -DTLOG -DPIXEL"
-> 
-
-------------------------------
-
-Date: Thu, 27 Mar 86 15:06:30 EST
-From: Paul Penfield <penfield@mit-caf>
-Subject: Unix Kermit bug
-
-We have encountered a bug when Unix Kermit, version 4C(057), run on both a VAX
-750 and a VAX 785, is used with the -k option.  There is a gratuitous CR-LF
-pair inserted after the last full 4096-character block of text, before the
-remainder of the text.  It always seems to be inside the last 4096 characters
-of the file.  This occurs when sending from an IBM PC using Kermit-MS version
-2.27, to the unix system.  We can send using the -x option satisfactorily.  The
-bug occurs in a line like kermit -k | lpr using pipes, and when the standard
-output is directed toward a file, such as kermit -k >filename.
-
-Incidently, the bug occurs in Unix 4.2BSD and also 4.3BSD.  Has this been
-reported before?  Is there a known fix?  Thanks for any advice.
-...../Paul Penfield, Jr., Room 39-321, MIT, Cambridge, MA 02139; and
-penfield@caf.mit.edu or penfield@mit-mc.arpa
-
-[Ed. - Maybe the pipe has to be opened in some special way to prevent this?
-Does anybody know???]
-
-------------------------------
-
 Date:  9 Apr 1986 1105-EST (Wednesday)
 From: Vic Abell <abe@purdue-asc.arpa>
 Subject: Kermit and 4.xBSD rlogin
@@ -540,244 +442,6 @@ abe@asc.purdue.edu, ...!pur-ee!pucc-j!abe
 
 ------------------------------
 
-Date: Mon, 28 Apr 86 16:01:12 cdt
-From: knutson@ngp.UTEXAS.EDU (Jim Knutson)
-Subject: C-Kermit 4C(58) problem
-
-Someone seems to have changed a \r in the dial string for ventel modems
-to a 'r in ckudia.c.  It shouldn't have been changed.
-
-Jim Knutson
-
-(Ed. - Actually, it was always that way.  Anybody know for sure how it
-should really be?)
-
-------------------------------
-
-To:       "Frank da Cruz" <FDCCU@CUVMB>
-From:     RAF@NIHCU
-Date:     Wed, 02 Apr 86  20:05:33 EST
-Subject:  EOL characters in C Kermit
-
-This is Roger Fajman at the National Institutes of Health.  Please note that my
-BITNET address is now RAF@NIHCU.
-
-We have tried some more tests of that problem that I mentioned to you some time
-ago about C Kermit not handling end of line characters properly.  We obtained
-the Ckermit source from KERMSRV a few weeks ago and built a version for XENIX
-on the PC/AT.  Our tests showed the same behavior as the Sliding Windows C
-Kermit.
-
-When the EOL character is set to CR, C Kermit does not seem to recognize the
-packets that are sent to it by our TSO Kermit.  Our theory is that C Kermit
-does not look beyond the EOL character for more data.  When TSO receives a CR,
-it always echoes a CR-LF.  Thus packets received from C Kermit result in a
-response of CR-LF packet CR, when the EOL character is CR.
-
-When the EOL character is set to EOT, file transfer works fine.  In this
-situation, TSO receives packet EOT and returns CR-LF packet EOT, and C Kermit
-is happy.
-
-We also tried setting one side's EOL character to CR and the other to EOT.
-Neither combination worked, and we are not sure why it didn't when TSO Kermit
-was using sending EOL=EOT and C Kermit was sending EOL=CR.  Perhaps it is
-related to the EOL bug in C Kermit that was mentioned in Info-Kermit #19.
-
-------------------------------
-
-Date: 30 Apr 86 11:52:42 GMT
-From: Chuck Forsberg WA7KGX <caf%omen.uucp@brl.arpa>
-Subject: Re: Help with C-kermit on SCO Xenix V
-Keywords: It isn't working
-
-In article <294@catnip.UUCP> ben@catnip.UUCP (Bennett Broder) writes:
->I recent obtained a copy of C-kermit 4.2(030) PRERELEASE #2, 5 March 85.
->We have been using this version at work on a Perkin Elmer 3250XP and an
->AT&T 3B5, and so I wasn't expecting any problem bringing it up on Xenix.
->Well the package compiles without error, and appears to work okay, until
->you attempt to do a transfer.  Then it can't even seem to get past the
->header packet, and keeps printing SS%S%S%S%S% and the like on the screen.
->Looking at the debugging output from both ends show that the Xenix machine
->is computing the checksum incorrectly.  Please, can anyone help???
->
-The Microsoft C compiler has a few problems with right shifts such as used
-in the Kermit CRC calculations.  Here is something that should work better.
-(From Professional-YAM, the most powerful COMM program for the PC)
-
-/*  C H K 1  --  Compute a type-1 Kermit 6-bit checksum.  */
-
-chk1(pkt)
-char *pkt;
-{
-	register chk;
-
-	chk = chk2(pkt);
-	return((((chk & 0300) >> 6) + chk) & 077);
-}
-
-
-/*  C H K 2  --  Compute the numeric sum of all the bytes in the packet.  */
-
-chk2(pkt)
-register char *pkt;
-{
-	register chk;
-
-	for (chk = 0; *pkt; ++pkt)
-		chk += (kparity ? (*pkt & 0177) : (*pkt & 0377));
-	return chk;
-}
-
-
-/*  C H K 3  --  Compute a type-3 Kermit block check.
- *
- * Calculate the 16-bit CRC of a null-terminated string using a byte-oriented
- * tableless algorithm invented by Andy Lowry (Columbia University).  The
- * magic number 010201 is derived from the CRC-CCITT polynomial x^16+x^12+x^5+1.
- * Note - this function could be adapted for strings containing imbedded 0's
- * by including a length argument.
-*/
-chk3(s)
-char *s;
-{
-	register unsigned int c, q;
-	LONG crc = 0;
-
-	while ((c = *s++) != '\0') 
-	{
-		if (kparity)
-			c &= 0177;
-		else
-			c &= 0377;
-		q = (crc ^ c) & 017;		/* Low-order nibble */
-		crc = (crc >> 4) ^ (q * 010201);
-		q = (crc ^ (c >> 4)) & 017;	/* High order nibble */
-		crc = (crc >> 4) ^ (q * 010201);
-	}
-	return(crc);
-}
-
-   Chuck Forsberg WA7KGX  ...!tektronix!reed!omen!caf   CIS:70715,131
-   Author of Professional-YAM communications Tools for PCDOS and Unix
- Omen Technology Inc     17505-V NW Sauvie Island Road Portland OR 97231
-Voice: 503-621-3406 TeleGodzilla: 621-3746 300/1200 L.sys entry for omen:
-omen Any ACU 1200 1-503-621-3746 se:--se: link ord: Giznoid in:--in: uucp
-omen!/usr/spool/uucppublic/FILES lists all uucp-able files, updated hourly
-
-------------------------------
-
-Date: 3 May 86 00:19:29 GMT
-From: Brad Templeton <brad%looking.uucp@brl.arpa>
-Subject: Re: Help with C-kermit on SCO Xenix V
-Keywords: It isn't working
-To: info-micro@brl-vgr.arpa
-
-In article <329@omen.UUCP> caf@omen.UUCP (Chuck Forsberg WA7KGX) writes:
->In article <294@catnip.UUCP> ben@catnip.UUCP (Bennett Broder) writes:
->>I recent obtained a copy of C-kermit 4.2(030) PRERELEASE #2, 5 March 85.
->>We have been using this version at work on a Perkin Elmer 3250XP and an
->>AT&T 3B5, and so I wasn't expecting any problem bringing it up on Xenix.
->>Well the package compiles without error, and appears to work okay, until
->>you attempt to do a transfer.  Then it can't even seem to get past the
->>header packet, and keeps printing SS%S%S%S%S% and the like on the screen.
->>Looking at the debugging output from both ends show that the Xenix machine
->>is computing the checksum incorrectly.  Please, can anyone help???
->>
-The problem is indeed a bug in the MSC compiler involving shifts of
-signed integers combined with ands.  The fix for kermit is simple enough,
-make the int in CHK1 into an "unsigned int"
-
-We're lucky on this one.  It turns out that the Kermit start packet
-just happens to have a checksum that triggers this bug.  Even so it took
-me several hours to track it down.
-
-I'm going to report it to Microsoft as soon as I see it's not in the new
-Beta release I just got.
-
-Brad Templeton, Looking Glass Software Ltd. - Waterloo, Ontario 519/884-7473
-
-------------------------------
-
-Date: Tue, 6 May 86 15:46:42 edt
-From: Davidsen <davidsen%kbsvax@kbsvax.tcp-ip>
-To: info-kermit@cu20b.arpa
-Subject: C Kermit on Xenix/286
-
-Someone recently asked about problems using C Kermit with Xenix 286.
-Here are the problems. The first is timeout: for non-XENIX systems the
-timeout is in miliseconds per clock tick, and for XENIX in ticks per
-second. This causes a variety of timeout problems. It also causes
-greater problems trying to get Kermit to run on a Cray2, since the
-ticks are every 4.1ns (243902439 per sec). This *really* should be
-ticks per second with the actual elapsed time counted in ticks (or
-something).
-
-The second fix is in the routine chk1, which needs the same type of fix
-used in chk2 to use an unsigned int for the working value, and store
-the value before returning it.
-
-I compiled the whole package with the optimizer on and it fits in the
-small model. The version I first converted was (55), but I recently did
-C(58) and will be doing C(60) in a few days, to find problems before
-someone really needs the newer version. Thanks to Bill Lorensen
-(lorensen@ge-crd.arpa) for helping me find the crc bug.
-
-This version works for 1 and 2 byte checks, but not for 3. Since I have
-yet to need 3 I haven't chased it too hard, but the obvious change
-didn't fix the problem. Somewhere in chk3 a problem still lurks.
-
-The diffs for the changes follow:
-
-ckcfn2.old:
-157c157
-<     int chk;
----
->     unsigned int chk;
-159c159,161
-<     return((((chk & 0300) >> 6) + chk) & 077);
----
-> 
->     chk = (((chk & 0300) >> 6) + chk) & 077;
->     return (chk);
-
-[Note: This change installed 4 Jun 86.]
-
-ckutio.old:
-1290c1290
-< #define CLOCK_TICK 50			/* millisecs per clock tick */
----
-> #define CLOCK_TICK 20                   /* millisecs per clock tick */
-
-------------------------------
-
-Date: Fri, 04 Jul 86 15:17:04 cet
-From: MAYER at DDAGMD11
-Subject: C-Kermit 4d(60)
-
-Hello Frank, I've done some tests with C-Kermit 4D(060).
-
-In ckudia.c... I use a null-modem to
-connect the PDP and IBM, with DTR signalling DSR and RLSD to the other side.
-Setting modem to unknown and dummy-dialling should have done the trick, but
-it didn't. The following mod's are necessary:
-ckudia.c:829:           status = CONNECTED;
-ckutio.c:700:    if (flow == DIALING)  ttraw.c_cflag &= ~(CLOCAL|HUPCL);
-ckutio.c:768:    if (flow == DIALING)  tttvt.c_cflag &= ~(CLOCAL|HUPCL);
-
-- This was my main problem - I had to use another program setting up the
-line before starting C-Kermit for filetransfer.
-
-There's another phenomenon: when starting C-Kermit to download files from
-the IBM the message "proc on q" appears at the console (the system-console)!
-I don't know where or under what circumstances Unix produces this message
-but it must be some sort of unusual condition. The message is not produced
-if C-Kermit is used for filetransfer with an MS-DOS system (local vs. remote
-operation)?
-
-- Hans
-
-------------------------------
-
 Date: Fri 5 Sep 86 13:59:44-EDT
 From: Fred Wang <OP.FRED@CU20B.COLUMBIA.EDU>
 Subject: problem compiling kermit on the 3b2/310
@@ -791,11 +455,6 @@ programs.
 to substitute fpcc for cc in the variables CC and CC2 in the  makefile
 text. This worked fine for my 3b2/310 running Unix System V 2.0.4 with
 CFP+ C compiler.
-
-	I will also try this on the new Unix System V 3.0 when I get
-the upgrade.  However, I do not think it will be a problem.
-
-/Fred
 
 ------------------------------
 
@@ -831,28 +490,14 @@ From: rice!sob@soma.BCM.TMC.EDU (Stan Barber)
 To: info-kermit@cu20b.columbia.edu
 Subject: NEWUUCP conditional in C-KERMIT
 
-`You do need to define the NEWUUCP conditional to get the 4.3 acucntrl support.
+You do need to define the NEWUUCP conditional to get the 4.3 acucntrl support.
 Also, lock files are now kept in a seperate globally writable LCK directory
 so unpriviledged programs can LCK lines without have write permission on
 /usr/spool/uucp. This will keep uucp from stomping on kermit.
 
 Stan
 
-------------------------------
-
-Date: Tue Sep 30 10:18:29 1986
-From: Herm Fischer <hermix!fischer@rand-unix.ARPA>
-To: sy.fdc@cu20b.arpa
-Subject: making c kermit on new IBM Xenix 2.0
-
-Stan Stead did the making on xenix 2.0 for me last time.  Here's his
-message:
-
-I made C-Kermit using "make xenix".
-It worked first time with Xenix 2.0.
-It is still broken with SCO, however, IBM 2.0 makes a binary that runs 
-fine on SCO.
-	Stan
+(NEWUUCP is currently not defined anywhere, so this code never gets used)
 
 ------------------------------
 
@@ -898,264 +543,17 @@ I'm sure there are still bugs in TOPS-20's implementation.
 
 ------------------------------
 
-Date: Tue, 9 Dec 86 16:12:13 pst
-From: hplabs!valid!carolf@gumby.arpa (Carol Fernihough)
-Subject: C-Kermit and Valid Workstations
-Keywords: C-Kermit, Valid Workstations
-
-I'm unclear as to where to mail bug reports regarding kermit.  I'd like my
-mail find its way to 1) kermit programmers at Columbia University, and 2) a
-network, so that I could receive responses from other users who can suggest
-fixes.  Would you please forward this mail if necessary, and let me know where
-I should send UUCP mail.  Although I have access to kermit information via the
-mod.protocols.kermit newsgroup on Usenet, I do not have permission to post to
-the moderated newsgroup.
-
-[Ed. - UUCP mail can be sent to ...!seismo!columbia!cu20b!info-kermit]
-
-I have tested version 4D(060) of c-kermit quite extensively on Valid's
-workstation, which is an S320 running 4.2 BSD UNIX.  I compiled c-kermit
-using "make valid".
-
-I've found the following problems when transferring files between two S320's:
-
-* Use of the -k option corrupts the file during kermit's transfer:
-  This problem also arises when transferring files between the S320 and
-  c-kermit (compiled using "make sys3") on the IBM PC/AT.
-
-  machineA# kermit -iwl /dev/ttys0 -b 9600
-  c-kermit(machineA)> connect
-  (log onto machineB)
-  machineB# kermit -ik > file.from_machineA
-  (escape back to machineA)
-  c-kermit(machineA)> send file
-  file -> FILE, Size 50
-
-  The text file that arrives on machineB is 52 bytes long since it has a CR LF
-  at the beginning of the file.  Binary files are corrupted in the same manner.
-  Text files are corrupted when sent using the -k option with no -i option.
-
-[Ed. - We can't reproduce this problem on our 4.2BSD (Ultrix 1.1, really) VAX
-750, but it's probably related to the well-known bug which inserts an
-extraneous CRLF into standard output every 4096 characters (this only happens
-with the -k option).  There's nothing in the C-Kermit code that inserts this
-CRLF, so it must have something to do with Unix's blocking.  Does anybody have
-an idea what must be done to convince Unix to leave out the CRLFs -- some
-kind of mysterious ioctl or fnctl applied to stdout, maybe?]
-
-* Can't use -c option
-  When I escape (^\c) after starting kermit on machineB, I escape out of
-  the kermit on machineA.  This also happens when kermit is started in server
-  mode.
-
-  c-kermit(machineA)> kermit -cl /dev/ttys0 -b 9600 -iw
-  (log onto machineB)
-  machineB# kermit -iw
-
-[Ed. - This is the documented behavior.  When you invoke Kermit with action
-commands (either protocol or connect, or both) on the command line, it acts
-like a normal Unix command, i.e. it exits when done.  Leave out the -c
-option, and you'll get an interactive Kermit session that you can escape
-back to.]
-
-* This problem occurs randomly.
-  When host to host, and connected to machineB:
-
-  c-kermit(machineB)> exit
-  (logout from csh)
-  Can't get character:  I/O error
-  [Back at Local System]
-  c-kermit(machineA)>
-  (exits directly back to kermit on machineA - should need ^\c first)
-
-  The problem also occurs randomly when machineB is running in server mode:
-  
-  c-kermit(machineA)> finish
-  c-kermit(machineA)> connect
-  machineB# logout
-  Can't get character:  I/O error
-  [Back at Local System]
-  c-kermit(machineA)>
-
-[Ed. - This probably is caused by your ports and cables.  Most likely, you've
-got the systems connected by a true null-modem cable, in which one computer's
-DTR is connected to the other computer's CD and/or DSR.  The remote computer
-may be configured to drop DTR upon logout, which would cause the local one to
-sense that CD or DSR disappeared, and to return an I/O error the next time
-you tried to read or write characters to the port.  The Kermit connect command
-exits when it gets an i/o error.  Solution: trade in your true null modem cable
-for a "fakeout" cable in which DTR is connected to CD and DSR within the local
-connector, or reconfigure your ports to be less persnickety about modem
-signals.]
-
-* When kermit is invoked from a script command, the command line options
-  are ignored.
-  machineA# kermit -iwl /dev/ttys0 -b 9600
-  machineA's /.kermrc file contains:
-  script gin:--gin:--gin: name ssword: passwd \
-  machineB#--machineB# kermit~s-iwx
-  send binary_file binary_file.from_machineA
-  
-  The attempted transfer simply times out because kermit on machineA is NOT
-  in server mode, nor have the other command line options taken effect.
-	
-  Workaround:
-  Rather than including command line options in a call to kermit from a
-  script, put the necessary commands in the script or in the remote machine's
-  .kermrc.
-
-[Ed. - This is just a guess, but maybe the '-' in '-iwx' is the culprit,
-since dashes are meta-characters in uucp-style scripts.  Try changing
-'kermit~s-iwx' to 'kermit~s~055iwx' and see if that works.]
-
-* Finish doesn't always work
-  When using a server, type finish, then connect.  Kermit will sometimes
-  connect back to kermit on the remote machine rather than the shell on 
-  the remote machine.
-
-[Ed. - This depends upon whether you invoked Kermit with -x on the command
-line (in which case it exits to the shell) or with the interactive 'server'
-command (in which case it returns to C-Kermit> command level).]
-
-I've also begun to test c-kermit between the S320 and the Microvax, running
-VAX version 2.1.  I compiled c-kermit on the Microvax using the CKVKER.COM DCL
-procedure.  I've found the following problems:
-
-S320 -> Microvax
-
-* Can't transfer binary files
-  Both host to host and server transfers corrupt binary files.
-
-[Ed. - Presumably you gave the -i option or 'set file type binary' on both
-ends.  Have other users of C-Kermit on VMS found this to be true?  I think the
-problem is that VMS binary files are not simple streams but are structured
-with particular blocksizes, etc.  There's no code in C-Kermit to do this.  I
-hope somebody who's familiar with VMS and VAX-11 C will add this code, or
-provide some hints or workarounds to this problem.]
-
-* Bye doesn't work
-  When running kermit on the microvax in server mode, type bye, then connect.
-  Bye acts like finish because kermit will connect to the microvax command
-  interpreter prompt.  At this point, type logout (which doesn't echo on the
-  screen).
-
-[Ed. - Again, sounds like something to do with VMS.  Maybe VMS doesn't allow
-a program to log out its own job unless the program is started or configured
-with some specific capability.  Can any VMS experts answer this?]
-
-* Finish doesn't work
-  When using the microvax as a server, type finish, then connect.  Kermit will
-  connect back to kermit on the microvax rather than the command interpreter.
-
-[Ed. - As in the Unix case, it depends on how the program was invoked.]
-
-* Exit doesn't always work
-  Sometimes no action will be taken in response to exit.  Quit always works
-  however.
-
-[Ed. - That's strange, because quit is simply a synonym for exit -- both are
-associated with exactly the same code.]
-
-Microvax -> S320
-
-* Directory doesn't work
-  Directory listed only one file in a directory containing several files.
-
-* Cwd doesn't work
-  Cwd caused an access violation and exited from kermit.
-  c-kermit(microvax)> cwd
-  %SYSTEM-F ACCVIO, access violation, reason mask=00, virtual address=00000000,
-  P4
-  %TRACE-F-TRACEBACK, symbolic stack dump follows
-  module name	routine name	line	rel pc	abs pc
-  CKVFIO	system		3233	17	15122
-  CKUUSR	docmd		1796	1a2	12F53
-  CKUUSR	parser		1635	182	12B69
-  CKCMAI	main		930	BC	D918
-  $ (could not echo - logged out)
-
-[Ed. - Again, I appeal to VMS experts for help sprucing up the VMS-specific
-functions in the CKV*.C modules.]
-
-I also have a question.  What is the reason for not reading the .kermrc file
-when the command line contains an action?
-
-[Ed. - No special reason except that the structure of the code made it hard
-to do.  This feature should be added in a future release.]
-
-UUCP address:  ucbvax!hplabs!pesnta!valid!carolf
-
-                                  Thanks!
-
-                                  Carol Fernihough
-
-[Ed. - And thanks to you for your detailed reports.  This is how Kermit
-programs keep getting better.  I hope I've answered each point
-satisfactorily.  If not, let me know.  - Frank] 
-
-------------------------------
-
-Date: 10-JAN-1987 11:30:56
-From: mfmail!nwbuts!gas@uucp.wessex
-Via: SYSKERMIT%vax1.central.lancaster.ac.uk@Cs.Ucl.AC.UK
-Subject: Bug in C-Kermit
-Keywords: C-Kermit
-
-I appear to have discovered a bug in C-kermit.  We are currently running
-version 4C(057) but I have also tried it on (061) with the same effect.
-
-The problem occurs in sending files with file-type binary, and results in
-the file being truncated.  If the last sequence is a multiple-character
-escape, which wont fit into what should be the penultimate packet, then
-after that packet has been sent the flag (first) says that EOF has been
-reached and gives up, although there is still a sequence to send.
-
-I have looked at this and the problem seems to be in ckcfns.c in the routine
-getpkt, but I have not yet worked out a fix.  I would be grateful to know if
-anyone else has already fixed the problem.
-
- Gordon Scott
-
- (Micro Focus, 26 West Street, Newbury     Tel - 0635 32646)
-
-[Ed. - This appears to be to be a real bug in the getpkt() function.  A
-cursory inspection of the source shows that the solution might be as simple
-as moving a piece, something like...
-
-    } else if (first == -1) {	/* EOF from last time? */   <-
-	first = 1;		/* Setup for next time. */  <-
-        return(size = 0);                                   <-
-    } else x = 1;
-
-    /* Do any leftovers */
-
-    for (size = 0; (data[size] = leftover[size]) != '\0'; size++)
-    	;
-    *leftover = '\0';
-    if (first == -1) { first = 1; return(size); } /* <--- and add this */
-
-This is totally unverified; reports welcome.  Thanks!]
-
-------------------------------
-
 Date: Wed, 7 Jan 87 00:55:42 EST
 From: nelson@NLM-VAX.arpa (Gary Nelson)
 Subject: Xenix on IBM-PC/AT & SCO Xenix V
 Keywords: Xenix, C-Kermit, SCO Xenix
 
-In response to request for users of C-Kermit 4D061 on SCO Xenix:
+In response to request for users of C-Kermit 4D(061) on SCO Xenix:
 
 My configuration:	IBM-PC/AT
 			SCO Xenix Release 2.1.3 (Update E & F)
 
-CRC problems - none, all 3 block checks work fine to any system I use:
-		IBM-PC - MSDOS, MS-Kermit v2.29
-		Intel 310 Xenix, C-Kermit 
-		DEC VAX 11/780 - BSD 4.3
-		DEC PDP-11/70, RSX11m-Plus
-I agree, fixed several(??) releases ago.
-
-However, the dial command did not work after updating to the release of SCO
+The dial command did not work after updating to the release of SCO
 Xenix V.  The following diff file corrects problem in ckutio.c that broke
 the dial command.  Note, if you are on SCO Release 2.1.0 - DO NOT include
 this fix, leave the 4D061 version as released alone - it works fine.  The
@@ -1202,1047 +600,1184 @@ facility.
 
 ------------------------------
 
-From: why_not!scsnet!sunder@seismo.CSS.GOV
-Date:  Tue Jan 13 14:53:19 EST 1987
-Subject: Zilog C-Kermit 4c(60) diffs
+Date: Sat, 29 Aug 87 15:37 EST
+From: <RICK@QUCDNAST.BITNET> (Rick Pim)
+Subject: C-Kermit 4E Amiga .BOO File
+Keywords: C-Kermit, Amiga
 
-Frank,
-  It appears that the diffs to make C-Kermit 4d(60) work are all
-in ckufio.c and the major ones in ckutio.c.  I have enclosed the
-output of the diff command on the original vs. the Zilog version, 
-ie I used a 'diff kermit.orig/ckutio.c kermit.zilg/ckutio.c' type 
-command to produce the following diffs files.  Note that I am not 100%
-sure my 4d(60) original was not modified by the person who had
-it before me, so keep that in mind. 
+        The Aug 7 info-kermit digest mentioned a new release of C-Kermit
+for, amongst other things, the Amiga. According to the directory I looked
+at of cki* *, the BOO file is new. The digest requested comments/etc, so I
+ordered the BOO file and decoded it today. According to the header once
+it's running, the version is 4D. It has at least one of the same bugs as 4D
+(parity does not work).
 
-#!/bin/sh
-# shar:	Shell Archiver
-#	Run the following text with /bin/sh to create:
-#	Makefile.diffs
-#	ckufio.diffs
-#	ckutio.diffs
-sed 's/^X//' << 'SHAR_EOF' > Makefile.diffs
-X208a209,212
-X> #Zilog s8000 Zeus 3.21+
-X> zilog:
-X> 	make wermit "CFLAGS = -DUXIII -DZILOG -DTLOG -i -O" "LNKFLAGS = -i"
-X> 
-SHAR_EOF
-sed 's/^X//' << 'SHAR_EOF' > ckufio.diffs
-X74c74,78
-X< char *ckzsys = " AT&T System III/System V";
-X---
-X> #ifdef ZILOG
-X> char *ckzsys = " Zilog S8000 Zeus 3.21+";
-X> #else
-X> char *ckzsys = " AT and T System III/System V";
-X> #endif
-SHAR_EOF
-sed 's/^X//' << 'SHAR_EOF' > ckutio.diffs
-X0a1,4
-X> #ifdef ZILOG
-X> #define static 
-X> #endif
-X> 
-X101a106,108
-X> #ifdef ZILOG
-X> char *ckxsys = " Zilog S8000 Zeus 3.21+";
-X> #else
-X106a114
-X> #endif
-X710,711c718,719
-X<     ttraw.c_cc[4] = 1;
-X<     ttraw.c_cc[5] = 0;
-X---
-X>     ttraw.c_cc[VMIN] = 1;
-X>     ttraw.c_cc[VTIME] = 0;
-X777,778c785,786
-X<     tttvt.c_cc[4] = 1;
-X<     tttvt.c_cc[5] = 0;
-X---
-X>     tttvt.c_cc[VMIN] = 1;
-X>     tttvt.c_cc[VTIME] = 0;
-X951a960,961
-X> static int inbuf_item;
-X> static CHAR inbuf[257];
-X953,954d962
-X<     static int inbuf_item;
-X<     static CHAR inbuf[257];
-X966c974
-X< 		return(-2);             /* end of file has no errno */
-X---
-X> 		return(-1);             /* end of file has no errno */
-X1526,1527c1534,1540
-X<     cccbrk.c_cc[4] = 1;
-X<     cccbrk.c_cc[5] = 1;
-X---
-X>     cccbrk.c_cc[VMIN] = 1;
-X> #ifdef ZILOG
-X>     cccbrk.c_cc[VTIME] = 0;
-X> #else
-X>     cccbrk.c_cc[VTIME] = 1;
-X> #else
-X> 
-X1576,1577c1589,1595
-X<     ccraw.c_cc[4] = 1;
-X<     ccraw.c_cc[5] = 1;
-X---
-X>     ccraw.c_cc[VMIN] = 1;
-X> #ifdef ZILOG
-X>     ccraw.c_cc[VTIME] = 0;
-X> #else
-X>     ccraw.c_cc[VTIME] = 1;
-X> #endif
-X> 
-SHAR_EOF
-exit
-
-  I left out a file for the Zilog 4D(60) support.  In order to
-make kermit (and most every other unix program known to mankind)
-work on the Zilog, one must create ones own /usr/include/setret.h
-file, since Zilog has its own ideas as the how to spell these
-funtions.
-
-Here it is:
-
-/* setjmp.h for Zilog Systems running the ZEUS operating system */
-#include <setret.h>
-#define setjmp setret
-#define longjmp longret
-#define jmp_buf ret_buf
-
-typedef int ret_buf[10];
-/* end of setjmp.h */
-
-UUCP:	(1) seismo!why_not!scsnet!sunder		Mark E. Sunderlin
-	(2) ihnp4!chinet!megabyte			aka Dr. Megabyte
-CIS:	74026,3235					(202) 634-2529
-Mail:	IRS  PM:PFR:D:NO  1111 Constitution Ave. NW  Washington,DC 20224  
-Quote:	"Next Stop, The Island of Misfit Toys" - Santa
+[Ed. - Right, we don't have an Amiga .BOO file based on the new version yet.
+We were hoping somebody would make one.  See next message.]
 
 ------------------------------
 
-Date: Tue, 13 Jan 1987 11:40 EST
-From: Lawrence Fan <GYACC@CUNYVM>
-Subject: Problems Compiling C-Kermit on ATT 3BX Systems
-Keywords: C-Kermit, UNIX Kermit, ATT 3BX
+Date: Wed, 12 Aug 87 10:25:42 pdt
+From: cit-vax!ametek!walton@RUTGERS.EDU (Steve Walton)
+Subject: C-Kermit 4E(066) on Amiga
+Keywords: C-Kermit, Amiga
 
-I am having a compile problem with C-Kermit 4D(061) on ATT 3BX systems.  I
-get warnings when I compile.  Not enough to kill the process but
-nevertheless, trouble.  The 'make' did finish and I do have wermit and it is
-able to run...  but the warnings are bothering me.  I am enclosing the
-warnings when I do 'make att3bx':
+Well, I grabbed C-Kermit 4E(066) from CU20B, and have been able to compile and
+link a running version on my Amiga using Manx Aztec C V3.40b.  In the process,
+I added the appropriate include files and the DOSFH and FILENO macros for Manx
+C to ckiutl.c and ckitio.c; diffs will follow shortly.  (One thing which was
+easy: parity can be ignored in ttinl(), since the Amiga's serial.device
+handles it itself, and passes characters to Kermit with the parity bit already
+stripped.)
 
-	cc -DUXIII -DATT3BX -DDEBUG -DTLOG -i -O -c ckuusr.c
-"ckuusr.c", line 1047: warning: illegal pointer combination, op =
-"ckuusr.c", line 1048: warning: illegal pointer combination, op =
-
-	cc -DUXIII -DATT3BX -DDEBUG -DTLOG -i -O -c ckutio.c
-ckutio.c: 23: extra tokens (ignored) after directive
-ckutio.c: 94: extra tokens (ignored) after directive
-ckutio.c: 451: extra tokens (ignored) after directive
-ckutio.c: 1151: extra tokens (ignored) after directive
-ckutio.c: 1166: extra tokens (ignored) after directive
-ckutio.c: 1574: extra tokens (ignored) after directive
-"ckutio.c", line 950: warning: illegal pointer combination, op ==
-
-	cc -DUXIII -DATT3BX -DDEBUG -DTLOG -i -O -c ckudia.c
-"ckudia.c", line 583: warning: illegal pointer combination, op !=
-"ckudia.c", line 623: warning: illegal pointer combination, op =
-"ckudia.c", line 624: warning: illegal pointer combination, op =
-
-	cc -DUXIII -DATT3BX -DDEBUG -DTLOG -i -O -c ckuscr.c
-"ckuscr.c", line 253: warning: illegal pointer combination, op =
-
-Thanks a lot for your help.
-
-[Ed. - There are two problems.  First, your compiler is complaining about
-"extra tokens" after #endif and #else directives in ckutio.c, the most
-heavily conditionalized module of C-Kermit.  These "tokens" are merely the
-proprocessor variables (like ATT3BX) from the matching #if, added for
-clarity.  Most compilers don't complain about them, and they don't seem to
-be causing any real problem.  Perhaps in the next release they should be
-turned into real comments, e.g. "#endif V7" will become "#endif /* V7 */".
-
-All the other messages ("illegal pointer combination") have to do
-with the signal() function; see signal(2) in your Unix manual.
-'signal()' is supposedly declared (in <signal.h>) like so:
-
-    int (*signal(sig,func))();
-    int sig;
-    void (*func)();
-
-i.e. signal() is a function that returns a pointer to a function that
-returns an integer (see p.195 of the C book).  The 'func' is either a
-symbol, such as SIG_IGN defined in <signal.h>, or a pointer to an integer
-function that you supply.  Symbols are defined like so in <signal.h>, at
-least on my 4.2BSD system:
-
-    #define SIG_IGN (int (*)())1
-
-i.e. a pointer to an imaginary function that returns a constant of 1 (did I
-say that right?)  When you invoke signal() to associate a new function with
-a particular signal, it's supposed to return a pointer to the function that
-was previously associated with that signal, allowing you to save and restore
-the interrupt structure.  Thus Kermit does things like:
-
-    int (*istat)(), (*qstat)();
- 
->   istat = signal(SIGINT,SIG_IGN);	/* Let the fork handle keyboard */
->   qstat = signal(SIGQUIT,SIG_IGN);    /* interrupts itself... */
-      :
-      :
-    signal(SIGINT,istat);		/* Restore interrupts */
-    signal(SIGQUIT,qstat);
-
-Your compiler is complaining about the statements marked with ">" because it
-believes there is a type mismatch between signal() and istat and qstat.
-Check the definition of signal() in your system's <signal.h> and see if you
-can find out why, then let us know.  The rest of the "illegal pointer
-combinations" are of the same nature.  If some new release of the ATT 3BX
-C compiler and/or header files is causing this problem, we'll have to do
-something special within ATT3BX conditionals, since the current setup seems
-to cause no problems on other systems.  Once again, let's hear it for
-portability...  Can any ATT 3BX System V experts out there shed any further
-light?]
-
-------------------------------
-
-Subject: KERMIT on SYSTEM5/AT
-to:      Frank da Cruz
-From:    Joachim W. Wiesel (GP06@DKAUNI48.BITNET)
-         University of Karlsruhe, W-Germany
-
-I have ported C-Kermit 4D(60) apparently with success to an IBM-AT clone
-running Microport Inc. SystemV/AT Unix system 5.2 rel. 2. I have tested CK
-as a local Kermit on sys5at connected to CK on a MicroVax running Ultrix 1.1
-- direct connect, no modem.  CK has been compiled using the INTEL large
-memory model (just to be sure .. don't know wether it is really needed).
-And because pointers are differnt in length from ints there were some small
-bugs:
-
-Module                Bug                        Fix
-
-ckucon.c              wait(0)               wait((int *)0)
-ckufio.c/line 560     wait(0)               wait((int *)0)
-ckuusr.c/line 1052    wait(0)               wait((int *)0)
-
-I have added a new target to the Makefile:
-
-sys5at:
-
-   make wermit "CFLAGS = -DUXIII -DDEBUG -DTLOG -O" "LNKFLAGS = -Ml"
-
-One observation concerning CK on Ultrix 1.1:
-
-The binary distribution of Ultrix 1.1 does not contain the "finger" command
-which is called by a REMOTE WHO it should be replaced by the "who" command.
-Regards Joachim
-
-------------------------------
-
-Date: Thu, 12 Mar 87 16:16:08 PST
-From: Steve Walton <ametek!walton@csvax.caltech.edu>
-Subject: Background Kermit bug
-
-Summary: A background C-Kermit does not exit when a nested TAKE file
-fails
-
-System:  C-Kermit 4D(061) on vanilla 4.3BSD on a VAX 780
-
-Description:
-
-The User Guide states, "When kermit is executed in the background,
-errors during execution of a take file are fatal."  This appears not
-to be the case; rather, a background C-Kermit (defined as one for
-which standard input is not a tty) simply pops one TAKE file level and
-continues after an error.
-
-Reproduce-by:
-
-I have been trying to use C-Kermit as a non-interactive file fetcher
-from another system, following the suggestions in the User Guide.
-Specifically, I have created a Kermit file containing:
-
-	log transact
-	take login
-	take grabfiles
-	bye
-	quit
-
-where the "login" take file logs into the remote system and starts a
-Kermit server there and "grabfiles" does the file transfers desired.
-This is run via:
-
-	kermit < above-file >&! output &
-
-If the login TAKE file fails, C-Kermit continues with the getsome TAKE
-file and the BYE and QUIT commands, all of which time out;  it then
-exits with a normal error status.
-
-Fix:
-
-The basic problem is that the backgrd flag is never set to 1 if
-standard input is being redirected.  The only assignment of a non-zero
-value to backgrd is in conint() in ckutio.c:
-	if (signal(SIGINT, SIG_IGN) == SIG_IGN) { backgrd = 1; ...
-in other words, if the interrupt signal is being ignored, we're in
-the background.  This would be fine, except that the first line in
-conint() is
-	if (!isatty(0)) return(0);
-which is why my example breaks--the call to signal is never done.
-
-I added the line
-	if (!isatty(0)) backgrd = 1;
-to sysinit() locally, but I haven't dived deeply enough into the code
-to know what else this might break.
-
-Stephen Walton			ARPA:	ametek!walton@csvax.Caltech.EDU
-Ametek Computer Research Div.	BITNET:	WALTON@CALTECH
-610 N. Santa Anita Ave.		UUCP:	...!ucbvax!sun!megatest!ametek!walton
+Stephen Walton, walton@ametek.UUCP
+Ametek Computer Research Div.
+610 N. Santa Anita Ave.
 Arcadia, CA 91006 USA
 818-445-6811
 
 ------------------------------
 
-Date: Sat, 24 Jan 87 22:33:00 est
-From: moscom!jgp@rochester.arpa
-Subject: Bug in MS or C Kermit text file transmission
+Date: Thu, 3 Sep 87 08:26:14 EDT
+From: Marshall_DeBerry@um.cc.umich.edu
+Subject: C-Kermit 4E Problems on Tandy 16A/6000 and Arete 1200
+Keywords: C-Kermit, Tandy 16A/6000, Arete 1200
 
-When attempting to transfer the following file from a Unix system to
-a pc the last line is is terminated with a ^M instead of ^M^J.  All
-the other lines have the correct ^M^J terminator.  The problem is closely
-related with file/packet size, changing either by even one byte corrects
-the problem.
+I've tried out the new 4E(066) release on a Tandy 16A/6000 and Arete 1200 under
+System V.2.  One problem I've noticed is that if you try to get the status
+of the transfer, as soon as you type Cntrl A, the transmission begins to
+send %T's, and eventually times out.  This was during file transmissions
+between the Arete and MTS Kermit.  It was also reproducible between the
+Arete and Tandy machines.
 
-The transfer failed on the following systems:
-	pdp11/44 w/V7 running C-Kermit 4D(060) and 4D(061)
-	ncr tower 32/600 w/SysV.2 running C-Kermit 4D(060) and 4D(061)
-	AT&T PC6300 w/msdos 2.11 running MSKermit 2.29 and 2.29b
-the only unusual thing that the Ckermits are compiled without DEBUG.  I
-haven't had a chance to see if DEBUG would make a difference.
+[Ed. - This sounds like something pretty specific to your machine; Ctrl-A
+status reports work ok on the machines we've tested.  I hope you can track it
+down.]
 
-The file fails using the default parameters on both sides and using
-"send file" from the unix side and "rec" on the pc.  The packet size ends
-up being 94.
-
-Here is the file (5 lines and 81 bytes, all normal characters).
- -----------------cut--------
-426  0    35
-919 428  0    35
-919 432  0    35
-919 949  0    35
-919 951  0    35
- -----------------cut--------
-Here is a printable (via see) copy of packet.log
- -----------------cut--------
-^A, Sz* @-#Y1~^^M$
-^A, Y~- @-#Y1~(^M$
-^A$!FH6^M$
-^A#!Y?^M @$
-^A|"D426  0~$ 35#M#J919 428  0~$ 35#M#J919 432  0~$ 35#M#J919 949  0~$ 35#M#J919 951  0~$ 35#MO^M$
-^A#"Y@^M @$
-^A##ZB^M$
-^A##YA^M @$
-^A#$B+^M$
-^A#$YB^M @$
- -----------------cut--------
-
-If anyone can shed any light on this I would be grateful.
-
-Jim Prescott	rochester!moscom!jgp
+The program compiled cleanly on both machines, except that on the Tandy end
+(running under Xenix 3.1.2), I had to include <sys/types.h> for one of the
+files in which void is used.
 
 ------------------------------
 
-Date:     19-March-1987
-From:     J.M.Saunders, British Aerospace plc
-Subj:     C-Kermit changes needed for Zilog systems under Zeus 3.21
+From: sob@watson.tmc.edu (Stan Barber)
+Subject: C-Kermit Lock Files
+Date: 20 Aug 87 21:26:17 GMT
+Keywords: C-Kermit, Unix Lock Files
 
-At present we have two Zilog 8000 systems running Zeus 3.21 . Detailed below
-are the changes made in order to get a working version: they are mostly to get
-around apparent compiler bugs.
+I should point out that C-Kermit(041) does handle lock files correctly under
+BSD4.3 with the 4.3UUCP locking structure.  This creates a lock directory
+(/usr/spool/uucp/LCK) that is publically writable and each program (except
+kermit) using the locking protocol is smart enough to test for dead locks
+(coming from programs that aborted and did not remove its lock).
 
-Kermit was built using "make sys3". We got arounf the setjmp and longjmp
-problem by defining these to be the same as longret and setret in include
-files.
+Stan
 
-The changes to C-Kermit for Zilog were contained in ckutio.c and ckufio.c
-
-
- Changes to ckutio.c
- -------------------
-
- These can be split into 3 parts: ensuring the terminal settings were read and
- set correctly, getting non-canonical processing to work correctly, and making
- the lockfile format compatible with that of current software.
-
- 1. Terminal settings
-
-    The ioctl call did not put the terminal settings into the termio structure,
- and any modifications made were ignored. This was traced to an apparent bug in
- the compiler, which was cured by changing the storage class of the termio
- structure from static to the default in the variable declarations
-
- 325c325,326
- <  static struct termio  /* sgtty info ... */
- ---
- >  /* struct changed from static to auto so that ioctl calls read right data */
- >  struct termio         /* sgtty info */
-
-
- 2. Non-canonical mode
-
-     As soon as the interactive prompt appeared, Kermit returned to Unix command
- level. This was traced to the terminal settings. If the wait time setting
- c_cc[5] is non-zero, ^A's are sent whilst the machine is waiting. These were
- being interpreted as EOF characetrs instructing Kermit to tidy up and exit. The
- problem is cured by setting c_cc[5] to zero in all cases where non-canonical
- mode was used (modes set in concb and conbin)
-
- 1527c1551,1552
- <  cccbrk.c_cc[5] = 1;
- ---
- >  cccbrk.c_cc[5] = 0;    /* changed from 1 to 0 otherwise */
- >                         /* ^A's generated which are taken as EOF */
-
- 1577c1602,1603
- <  ccraw.c_cc[5] = 1;
- ----
- >  /* made this number 0 as is usual for Zilog. It was 1 */
- >  ccraw.c_cc[5] = 0;
-
-
- 3. Lockfile
-
-    uucp on the Zilog requires the username and terminal of the person using the
- remote line and not a pid number. The changes made (apart from variable
- declarations) were in look4lk :
-
- 596,598c597,607
- <  char lckcmd[40] ;
- <  strcat(strcpy(lckcmd,"ls -l"),flfnam);
- <  system(lckcmd);
- ---
- >  char lbuf[20];
- >  char ltbuf[10];
- >  file *dbf;
- >
- >  dbf = fopen("flfnam,"r");
- >  fgets(lbuf,20,dbf);
- >  lbuf[strlen(lbuf)-1] = '\0';
- >  fgets(ltbuf,10,dbf);
- >  ltbuf[strlen(ltbuf)-1] = '\0';
- >  fprintf(stderr,"%s at %s is using the line\n",lbuf,ltbuf);
- >  fclose(dbf);
-
- 600c609
- <  printf("(You may type \"! rm %s\" to remove this file)\n",flfnam);
- ---
- >  printf("(You may type \"! rm %s\" to remove the lockfile)\n", flfnam);
-
- 614a624,628
- >
- >  char c;
- >  char *n;
- >  char *getlogin(), *ttyname();
- >
-
- 618,619c632
- <  int lck_fil, l41;
- <  int pid_buf = getpid();    /* pid to save in lock file */
- ---
- >  int lck_fil, l41, umsk;
-
- 624a638,639
- >  umsk = umask(0);  /* save current umask to ensure */
- >                    /* file is readable by all */
-
- 625a641
- >  umask(umsk);      /* restore user's mask */
-
- 632c648,656
- <  write(lck_fil,&pid_buf,sizeof(pid_buf)); /* uucp expects int in file */
- ---
- >
- >  n = getlogin();   /* put login and tty name in the lockfile */
- >  write(lck_fil,n,strlen(n));
- >  c = '\n';
- >  write(lck_fil,&c,1);
- >  n = ttyname(0);
- >  write(lck_fil,&n[5],strlen(&n[5]));
- >  write(lck_fil,&c,1);
- >
-
-
- Changes to ckufio.c
- -------------------
-
- The problem here is to do with file names being garbaged when wild card
- characters were used. The name of the first file to be transferred was being
- corrupted, due to corruption of the pointer to it. This had no visible
- explanation and was put down to a compiler bug. The fix is in the form of a
- kludge that ensured that the 0th location in the array was not used (i.e. names
- are stored from element 1 onwards). Changes were made in the znext, znewn and
- fgen functions as below:
-
- 185c185
- <  static char *mtchs[MAXWLD],      /* matches found for filename */
- ---
- >  static char *mtchs[MAXWLD+1],    /* matches found for filename */
-
- 580c580,581
- <  if (fcount-- > 0) strcpy(fn,*matchptr++);
- ---
- >  *mtchptr++;             /* do not use location zero */
- >  if (fcount-- > 0) strcpy(fn,*mtchptr);
-
- 612c613,614
- <  xp = *mtchptr;
- ---
- >  *mtchptr++;             /* do not use location 0 */
- >  xp = *mtchptr;
-
- 727a730,731
- >  *resptr++;              /* do not use location zero due to */
- >                          /* pointer corruption */
-
-
- Other bugs
- ----------
-
- The only other bug found was that trailing nulls are sometimes removed from
- binary files in transfer.
-
-
- J.M. Saunders,
- Daisy CAE Support Engineer,
- British Aerospace plc,
- Naval and Electronic Systems Division,
- Dept 399,
- FPC 126,
- PO Box 5,
- Filton,
- Bristol BS12 7QW
+[Ed. - Presumably, this is also true for 4E?]
 
 ------------------------------
 
-26-Nov-86 10:19:27-EST,1477;000000000001
-Return-Path: <decuac!edison!edison.GE.COM!jso@seismo.CSS.GOV>
-Received: from seismo.CSS.GOV by CU20B.COLUMBIA.EDU with TCP; Wed 26 Nov 86 10:19:11-EST
-Received: from decuac.UUCP by seismo.CSS.GOV (5.54/1.14) with UUCP 
-	id AA27803; Wed, 26 Nov 86 10:21:58 EST
-Received: by decuac.dec.com (4.12/UUCP-Project/rel-1.0/6-20-86)
-	id AA02337; Wed, 26 Nov 86 10:03:29 est
-Received: by edison.GE.COM (4.12/UUCP-Project/rel-1.0/edison.GE.COM/1.8)
-	id AA01246; Wed, 26 Nov 86 09:54:07 est
-Date: Wed, 26 Nov 86 09:54:07 est
-From: John Owens <jso@edison.ge.com>
-Message-Id: <8611261454.AA01246@edison.GE.COM>
-To: Info-Kermit@cu20b.columbia.edu
-Subject: Re: C-Kermit and Xenix 3.0
-In-Reply-To: your article <12256778044.71.SY.CHRISTINE@CU20B.COLUMBIA.EDU>
-News-Path: steinmetz!nyfca1!rpics!seismo!lll-crg!styx!ames!ucbcad!ucbvax!CU20B.COLUMBIA.EDU!SY.CHRISTINE
+Date: 13 Sep 87 17:22:26 GMT
+From: warren@pluto.UUCP (Warren Burstein)
+Subject: patches to ckermit
+Organization: Industrial Automation Systems - New York, NY
 
-I have also built C-Kermit 4C(057) on IBM XENIX 1.0 (which is the same as
-Microsoft XENIX 3.0) on an IBM AT with no problems by just using the
-	make xenix
-option with the distributed makefile (ckuker.mak).  The binary still
-runs fine on SCO XENIX System V (an enhanced version of Microsoft
-XENIX 5.0, aka IBM XENIX 2.0), but I'd probably need to change a few
-things to rebuild it from scratch on XENIX System V.
+These patches add to ckermit a "set phone" command.  Aliases
+are recognized in the "dial" command.  My .kermrc is now full of
+set phone commands.
 
-John Owens		General Electric Company - Charlottesville, VA
-jso@edison.GE.COM	old arpa: jso%edison.GE.COM@seismo.CSS.GOV
-+1 804 978 5726		old uucp: {seismo,decuac,houxm,calma}!edison!jso
+The new command looks like
+   set phone pacx 280-8050
+After this command, I can say
+   dial pacx
 
+I don't know how to make a "patch" file so here is a shar
+of all the diffs.
+
+I am leaving the net in two days, I hope to be back on in
+a while and pick up my mail from this machine.
+
+I didn't use any fancy methods to store phone numbers, it didn't
+seem worth the effort.
+
+---------------
+# This is a shell archive.  Remove anything before this line, then
+# unpack it by saving it in a file and typing "sh file".  (Files
+# unpacked will be owned by you and have default permissions.)
+#
+# This archive contains:
+# ckudia.diff ckuus3.diff ckuusr.diff ckuusrh.diff
+
+echo x - ckudia.diff
+cat > "ckudia.diff" << '//E*O*F ckudia.diff//'
+73,75d72
+<  *
+<  *   6-May-87  Support for phone aliases
+<  *							-- Warren Burstein
+126d122
+< char *malloc(), *strcpy();
+422,431d417
+< 
+< /*
+<  * Array of phone aliases, unsorted
+<  */
+< 
+< #define MAXPHONES 100
+< struct phones {
+< 	char *name, *number;
+< } phones[MAXPHONES];
+< 
+528d513
+< 	struct phones *lookup_phone(), *p;
+530,537d514
+< 	if ( !isdigit(*telnbr))
+< 		if (p = lookup_phone(telnbr))
+< 		  telnbr = p->number;
+< 		else {
+< 			printf("I don't recognize that system\n");
+< 			return -2;
+< 		}
+< 
+866,927d842
+< }
+< 
+< /*
+<  * Following code added by WB for phone aliases.
+<  */
+< 
+< /*
+<  * Add a phone alias.
+<  */
+< 
+< add_phone(name, number)
+< char *name, *number;
+< {
+< 	struct phones *p;
+< 
+< 	/*
+< 	 * If name is in use, redefine its number.
+< 	 */
+< 	if (p = lookup_phone(name)) {
+< 		free(p->number);
+< 		p->number = malloc(strlen(number) + 1);
+< 		(void) strcpy(p->number, number);
+< 		return;
+< 	}
+< 
+< 	/*
+< 	 * Find a vacancy in the table.
+< 	 */
+< 	for (p = phones; p < &phones[MAXPHONES]; p++)
+< 	  if ( !p->name) {
+< 		  p->name = malloc(strlen(name) + 1);
+< 		  (void) strcpy(p->name, name);
+< 		  p->number = malloc(strlen(number) + 1);
+< 		  (void) strcpy(p->number, number);
+< 		  return;
+< 	  }
+< 
+< 	printf("There are too many phone aliases.\n");
+< }
+< 
+< /*
+<  * Returns phone number to use, or NULL if phone number could not be found.
+<  */
+< 
+< struct phones *lookup_phone(name)
+< char *name;
+< {
+< 	struct phones *p;
+< 
+< 	for (p = phones; p < &phones[MAXPHONES]; p++)
+< 		if (p->name && !strcmp(p->name, name))
+< 			return p;
+< 
+< 	return (struct phones *) 0;
+< }
+< 
+< shphones() {
+< 	struct phones *p;
+< 
+< 	for (p = phones; p < &phones[MAXPHONES]; p++)
+< 	  if (p->name)
+< 		printf("%s %s\n", p->name, p->number);
+//E*O*F ckudia.diff//
+
+echo x - ckuus3.diff
+cat > "ckuus3.diff" << '//E*O*F ckuus3.diff//'
+268,280d267
+<   case XYPHONE:
+< 	{
+< 		char name[30], number[30];
+< 
+< 		if ( (x = cmfld("name of phone alias", "", &s)) < 0) return x;
+< 		(void) strcpy(name, s);
+< 		if ( (x = cmfld("phone number", "", &s)) < 0) return x;
+< 		(void) strcpy(number, s);
+< 
+< 		add_phone(name, number);
+< 	}
+< 	break;
+< 
+//E*O*F ckuus3.diff//
+
+echo x - ckuusr.diff
+cat > "ckuusr.diff" << '//E*O*F ckuusr.diff//'
+436d435
+< 	"phone-number",     XYPHONE, 0,
+473,474c472
+< #define SHPHONE 2			/* phone numbers */
+< 
+---
+>  
+477d474
+<     "phone-aliases",   SHPHONE, 0,
+1085,1089c1082
+< 
+< 	case SHPHONE:
+< 		shphones();
+< 		break;
+< 
+---
+>  
+//E*O*F ckuusr.diff//
+
+echo x - ckuusrh.diff
+cat > "ckuusrh.diff" << '//E*O*F ckuusrh.diff//'
+104c104
+< #define XYPHONE 33				/* set phone alias - WB */
+---
+>  
+//E*O*F ckuusrh.diff//
+
+exit 0
+-- 
+/|/~\~~\    The entire world             Warren Burstein
+ |__/__/_/  is a very strange carrot.
+ |          But the farmer               philabs!tg!pluto!warren
+/           is not afraid at all.        Why doesn't life come with subtitles?
 
 ------------------------------
 
-Date: 29 Apr 87 16:41:05 GMT
-From: seismo!gatech!mcdchg!heiby@columbia.edu (Ron Heiby)
-Subject: C Kermit on Motorola Delta SVR3
-Keywords: C-Kermit
+Date: Mon, 21 Sep 87 09:54:28 PDT
+From: kevin@ACC-SB-UNIX.ARPA (Kevin 0'Gorman)
+Subject: C-kermit 067 / UNIX PC
 
-Hi!  I just finished bringing up C Kermit 4D(061) on a Motorola Delta system
-running System V/68 Release 3.0.  I found some minor problems that I thought
-should be mentioned.
-
-The entry in the makefile (ckuker.mak) for "att3bx" and the corresponding
-#define for "ATT3BX" is actually not dependent on the AT&T 3B architecture.
-It is for the AT&T Basic Networking Utilities (BNU), also called "Honey
-DanBer UUCP".  This version of uucp is standard with System V Release 3
-as it comes from AT&T and as implemented on the Motorola systems.  I suggest
-changing the makefile and define to something more like "hdbuucp" or something
-like that.  Of course, HDB is not restricted to System V releases, so the
-"-D" for it should probably be seperate from any particular "make" target.
-
-The "beware" file for C Kermit talks about a name confilict on "unchar" for
-ATT 3Bx systems.  This is really a System V Release 3 issue and is also
-the case for the Motorola implementation.  I tried the suggested fix, of
-"-Dunchar=myunchar" in the makefile and, as expected, it didn't help.  I
-edited the files used for my build to change "unchar" to "myunchar".  There
-are other references to be changed for non-UNIX builds.  The files I changed
-for this were: ckcker.h, ckcpro.w, ckcfn2.c, and ckcfns.c.
-
-System V Release 3 has re-defined the signal(2) system call as:
-	extern	void (*signal())();
-instead of:
-	extern	int (*signal())();
-This means that lines in ckudia.c, ckuusr.c, and ckuscr.c must be changed
-to avoid illegal pointer combination errors.  I just changed "int" to "void"
-in each case.  Better (more general) would be to use a typedef based on a
-define, like "SVR3" (which might also cause the BNU locking code to be used).
-
-The C compiler that comes with SVR3 is no longer so forgiving of random tokens
-following preprocessor directives.  Convention has been to do things like:
-	#if FOO
-		code
-	#else !FOO
-		other code
-	#endif FOO
-This causes warnings on both the #else and #endif.  Correct would be:
-	#if FOO
-		code
-	#else /* !FOO */
-		other code
-	#endif /* FOO */
-Several places in ckutio.c had to be changed for this.
-
-Also, ckcdeb.h includes some #include lines for "vax11c" which are not
-of legal format.  Even though they are bounded by #ifdef/#endif, the
-pre-processor still sees them and barfs.  I changed the conditionals
-surrounding them to cause them to actually be commented out, if "vax11c"
-were not defined.  This problem could be construed to be a bug in the
-C Pre-processor, but I don't have a copy of a current ANSI spec, so am
-not sure.
-
-Here are context diffs of the code changes I made.  "orig" is the original code
-as I received it.  "save" is the code as I modified it to compile properly.
-
-***[Ed. - This file is in me:ckermit.fixes for you to look at frank -- make
-sure I take this sentence out of here........
-
-Ron Heiby, heiby@mcdchg.UUCP	Moderator: comp.newprod & comp.unix
-Motorola Microcomputer Division (MCD), Schaumburg, IL
-"I am not elsewhere."
+The comments in the makefile about AT&T 3bx machines DO NOT APPLY
+to the 3b1.  This machine uses the standard lock files.  However, when using
+the "shared libraries" (highly recommended) available on the UNIX PC, there
+is a name conflict which makes it useful to add something like
+	-Dopeni=UPCOI -Ddial=UPCDIAL
+to the cc command line.  I accordingly create a new version, like the sys3
+entry except for this addition.  I call it unixpc, though upc would also be
+familiar to UNIX PC hackers.
 
 ------------------------------
 
-*** orig/ckcdeb.h	Thu Nov 20 16:49:07 1986
---- save/ckcdeb.h	Tue Apr 28 18:22:19 1987
+Date: Wed, 23 Sep 87 08:43:02 EDT
+From: Marshall_DeBerry@um.cc.umich.edu
+Subject: C-Kermit on Tandy 6000
+
+Regarding your question about the Tandy 6000:
+  I am currently running 4D(061) kermit on such a machine with no
+problems.  My machine has 512K memory and a 15 Meg hard drive.  It
+runs at 6Mhz.  I have not experienced any problems with "slowness",
+as other's have often described.  As a matter of fact, my machine is
+in reality on old Model II that was upgraded to essentially a Model 16a,
+which is my case is equivalent to a Model 6000 now.  Anyway, the Xenix
+that Tandy current supports is Xenix 3.1.2, which is pretty much like
+system III.  Note that all the versions of kermit I have compiled on my
+machine have been done under Xenix 3.xx.  The earlier version of Xenix that
+Tandy put out for the first Model 16's was done from a version 7 Unix base.
+I have had no expericence with the older Xenix.  However, if you are using that
+version, you really should pay the $99.00 to Tandy and upgrade to version
+3.xx. (At least it was $99.00 about a year and a half ago).
+  Anyhow, to compile c-kermit on a 6000 under Xenix 3.xx, you need to do
+two things:
+ 1).  Look in the source files for the use of identifier "void". If you
+     find that identifier in a file, make sure you put  the include
+     line "#include <sys/types.h>" at the top of that file with the
+     other include statements.
+ 2).  Say make sys3, and wait awhile.  If your system is fully loaded,
+      ie, about 90% full on the hard drive, and little memory, you may
+      not be able to compile the program.  Make space on your hard drive
+      (down to around 75% free), and try again.  It may take as long as
+      a half hour to compile.
+ 
+Note that I recently compiled the experimental c-kermit (the "new release")
+on a 6000 under Xenix 3.1.2 with no problems, save for the "void" identifier.
+ Also note that I am the only user of my machine, ie, I don't have other
+ users running out of tty ports.  I can't tell you what running kermit
+ is like on a 6000 with 2-3 other users.
+ 
+I hope this information is of help to Tandy 6000 owners trying to get kermit
+up and running.
+
+------------------------------
+
+To: info-kermit@cu20b.columbia.edu
+Subject: minor bug in c-kermit
+Date: Thu, 01 Oct 87 23:52:57 EDT
+From: moore@UTKCS2.CS.UTK.EDU
+
+In C-Kermit 4E(067) 14 Sep 87, 4.2 BSD:
+When compiling under Ultrix 2.0, using the vcc C compiler (which is slightly
+better than pcc), C-Kermit doesn't compile cleanly, due the the existence
+of several #ifdef vax11c lines in some of the .h files.  These have been used
+to denote VAX/VMS specific code.  The vcc compiler pre-defines the symbol
+vax11c on Ultrix just as it does on VMS.  C-Kermit can be made to compile
+cleanly on both Ultrix and VMS if these lines are changed to #ifdef vms.
+
+Keith Moore
+UT Computer Science Dept.	Internet: moore@utkcs2.cs.utk.edu
+107 Ayres Hall, UT Campus	CSnet: moore@tennessee
+Knoxville Tennessee		BITNET: moore@utkcs1
+
+------------------------------
+
+Date: Wed, 21 Oct 87 22:20:18 EDT
+From: cbmvax!vu-vlsi!devon!paul@RUTGERS.EDU (Paul Sutcliffe Jr.)
+Subject: Diffs for C-Kermit 4D(061) and Tandy 6000
+Keywords: C-Kermit 4D(061), Tandy Kermit
+
+In Info-Kermit Digest V6 #23, I said I'd send the diffs along to compile
+C-Kermit on a Tandy 6000.  Here they are.  Note that they assume that one is
+running Tandy Xenix 3.0 or greater.
+
+Install these diffs in the "stock" 4D(061) C-Kermit distribution, and then
+type "make trs16" to compile.  In reality, you only need to make the
+modification to the makefile (ckuker.mak); the other diffs just make the
+startup banner agree with the operating system version -- I didn't like
+kermit saying "Xenix/286" on my 68000!
+
+- paul
+
+=========== CUT HERE ===========
+
+*** .orig/ckuker.mak	Fri Nov 21 16:04:08 1986
+--- ckuker.mak	Sun Jan 18 13:29:07 1987
 ***************
-*** 103,109
+*** 226,231
+  		"LNKFLAGS = -F 3000 -i"
   
-  /* Some special includes for VAX/VMS */
   
-! #ifdef vax11c
-  #include ssdef
-  #include stsdef
+  #PC/IX, Interactive Corp System III for IBM PC/XT
+  pcix:
+  	make wermit \
+
+--- 226,237 -----
+  		"LNKFLAGS = -F 3000 -i"
+  
+  
++ #Tandy 16/6000 with Xenix 3.0
++ trs16:
++ 	make wermit "CFLAGS= -DTRS16 -DXENIX -DUXIII -DDEBUG -DTLOG -DM_VOID -Dvoid=int -F 3000 -n" \
++ 		"LNKFLAGS = -F 3000 -n"
++ 
++ 
+  #PC/IX, Interactive Corp System III for IBM PC/XT
+  pcix:
+  	make wermit \
+
+*** .orig/ckufio.c	Fri Nov 21 16:04:08 1986
+--- ckufio.c	Sat Jan 17 20:43:16 1987
+***************
+*** 63,68
+  /* Sys III/V, Xenix, PC/IX,... support by Herm Fischer, Litton Data Systems */
+  #ifdef UXIII
+  #ifdef XENIX
+  char *ckzsys = " Xenix/286";
+  #else
+  #ifdef PCIX
+
+--- 63,71 -----
+  /* Sys III/V, Xenix, PC/IX,... support by Herm Fischer, Litton Data Systems */
+  #ifdef UXIII
+  #ifdef XENIX
++ #ifdef TRS16
++ char *ckzsys = " Xenix/68000";
++ #else
+  char *ckzsys = " Xenix/286";
+  #else
+  #ifdef PCIX
+***************
+*** 71,76
+  #ifdef ISIII
+  char *ckzsys = " Interactive Systems Corp, System III";
+  #else
+  char *ckzsys = " AT&T System III/System V";
+  #endif
   #endif
 
---- 103,111 -----
-  
-  /* Some special includes for VAX/VMS */
-  
-! #ifndef vax11c
-! /*
-! #endif
-  #include ssdef
-  #include stsdef
-  #ifndef vax11c
-***************
-*** 106,111
-  #ifdef vax11c
-  #include ssdef
-  #include stsdef
+--- 74,80 -----
+  #ifdef ISIII
+  char *ckzsys = " Interactive Systems Corp, System III";
+  #else
++ #ifndef TRS16
+  char *ckzsys = " AT&T System III/System V";
   #endif
-  
-  /* Program return codes for VMS, DECUS C, and Unix */
-
---- 108,115 -----
   #endif
-  #include ssdef
-  #include stsdef
-+ #ifndef vax11c
-+ */
+***************
+*** 72,77
+  char *ckzsys = " Interactive Systems Corp, System III";
+  #else
+  char *ckzsys = " AT&T System III/System V";
   #endif
-  
-  /* Program return codes for VMS, DECUS C, and Unix */
+  #endif
+  #endif
 
+--- 76,83 -----
+  #else
+  #ifndef TRS16
+  char *ckzsys = " AT&T System III/System V";
++ #endif
++ #endif
+  #endif
+  #endif
+  #endif
 
-*** orig/ckcfn2.c	Thu Nov 20 16:49:26 1986
---- save/ckcfn2.c	Tue Apr 28 18:22:20 1987
+*** .orig/ckutio.c	Fri Nov 21 16:04:09 1986
+--- ckutio.c	Sat Jan 17 20:44:47 1987
 ***************
-*** 298,304
-    	if (t == 3) cccount++;		/* Count any control-C's */
-  
-  	if (t == eol) return('Q');
-! 	*l = unchar(t);			/* Packet length */
-  	debug(F101," pkt len","",*l);
-  	if (*l + i + 2 > RBUFL) { 	/* Sticks out too far? */
-  	    debug(F101," ** overrun","",i);
+*** 96,101
+  /* Sys III/V, Xenix, PC/IX support by Herm Fischer, Encino, CA */
+  #ifdef UXIII
+  #ifdef XENIX
+  char *ckxsys = " Xenix/286";
+  #else
+  #ifdef PCIX
 
---- 298,304 -----
-    	if (t == 3) cccount++;		/* Count any control-C's */
-  
-  	if (t == eol) return('Q');
-! 	*l = myunchar(t);			/* Packet length */
-  	debug(F101," pkt len","",*l);
-  	if (*l + i + 2 > RBUFL) { 	/* Sticks out too far? */
-  	    debug(F101," ** overrun","",i);
+--- 96,104 -----
+  /* Sys III/V, Xenix, PC/IX support by Herm Fischer, Encino, CA */
+  #ifdef UXIII
+  #ifdef XENIX
++ #ifdef TRS16
++ char *ckxsys = " Xenix/68000";
++ #else
+  char *ckxsys = " Xenix/286";
+  #else
+  #ifdef PCIX
 ***************
-*** 310,316
-  	if ((t = recpkt[i++]) == stchr) continue;
-  	if (cccount && (t == 3)) { conoll("^C^C exit..."); doexit(0); }
-  	if (t == eol) return('Q');
-! 	*n = unchar(t);
-  	debug(F101,"rpack: n","",*n);
-  
-  /* cont'd... */
+*** 104,109
+  #ifdef ISIII
+  char *ckxsys = " Interactive Systems Corp System III";
+  #else
+  char *ckxsys = " AT&T System III/System V";
+  #endif
+  #endif
 
---- 310,316 -----
-  	if ((t = recpkt[i++]) == stchr) continue;
-  	if (cccount && (t == 3)) { conoll("^C^C exit..."); doexit(0); }
-  	if (t == eol) return('Q');
-! 	*n = myunchar(t);
-  	debug(F101,"rpack: n","",*n);
-  
-  /* cont'd... */
-
-
-*** orig/ckcfns.c	Thu Nov 20 16:50:03 1986
---- save/ckcfns.c	Tue Apr 28 18:22:20 1987
+--- 107,113 -----
+  #ifdef ISIII
+  char *ckxsys = " Interactive Systems Corp System III";
+  #else
++ #ifndef TRS16
+  char *ckxsys = " AT&T System III/System V";
+  #endif
+  #endif
 ***************
-*** 139,145
-      while ((a = *buf++) != '\0') {
-  	if (rptflg) {			/* Repeat processing? */
-  	    if (a == rptq) {		/* Yes, got a repeat prefix? */
-! 		rpt = unchar(*buf++);	/* Yes, get the repeat count, */
-  		a = *buf++;		/* and get the prefixed character. */
-  	    }
-  	}
+*** 105,110
+  char *ckxsys = " Interactive Systems Corp System III";
+  #else
+  char *ckxsys = " AT&T System III/System V";
+  #endif
+  #endif
+  #endif
 
---- 139,145 -----
-      while ((a = *buf++) != '\0') {
-  	if (rptflg) {			/* Repeat processing? */
-  	    if (a == rptq) {		/* Yes, got a repeat prefix? */
-! 		rpt = myunchar(*buf++);	/* Yes, get the repeat count, */
-  		a = *buf++;		/* and get the prefixed character. */
-  	    }
-  	}
-***************
-*** 640,646
-  
-      len = strlen(data);		    	/* Number of fields */
-  
-!     x = (len-- > 0) ? unchar(data[0]) : DSPSIZ;	        /* Packet size */
-      if (spsizf == 0)
-  	spsiz = (x < 10) ? DSPSIZ : x;
-  
+--- 109,116 -----
+  #else
+  #ifndef TRS16
+  char *ckxsys = " AT&T System III/System V";
++ #endif
++ #endif
+  #endif
+  #endif
+  #endif
 
---- 640,646 -----
-  
-      len = strlen(data);		    	/* Number of fields */
-  
-!     x = (len-- > 0) ? myunchar(data[0]) : DSPSIZ;	        /* Packet size */
-      if (spsizf == 0)
-  	spsiz = (x < 10) ? DSPSIZ : x;
-  
-***************
-*** 644,650
-      if (spsizf == 0)
-  	spsiz = (x < 10) ? DSPSIZ : x;
-  
-!     x = (len-- > 0) ? unchar(data[1]) : DMYTIM;		/* Timeout */
-      if (timef == 0)
-  	timint = (x < 0) ? DMYTIM : x;
-  
+=========== CUT HERE ===========
 
---- 644,650 -----
-      if (spsizf == 0)
-  	spsiz = (x < 10) ? DSPSIZ : x;
-  
-!     x = (len-- > 0) ? myunchar(data[1]) : DMYTIM;		/* Timeout */
-      if (timef == 0)
-  	timint = (x < 0) ? DMYTIM : x;
-  
-***************
-*** 650,656
-  
-      npad = 0; padch = '\0';		    	    	/* Padding */
-      if (len-- > 0) {
-! 	npad = unchar(data[2]);
-  	if (len-- > 0) padch = ctl(data[3]); else padch = 0;
+Paul Sutcliffe, Jr.
+
+UUCP (smart):  paul@devon.UUCP
+UUCP (dumb):   ...{rutgers,ihnp4,cbosgd}!bpa!vu-vlsi!devon!paul
+
+------------------------------
+
+Date: Tue, 3 Nov 87 08:20:38 CST
+From: munnari!adl.austek.oz.au!rsharpe@uunet.UU.NET
+ (Richard Sharpe--Apprentice Sorcerer)
+Subject: CKermit under Unix ...
+
+We are having problems with ckermit on an Ultrix system (approx 4.3BSD).
+
+We have kermit installed setuid and setgid to uucp to allow access to the UUCP
+spool directory (to write the lock files). However, whenever kermit tries to
+write files in the user's directories (perhaps because the user is running
+kermit on the VAX in server mode and doing a send from a pc--mskermit), it
+fails saying that it cannot open the file. If the user sets their directory to
+world write, then ckermit onm the VAX is happy.
+
+Now, this seems to be an interaction between the way we have kermit installed
+and what it is trying to do, but I cannot see any other way to set up kermit
+so that it can reliably access the UUCP spool directory.
+
+So, I checked out the code, and found that zopeno in ckufio.c just does an
+open of the file that it is opening for output and then does a chown to the
+real user and real group. I added the following code, and all seems to work:
+
+   1. First pick up the real and effective UIDs.
+
+   2. Then, just before the file open, set effective UID to back to our real
+      UID. 
+
+   3. Then, just after the file open, set our effective UID back to what it
+      was just before we changed it.
+
+   Here is the code fragment that does it (lines with a * in col 1 are mine):
+
+   zopeno(n,name) int n; char *name; {
+*      int uid, euid;
+       debug(F111," zopeno",name,n);
+       if (chkfn(n) != 0) return(0);
+       if ((n == ZCTERM) || (n == ZSTDIO)) {  /* Terminal or standard output */
+	   fp[ZOFILE] = stdout;
+	   debug(F101," fp[]=stdout", "", (int) fp[n]);
+	   return(1);
+       }
+*      uid = getuid(); euid = geteuid();
+*      seteuid(uid);        /* Set us back to who is running kermit */
+       fp[n] = fopen(name,"w");		/* A real file, try to open */
+*      seteuid(euid);       /* And set things back to our SUID value */
+       if (fp[n] == NULL) {
+	   perror("zopeno can't open");
+       } else {
+	   chown(name, getuid(), getgid());     /* In case set[gu]id */
+	   if (n == ZDFILE) setbuf(fp[n],NULL); /* Debugging file unbuffered */
+       }
+       debug(F101, " fp[n]", "", (int) fp[n]);
+       return((fp[n] != NULL) ? 1 : 0);
+   }
+------------------------------------
+
+  Now, as I say, this works, but I wonder if there is not a simpler way to get
+this done, like only have kermit setgid to uucp. Would that be sufficient?
+
+  BTW, this fragment came from version 4c(029) of ckufio.c. I also have
+another version (ckcmai 4d(061) 8-Sep-86 and ckufio 4c(033) 8-Sep-86) but
+there seems to be no changes in routine zopeno.
+
+  Hope you can help me here.
+
+Regards
+Richard Sharpe
+rsharpe%adl.austek.oz@uunet.uu.net
+
+------------------------------
+
+Date: Wed, 4 Nov 87 09:54:09 CST
+From: munnari!adl.austek.oz.au!rsharpe@uunet.UU.NET
+ (Richard Sharpe--Apprentice Sorcerer)
+Subject: CKermit under Unix ...
+
+I have found problems with my solution that are to do with the differences
+between sysV and 4.2 (I read about this setuid stuff in Bach's book), so I am
+going to fix it up properly for SysV and 4.2/Ultrix. I also have access to a
+MicroPort 2.2 system, so I will try to get it working on that system as well.
+Finally, across the road is an NCR Tower, so I will try to get it running on
+that. 
+
+When I do, I will ship you a copy of the changes. I may also try to fix the
+problem where you wipe out the existing file if a send is aborted. However,
+let me know if someone has already fixed this.
+
+Regards
+Richard
+
+------------------------------
+
+Date: Wed 4 Nov 87 09:40:00-EST
+From: Frank da Cruz <SY.FDC@CU20B.COLUMBIA.EDU>
+Subject: Re: CKermit under Unix ...
+To: munnari!adl.austek.oz.au!rsharpe@UUNET.UU.NET
+
+Sounds good.  And no, nobody has sent in a fix for wiping out an existing
+file when the transfer is aborted, and "warning" is off.  Of course, if
+people care about this, they should set warning on.  But to be super nice
+to them, I suppose Kermit could behave as though warning was on all the time,
+i.e. give a new, unique name to an incoming file if another file by the
+desired name already exists.  Then, if the transfer finishes successfully,
+delete the old file and rename the new one to the desired name.  Otherwise,
+delete the new file and keep the old one.  - Frank
+
+------------------------------
+
+Date:     Sun, 6 Dec 87 16:02 MST
+From:     <JRD%USU.BITNET@CUVMA.COLUMBIA.EDU> (Joe Doupnik)
+Subject:  CKermit bug in MAXL field w/Long pkts.
+
+        A small problem in CKermit 4E(067) 14 Sept 1987: when using Long
+Packets the MAXL field in the initialization packet is incorrect. For example,
+when the received packet size is set to 1000 bytes (Set Rec Pack 1000) then
+MAXL is transmitted as a Control-H (8) and when the size is set to 997 bytes
+then MAXL is Control-E (5). This indicates that somewhere the parameter rpsiz
+is referring to the Long packet length rather than the desired size of regular
+packets and tochar(rpsiz) is, of course, extracting the 8 bit remainder of
+rpsiz + 32d. Curiously, manually overriding the startup length yields a correct
+field for the initial S packet interchange with the server but an incorrect
+value for the S packet interchange for a particular file.
+        In practice this has little effect because Long packet lengths are
+used from their separate information and when they are not used the MAXL
+field is correct.
+        Regards,
+        Joe D.
+
+------------------------------
+
+A user at NBS complained that the makefile does not work for building
+C-Kermit from source on a PC/AT under Microsoft Xenix version 3.4B.
+It compiled all the source files into object files, but did not link them
+together into "wermit".  After much experimentation, he found that he
+could link the program manually:
+
+cc -F3000 -i -o wermit <list of object files>
+
+------------------------------
+
+Date: 27 Jan 88 10:59 EST
+From: junod@dtrc.ARPA (John Junod)
+Subject: C-Kermit Timeout Problem Fix
+Keywords: C-Kermit 4E(068)
+
+The following code was developed about a year and a half ago by Mark A.
+Thomas here at David Taylor Research Center to solve the time-out problem as
+mentioned in the Info-Kermit Digest, V7 #3.
+
+Hope this helps....
+
+		   L. John Junod
+		   junod@dtrc
+
+/* The following fix was made in kermit to prevent the local machine from
+timing out the terminal line.  The local machine uses the last access time
+of /dev/ttyXX to check for an inactive terminal. Fancy kermit i/o doesn't
+update /dev/ttyXX while packets are sent/received. Since a packet doesn't
+update the access time of the tty line, The local machine thinks the line is 
+inactive and times it out after 5-10 minutes.  A call to the routine  
+check_time() is made in spack() and rpack(), and after 50 packets the tty 
+time is updated.  60 packets at 300 baud take about 5 minutes to send, so 50
+packets is safe. */
+
+/* included to fix local timeout problem */
+
+#include "signal.h"
+#include "sys/types.h"
+#include "sys/timeb.h"
+#define  NULL           0x0
+
+/*  C H E C K _ T I M E  --  Fix timeout during packet sending and
+			     receiving.  Since packets don't update the
+			     tty access and modify times, we do it.      */
+
+check_time()
+   {
+   static char *tty_name = (char *) NULL; 
+   static int i = 0;
+   char *ttyname(),*calloc();
+   struct timeb tbp;
+   time_t t[2];
+   if (tty_name == NULL)
+      {
+      tty_name = calloc(32,sizeof(char));
+      strcpy(tty_name,ttyname(0));    /* allocate and get tty name of stdin */
       }
-  
-
---- 650,656 -----
-  
-      npad = 0; padch = '\0';		    	    	/* Padding */
-      if (len-- > 0) {
-! 	npad = myunchar(data[2]);
-  	if (len-- > 0) padch = ctl(data[3]); else padch = 0;
+   i++;
+   if (i > 50)
+      {
+      i = 0;
+      ftime(&tbp);           /* get system time */
+      t[0] = tbp.time;
+      t[1] = tbp.time;
+      utime(tty_name,t);     /* update tty time */
       }
-  
+   }
+
+[Ed. - This would probably do the trick for BSD, but all the time stuff is
+system dependent.  BSD, Sys V, Xenix, Venix, V7, etc, have different ways of
+getting the time.  Meanwhile, this message has been added to the C-Kermit
+"beware file".]
+
+------------------------------
+
+Date:     Mon, 1 Feb 88 15:23:59 EST
+From:     Gary P Standorf <standorf@CECOM-2.ARPA>
+Subject:  Ifdef problem with ckuus3.c.2
+
+  When I tried compiling C-Kermit 4E(070) on an Intel-310 running
+SCO Xenix 3.4 it blew up in the ckuus3.c module.  It doesn't like the
+#include <termio.h> line which follows the #ifdef UXIII in ckuus3.c.
+I added an #ifndef XENIX before the include for termio.h and then it
+compiled ok.  I am including a context diff for your convenience.
+
+PS.  I hope that doing an #ifndef was the proper thing to do, since I'm not
+sure what other versions of XENIX need.
+
+Thanks,
+
+Gary Standorf
+<standorf@cecom-2.arpa>
+
+---------------------------------------------------------------------------
+*** ckuus3.c	Mon Feb  1 14:58:01 1988
+--- ckuus3.c.new	Mon Feb  1 14:55:46 1988
 ***************
-*** 654,660
-  	if (len-- > 0) padch = ctl(data[3]); else padch = 0;
-      }
-  
-!     seol = (len-- > 0) ? unchar(data[4]) : '\r';	/* Terminator  */
-      if ((seol < 2) || (seol > 037)) seol = '\r';
-  
-      ctlq = (len-- > 0) ? data[5] : CTLQ;    	    	/* Control prefix */
-
---- 654,660 -----
-  	if (len-- > 0) padch = ctl(data[3]); else padch = 0;
-      }
-  
-!     seol = (len-- > 0) ? myunchar(data[4]) : '\r';	/* Terminator  */
-      if ((seol < 2) || (seol > 037)) seol = '\r';
-  
-      ctlq = (len-- > 0) ? data[5] : CTLQ;    	    	/* Control prefix */
-***************
-*** 905,911
-  */
-  
-  cwd(vdir) char *vdir; {
-!     vdir[unchar(*vdir) + 1] = '\0';	/* End with a null */
-      if (zchdir(vdir+1)) {
-  	encstr(vdir+1);
-  	ack1(data);
-
---- 905,911 -----
-  */
-  
-  cwd(vdir) char *vdir; {
-!     vdir[myunchar(*vdir) + 1] = '\0';	/* End with a null */
-      if (zchdir(vdir+1)) {
-  	encstr(vdir+1);
-  	ack1(data);
-
-
-*** orig/ckcker.h	Thu Nov 20 16:50:10 1986
---- save/ckcker.h	Tue Apr 28 18:22:20 1987
-***************
-*** 84,89
-  /* Macros */
-  
-  #define tochar(ch)  ((ch) + SP )	/* Number to character */
-! #define unchar(ch)  ((ch) - SP )	/* Character to number */
-  #define ctl(ch)     ((ch) ^ 64 )	/* Controllify/Uncontrollify */
-  #define unpar(ch)   ((ch) & 127)	/* Clear parity bit */
-
---- 84,89 -----
-  /* Macros */
-  
-  #define tochar(ch)  ((ch) + SP )	/* Number to character */
-! #define myunchar(ch)  ((ch) - SP )	/* Character to number */
-  #define ctl(ch)     ((ch) ^ 64 )	/* Controllify/Uncontrollify */
-  #define unpar(ch)   ((ch) & 127)	/* Clear parity bit */
-
-
-*** orig/ckcpro.w	Thu Nov 20 16:51:00 1986
---- save/ckcpro.w	Tue Apr 28 18:22:21 1987
-***************
-*** 113,119
-      	     else { errpkt("Can't type file"); SERVE; } }
-  
-  <generic>U { x = *(srvcmd+1);			/* Disk Usage query */
-!     	     x = ((x == '\0') || (x == unchar(0)));
-  	     x = (x ? syscmd(SPACMD,"") : syscmd(SPACM2,srvcmd+2));
-      	     if (x) BEGIN ssinit; else { errpkt("Can't check space"); SERVE; }}
-  
-
---- 113,119 -----
-      	     else { errpkt("Can't type file"); SERVE; } }
-  
-  <generic>U { x = *(srvcmd+1);			/* Disk Usage query */
-!     	     x = ((x == '\0') || (x == myunchar(0)));
-  	     x = (x ? syscmd(SPACMD,"") : syscmd(SPACM2,srvcmd+2));
-      	     if (x) BEGIN ssinit; else { errpkt("Can't check space"); SERVE; }}
-  
-
-
-*** orig/ckudia.c	Thu Nov 20 17:13:18 1986
---- save/ckudia.c	Tue Apr 28 18:22:23 1987
-***************
-*** 441,448
-  
-  static jmp_buf sjbuf;
-  
-! static int (*savAlrm)();	/* for saving alarm handler */
-! static int (*savInt)();		/* for saving interrupt handler */
-  
-  dialtime() {			/* timer interrupt handler */
-      longjmp( sjbuf, F_time );
-
---- 441,448 -----
-  
-  static jmp_buf sjbuf;
-  
-! static void (*savAlrm)();	/* for saving alarm handler */
-! static void (*savInt)();	/* for saving interrupt handler */
-  
-  dialtime() {			/* timer interrupt handler */
-      longjmp( sjbuf, F_time );
-
-
-*** orig/ckuscr.c	Thu Nov 20 17:19:57 1986
---- save/ckuscr.c	Tue Apr 28 18:22:40 1987
-***************
-*** 217,223
-  
-  login(cmdstr) char *cmdstr; {
-  
-! 	int (*saveAlm)();	/* save incomming alarm function */
-  	char *e;
-  
-  	s = cmdstr;			/* make global to ckuscr.c */
-
---- 217,223 -----
-  
-  login(cmdstr) char *cmdstr; {
-  
-! 	void (*saveAlm)();	/* save incomming alarm function */
-  	char *e;
-  
-  	s = cmdstr;			/* make global to ckuscr.c */
-
-
-*** orig/ckutio.c	Thu Nov 20 17:21:00 1986
---- save/ckutio.c	Tue Apr 28 18:22:44 1987
-***************
-*** 20,26
-  #include <ctype.h>			/* Character types */
-  #ifdef NULL
-  #undef NULL
-! #endif NULL
-  #include <stdio.h>			/* Unix Standard i/o */
-  #include <signal.h>			/* Interrupts */
-  #include <setjmp.h>			/* Longjumps */
+*** 20,25
+  #include "ckucmd.h"
+  #include "ckuusr.h"
+  #ifdef UXIII
+  #include <termio.h>
+  #endif
+   
 
 --- 20,26 -----
-  #include <ctype.h>			/* Character types */
-  #ifdef NULL
-  #undef NULL
-! #endif /* NULL */
-  #include <stdio.h>			/* Unix Standard i/o */
-  #include <signal.h>			/* Interrupts */
-  #include <setjmp.h>			/* Longjumps */
-***************
-*** 91,97
-  /* The following applies to Apollo Domain/ix, not Aegis... */
-  #ifdef apollo
-  #undef TIOCEXCL
-! #endif apollo
-  
-  /* Sys III/V, Xenix, PC/IX support by Herm Fischer, Encino, CA */
+  #include "ckucmd.h"
+  #include "ckuusr.h"
   #ifdef UXIII
++ #ifndef XENIX
+  #include <termio.h>
+  #endif
+  #endif
+***************
+*** 21,26
+  #include "ckuusr.h"
+  #ifdef UXIII
+  #include <termio.h>
+  #endif
+   
+  #ifdef datageneral
 
---- 91,97 -----
-  /* The following applies to Apollo Domain/ix, not Aegis... */
-  #ifdef apollo
-  #undef TIOCEXCL
-! #endif /* apollo */
-  
-  /* Sys III/V, Xenix, PC/IX support by Herm Fischer, Encino, CA */
+--- 22,28 -----
   #ifdef UXIII
+  #ifndef XENIX
+  #include <termio.h>
++ #endif
+  #endif
+   
+  #ifdef datageneral
+
+-------
+
+Date: Tue, 2 Feb 88 02:39:45 CST
+From: Donn Baumgartner <donn@rice.edu>
+Subject: bug/problem
+
+version:  4e(70)    [I think]
+system:   pc/ix
+problem
+description:  compilation fails during link phase with unresolved reference
+	to _getcwd (and _end, but that doesn't count)
+
+The problem is in ckufio.c, in routine zgtdir(); the #ifdef's there are
+not correct for pc/ix (there, grouped with UXIII).
+
+I have two fixes:
+	(1) just have the call return the (un-ifdef'ed) default, a pseudo
+	    error message (it's something like "(undefined..."); not a
+	    very elegant solution, but functional.
+	(2) I have programmed the berkeley-like call 'getwd' along with
+	    supporting directory routines opendir, closedir, etc.; I did
+	    these some time ago - they're well tested.  You're welcome to
+	    this source, if you like.
+
+I have integrated the (2) solution into my copy; it's not clear whether
+either solution is 'better', as I didn't notice how important that routine
+was in the whole scheme of things...
+						cheers,
+						Donn Baumgartner
+						donn@rice.edu
+-------
+
+Date: Wed, 10 Feb 88 22:29:13 EST
+From: rochester!ames!ucbcad!ucbvax.Berkeley.EDU!-
+  ucbcad!ames.uux!pur-ee!iuvax!bsu-cs!dhesi@columbia.edu (Rahul Dhesi)
+Subject: Re: Unix Kermit Idle Line Problem
+
+This is an answer to a query from nerd@percival.UUCP (Michael Galassi)
+dated 28 Dec 87 00:42:59 GMT, in which he said that users using 
+"C-Kermit, 4C(057) 31 Jul 85, 4.2 BSD" are timed out for being idle
+even though they are doing Kermit file transfers.  Here is my
+work-around as it was posted in a local newsgroup.
+
+"By popular demand, here again is the technique for avoiding inactivity
+timeouts when doing a long file transfer via Kermit.
+
+Step 1.   At the system prompt, give the command "tty".  This command
+will print your terminal name.  It will be of the form /dev/tty15
+where instead of 15 you will see the number of your terminal.
+Remember it.
+
+Step 2.  Invoke Kermit interactively with the command "kermit" given
+without parameters.  (Actually you can give parameters too, so long
+as they don't cause Kermit to begin data transfer immediately.)
+When Kermit starts up and prints the prompt "C-Kermit", you go to:
+
+Step 3.   To Kermit, give the command "set line /dev/tty15".  In place
+of the 15, use whatever terminal number you obtained in Step 1.
+
+Step 4.  Now give Kermit the commands necessary to begin your file
+transfer.   You will not get an inactivity timeout.
+
+Users who want to win fame on this system and the gratitude of others
+can change Kermit so that the above sequence will not be necessary.
+Currently Kermit uses the standard device /dev/tty which is synonymous
+with your actual terminal.  However, the operating system treats it
+like a distinct device from your actual terminal.  So, even though a
+file transfer is going on using /dev/tty, the actual terminal, say
+/dev/tty15, seems to be idle to the system, so you can get logged out.
+This can be fixed by (a) finding the place where Kermit opens /dev/tty
+and (b) replacing that with an open of the actual terminal name, which
+can be obtained from the system call ttyname()."
+
+Rahul Dhesi         UUCP:  {ihnp4,seismo}!{iuvax,pur-ee}!bsu-cs!dhesi
+
+[Ed. - We'll consider this for the next release.  Meanwhile, this message
+has been added to the C-Kermit "beware file", CKUKER.BWR.]
+
+------------------------------
+
+Date: 10 Feb 88 23:09:57 EST (Wed)
+From: ames!netsys!len@ll-xn.ARPA (Len Rose)
+Subject: C-Kermit 4E(070)
+Keywords: C-Kermit 4E(070)
+
+One little note to people setting up this on an ATT 3B2 running under
+SYSVR3...  They have two options in the makefile that sort of clash when you
+are bringing up this software.. You either have to choose:
+
+make att3bx or make sys5r3
+
+If you don't choose att3bx,the code does not look for the LCK..ttyxx in
+/usr/spool/locks ... However if you choose att3bx,it does not handle signals
+correctly...  All I did to defeat this was just put a #define in ckutio.c for
+att3bx...
+
+Just thought I'd pass this on, no big deal with it...
+
+Len
+
+[Ed. - Sigh, lock files again.  There must be some better approach.  Are
+there any Unix experts out there who can suggest a better way to deal with
+this problem, than requiring Kermit itself know the directory name, the
+filename, the permissions, and the contents of the lock file on every version
+of every Unix variant?  Perhaps a separate program that runs Kermit in a
+lower fork, or a program that Kermit runs in a lower fork.  Of course,
+separate programs have a way of getting lost...]
+
+------------------------------
+
+Date:     Fri, 12 Feb 88 12:34:08 EST
+From:     David Herron E-Mail Hack <david@ms.uky.edu>
+To:       info-kermit@CU20B.COLUMBIA.EDU
+Subject:  Bug Report for C-Kermit 4E(070) on Unix PC (3b1)
+
+I've gotten a copy of C-Kermit and am trying it out on various machines.
+Mainly my Unix-PC since it's advertised to support the UnixPC. 
+
+First off, it wouldn't even compile right.  In ckudai.c there is a "static
+MDMINF ATT7300" which simply CANNOT be right.  The problem is that you're also
+using "ATT7300" as the pre-processor symbol to select UnixPC features, and it
+has a null value, and the statement ends up looking like:
+"struct mdminf = { ... };" which is a syntax error.
+
+My workaround for the moment is to make all references to that symbol to be
+"att7300" and make sure it's "static".  The preprocessor on UnixPC's is of the
+style that doesn't allow:
+
+	#define ATT7300 ATT7300
+
+because it complains about macro recursion.  (Oh, BTW, I'm running SYSV r3.51,
+the latest version for Unix PC's).
+
+Next, the makefile stuff for supporting the shared libraries is wrong.  When
+doing an ld to use the shared libraries, at least on Unix PC's, you pretty
+much have to use ld directly like:
+
+	ld {some options} /lib/shlib.ifile {object files} 
+		{more options} /lib/shlib
+
+I may be off in a detail or two, but the point is that the way it was written
+in the makefile was very wrong, as evidenced by all the multiply defined
+symbols.  Further, if I undo the stuff for the shared libraries I get
+"tgetent" and a couple of other termcap functions as being undefined.  And I
+can't find those functions in any of the libraries on the system.  What I
+ended up doing was using a "cc" front end which handles loading the shared
+libraries properly and has support for programs which use curses.  It was
+posted recently in unix-pc.sources and I could forward it to y'all if you
+want.  (It's the one named "ccc", there's at least one other of these
+scripts).
+
+Using "ccc" I got it pretty close, but there's a routine in /lib/shlib named
+"openi" and there was a conflict between it and the one y'all had in ckcfns.c
+-- the workaround here is to declare YOUR openi() to be static (which works
+because it's not used in any other of your files), and don't forget to put a
+"static openi();" at the beginning of the file as well.  There's even a
+section reserved up there for local variables.
+
+Now I've got a program that compiles and loads without errors.  In testing
+some functionality:
+
+I started with the remote kermit in server mode and transferred /bin/cat to
+the remote (a 4.3bsd vax running kermit 4C(057)) and then got it back ("get
+cat").  The result is a cat that is one byte shorter, but is otherwise exactly
+the same.  Now, this is a real neat trick too, 'cause it starts and ends with
+the EXACT same bytes (I looked using od)!  This shouldn't work out like this.
+The new copy should be missing a byte at the end, but we've got the same byte
+at the end.  There isn't a byte missing in the middle 'cause "cmp" doesn't
+find it, and if I "diff" the "od -c" output from each file, the ONLY
+difference is the byte count at the very end.
+
+I'm more than a little confused about that one ...
+
+While the remote is in server, the local kermit acts rather strangely.
+Possibly when doing ANY command, but definitely when doing send, get, and "!"
+commands, to get back to command level from the command I have to type ^R ...
+the only other character I've tried is <CR> which didn't get me back to
+command level.  Further, I once hit an empty line then started to do a shell
+escape and it dumped me OUT of kermit and said something about an invalid
+shell command.  (an asice: There's times when I hate command processors which
+read what I'm typing and complain before I get a chance to fix typing errors
+...)
+
+FINALLY:
+
+In order to successfully connect to the modem and make a phone call I have to
+enter this non-intuitive sequence of commands:
+
+	! rm /usr/spool/uucp/LCK..ph0
+	set line /dev/ph0
+	set modem att7300
+	set speed 1200
+	dial <phone number>
+	! phtoggle
+	dial <phone number>
+
+If I don't remove the lock file first, the set line command of course will
+complain about the lock file being there.  But if I go ahead and phtoggle then
+set line, the open in set line never returns and I hang.  Then, there's some
+other state where if I phtoggle the getty process that get started starts
+looping -- that is, getty exits immediately causing init to start a new one
+which exits immediately, and so on.  Anyway -- I haven't tried it without a
+dial command before the phtoggle yet.
+
+I've got a kermit around here which'll let you do:
+
+	! phtoggle
+	set line /dev/ph0
+	set modem att7300
+	set speed 1200
+	dial <phone number>
+
+just like you'd expect ... but it's an old copy that someone here made work
+and then never told you guys about the changes.  (ARGH!)  Anyway, between the
+two versions I should be able to get something working.
+
+Oh, another problem when I exitted kermit ...  I said "quit" and it waited a
+little while and said "Problem with hanging up modem".
+
+[Ed. - Unfortunately, we don't have any Unix PCs, or for that matter any
+System III or V systems to test C-Kermit on, so we rely on people like
+you to tell us what to do, or what we should have done.  You're apparently
+the first person who tried the new ATT7300 stuff, so thanks for the feedback
+on that.  But I haven't heard complaints from others about multiply defined
+symbols, shared libraries, etc, and a lot of people are running this version
+on System V, so I can only assume the problem there must be UnixPC-specific.
+
+If you can send me a makefile entry that you have actually used with the
+UnixPC, I'll be glad to replace the current one with yours, and add a hint
+that if people have trouble w/other ATT Sys III/V based systems, they might
+look at the ATT7300 entry for a model.  If this is new stuff, then we have
+a slight problem, because up till now (or at least up to Sys V R3), all
+Sys III and Sys V C-Kermits could be compiled the same way.
+
+Termcap???  There's nothing in Kermit that uses termcap or curses...
+The other stuff will have to be looked in to.  Thanks for the report.  For
+now, it's been added to the "beware file", CKUKER.BWR.]
+
+------------------------------
+
+Date: Wed, 2 Mar 88 17:23:47 EST
+From: elsie!ado@ncifcrf.gov (Arthur David Olson)
+Subject: MORE/bsd 4.3 (10/5/87) kermit does CR strips, not CR-LF->NL maps--w/fix
+
+(This may be fixed in versions of C-Kermit later than version 4C(057), which
+we're running.)
+
+Description:
+	The kermit command strips all carriage returns, rather than
+	mapping CR-LF sequences to NL.  This causes problems when transferring
+	(to the VAX) the output of programs that do underlining by outputing
+	a line of characters, doing a return, then outputing underlines in
+	the desired places.
+
+Fix:
+	Note that even with this fix in place, if a file has a CR as its very
+	last character the CR will be (inappropriately) stripped.  Then again,
+	we're not kermit gurus around here.
+
+*** 1.1/ckcfns.c	Wed Mar  2 17:17:32 1988
+--- 1.3/ckcfns.c	Wed Mar  2 17:17:43 1988
 ***************
-*** 448,454
-  			exit(1);
-  		}
+*** 131,136 ****
+--- 131,140 ----
+  /* Call with string to be decoded and an output function. */
+  /* Returns 0 on success, -1 on failure (e.g. disk full).  */
+  
++ #ifdef NLCHAR
++ static int	sawcr;
++ #endif /* defined NLCHAR */
++ 
+  decode(buf,fn) char *buf; int (*fn)(); {
+      unsigned int a, a7, b8;		/* Low order 7 bits, and the 8th bit */
+  
+***************
+*** 158,172 ****
   	}
-! #endif	V7
-  
-  /* Request exclusive access on systems that allow it. */
-  
-
---- 448,454 -----
-  			exit(1);
-  		}
-  	}
-! #endif	/* V7 */
-  
-  /* Request exclusive access on systems that allow it. */
-  
-***************
-*** 1148,1154
-      ret = write(fn, "@", 1);
-      return;
-  }
-! #endif	V7
-  
-  /*  T T C H K  --  Tell how many characters are waiting in tty input buffer  */
-  
-
---- 1148,1154 -----
-      ret = write(fn, "@", 1);
-      return;
-  }
-! #endif	/* V7 */
-  
-  /*  T T C H K  --  Tell how many characters are waiting in tty input buffer  */
-  
-***************
-*** 1163,1169
-      lseek(kmem[TTY], (long) qaddr[TTY], 0);
-      x = read(kmem[TTY], &n, sizeof(int));
-      return((x == sizeof(int))? n: 0);
-! #else	V7
-  #ifdef UXIII
-      return(inbufc + (ungotn >= 0) );	
-  #else
-
---- 1163,1169 -----
-      lseek(kmem[TTY], (long) qaddr[TTY], 0);
-      x = read(kmem[TTY], &n, sizeof(int));
-      return((x == sizeof(int))? n: 0);
-! #else	/* V7 */
-  #ifdef UXIII
-      return(inbufc + (ungotn >= 0) );	
-  #else
-***************
-*** 1571,1577
-  	    exit(1);
+  	a |= b8;			/* OR in the 8th bit */
+  	if (rpt == 0) rpt = 1;		/* If no repeats, then one */
+- #ifdef NLCHAR
+- 	if (!binary) {			/* If in text mode, */
+- 	    if (a == CR) continue;	/* discard carriage returns, */
+-     	    if (a == LF) a = NLCHAR; 	/* convert LF to system's newline. */
+-     	}
+- #endif
+  	for (; rpt > 0; rpt--) {	/* Output the char RPT times */
+! 	    ffc++, tfc++;		/* Count the character */
+  	    if ((*fn)(a) < 0) return(-1); /* Send it to the output function. */
   	}
       }
-! #endif	V7
-      return(x);
-  }
-  
-
---- 1571,1577 -----
-  	    exit(1);
+      return(0);
+--- 162,189 ----
+  	}
+  	a |= b8;			/* OR in the 8th bit */
+  	if (rpt == 0) rpt = 1;		/* If no repeats, then one */
+  	for (; rpt > 0; rpt--) {	/* Output the char RPT times */
+! 	    ffc++;			/* Count the character */
+! #ifdef NLCHAR
+! 	    if (!binary) {
+! 		if (a == CR) {
+! 		    if (sawcr == 0) {
+! 			sawcr = 1;
+! 			continue;
+! 		    }
+! 		} else {
+! 	    	    if (sawcr)
+! 			if (a == LF)
+! 			    a = NLCHAR;
+! 			else if ((*fn)(CR) < 0)
+! 			    return -1;
+! 			else ++tfc;
+! 		    sawcr = 0;
+! 		}
+! 	    }
+! #endif /* defined NLCHAR */
+  	    if ((*fn)(a) < 0) return(-1); /* Send it to the output function. */
++ 	    ++tfc;
   	}
       }
-! #endif	/* V7 */
-      return(x);
-  }
-  
-
-
-*** orig/ckuusr.c	Thu Nov 20 17:22:43 1986
---- save/ckuusr.c	Tue Apr 28 18:22:49 1987
+      return(0);
 ***************
-*** 1042,1048
-      else {				/* Parent */
-   
-      	int wstat;			/* Kermit must wait for child */
-! 	int (*istat)(), (*qstat)();
-   
-  	istat = signal(SIGINT,SIG_IGN);	/* Let the fork handle keyboard */
-  	qstat = signal(SIGQUIT,SIG_IGN); /* interrupts itself... */
+*** 424,429 ****
+--- 441,449 ----
+  rcvfil() {
+      int x;
+      ffc = flci = flco = 0;		/* Init per-file counters */
++ #ifdef NLCHAR
++     sawcr = 0;
++ #endif /* defined NLCHAR */
+      srvptr = srvcmd;			/* Decode file name from packet. */
+      decode(data,putsrv);
+      if (*srvcmd == '\0')		/* Watch out for null F packet. */
+-- 
+ado@vax2.nlm.nih.gov		ADO, VAX, and NIH are Ampex and DEC trademarks
 
---- 1042,1048 -----
-      else {				/* Parent */
-   
-      	int wstat;			/* Kermit must wait for child */
-! 	void (*istat)(), (*qstat)();
-   
-  	istat = signal(SIGINT,SIG_IGN);	/* Let the fork handle keyboard */
-  	qstat = signal(SIGQUIT,SIG_IGN); /* interrupts itself... */
+------------------------------
 
+Date: Sun, 28 Feb 88 02:47:21 EST
+From: hedrick@aramis.rutgers.edu (Charles Hedrick)
+Subject: Results of Porting C-Kermit 4E and Fixes
+Keywords: C-Kermit 4E
 
-----------
-That's all, folks!
+I just finished porting Kermit 4E to my Microport System V/AT.  As usual,
+simply typing "make sys3nid" (which is the setting for vanilla System V,
+oddly enough) works correctly.  It works correctly in the sense of building
+a kermit that works the same as it works on other systems.  Unfortunately,
+the major new feature in 4E turns out not to work on any of the systems I
+have access to.  This is the long packet size feature.  The two kermits
+exchange information about what options they support.  Unfortunately, the
+code used for generating the byte that contains the capabilities appears to
+be wrong.  It results in having the systems say that they don't support long
+packets.  The expression is a long one involving several ? : constructs.  My
+C documentation does not make clear what the relative precedence of ?  and |
+should be.  However both the Sun 3 and System V 286 compilers take the
+opposite view from the authors of C Kermit.  By adding a few ()'s, we avoid
+the ambiguity.  There was also a problem that the packet size sent for the
+benefit of old systems that don't support long packets was miscalculated.
+THey simply took the low-order byte of the full packet size.  What they
+wanted was MIN (packetsize, 94), 94 being the maximum size allowed by old
+implementations.
+
+The fixes are shown below.
+
+This message is being sent to be info-kermit and the Microport newsgroup.
+For the benefit of Microport users, let me note that Microport supplies a
+fairly recent version of kermit with the system, version 4D.  The version
+being discussed here adds only the long packet support.  (You might still
+find it useful to get the files, since Microport doesn't seem to supply
+documentation.)  Kermit is available via anonymous FTP from
+CU20B.COLUMBIA.EDU.  The files you need are roughly ker:ckc*.*, ker:cku*,
+and ker:ckw*, but ker:ckaaaa.hlp will give me information.  Kermit is also
+available at Simtel20.  The index I have claims it is pd2:<unix.kermit>,
+although today I was unable to get to those files to check them.
+
+*** ckcfns.c.ORIG	Sat Feb 27 19:25:03 1988
+--- ckcfns.c	Sun Feb 28 02:05:44 1988
+***************
+*** 607,613
+  
+  CHAR *
+  rpar() {
+!     data[1] = tochar(rpsiz);		/* Biggest packet I can receive */
+      data[2] = tochar(rtimo);		/* When I want to be timed out */
+      data[3] = tochar(mypadn);		/* How much padding I need (none) */
+      data[4] = ctl(mypadc);		/* Padding character I want */
+
+--- 607,616 -----
+  
+  CHAR *
+  rpar() {
+!     if (rpsiz > 94)
+!       data[1] = tochar(94);
+!     else
+!       data[1] = tochar(rpsiz);		/* Biggest packet I can receive */
+      data[2] = tochar(rtimo);		/* When I want to be timed out */
+      data[3] = tochar(mypadn);		/* How much padding I need (none) */
+      data[4] = ctl(mypadc);		/* Padding character I want */
+***************
+*** 626,632
+      else
+      	data[9] = '~'; 		
+  
+!     data[10] = tochar(atcapr?atcapb:0 | lpcapr?lpcapb:0 | swcapr?swcapb:0);
+      data[capas+1] = tochar(swcapr ? wsize : 0);	/* Window size */
+  
+      rpsiz = urpsiz;			/* Long packets ... */
+
+--- 629,635 -----
+      else
+      	data[9] = '~'; 		
+  
+!     data[10] = tochar((atcapr?atcapb:0) | (lpcapr?lpcapb:0) | (swcapr?swcapb:0));
+      data[capas+1] = tochar(swcapr ? wsize : 0);	/* Window size */
+  
+      rpsiz = urpsiz;			/* Long packets ... */
+
+------------------------------
+

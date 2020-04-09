@@ -1,4 +1,8 @@
-char *wartv = "Wart Version 1A(004) 4 Mar 87";
+/* Jim Noble at Planning Research Corporation, June 1987.  Fixes for */
+/* miscellaneous bugs found when reformatting state transititon code in */
+/* CKCPRO.W. */
+
+char *wartv = "Wart Version 1A(005) Jan 1988";
 
 /* W A R T */
 
@@ -54,7 +58,7 @@ struct trans { CHAR states[SBYTES];	/* included states */
 typedef struct trans *Trans;
 
 char *malloc();				/* Returns pointer (not int) */
-
+
 
 /* Variables and tables */
 
@@ -74,17 +78,17 @@ char *fname = FNAME;		/* function name goes here */
 
 char *txt2 = "()\n\
 {\n\
-  int c,actno;\n\
-  extern int tbl[];\n\
-  while (1) {\n\
+    int c,actno;\n\
+    extern int tbl[];\n\
+    while (1) {\n\
 	c = input();\n\
 	if ((actno = tbl[c + state*128]) != -1)\n\
-	  switch(actno) {\n";
+	    switch(actno) {\n";
 
 /* this program's output goes here, followed by final text... */
 
-char *txt3 = "\n    }\n  }\n\}\n\n";
-
+char *txt3 = "\n	    }\n    }\n\}\n\n";
+
 
 /*
  * turn on the bit associated with the given state
@@ -144,7 +148,7 @@ FILE *infp,*outfp;
   epilogue(outfp);			/* write out epilogue code */
   return(x);
 }
-
+
 
 /*
  * initial - read initial definitions and state names.  Returns
@@ -200,7 +204,7 @@ char *buf;
   *buf++ = '\0';			/* tie off word */
   ungetc(c,fp);				/* put break char back */
 }
-
+
 
 /*
  * read state names, up to a newline.
@@ -239,7 +243,7 @@ newtrans()
   new->nxt = NULL;
   return(new);
 }
-
+
 
 /*
  * read all the rules.
@@ -280,7 +284,7 @@ FILE *fp,*out;
 	
    return(head);
 }
-
+
 
 /*
  * read a list of (comma-separated) states, set them in the
@@ -315,10 +319,11 @@ int actno;
 {
   int c,bcnt;
   fprintf(outp,"case %d:\n",actno);
-  while (((c = getc(inp)) != '\n') && (isspace(c) || c == C_L));
+  while (c = getc(inp), (isspace(c) || c == C_L))
+     if (c == '\n') lines++;
   if (c == '{') {
      bcnt = 1;
-     putc(c,outp);
+     fputs("    {",outp);
      while (bcnt > 0 && (c = getc(inp)) != EOF) {
 	if (c == '{') bcnt++;
 	else if (c == '}') bcnt--;
@@ -334,9 +339,9 @@ int actno;
 	    }
 	  lines++;
 	}
-   fprintf(outp,"\nbreak;\n");
+   fprintf(outp,"\n    break;\n");
 }
-
+
 
 /*
  * find the action associated with a given character and state.
@@ -382,7 +387,7 @@ FILE *fp;
 {
   warray(fp,"tbl",tbl,128*(nstates+1));
 }
-
+
 
 /*
  * write an array to the output file, given its name and size.
@@ -395,9 +400,9 @@ int cont[],siz;
 {
   int i;
   fprintf(fp,"int %s[] = {\n",nam);
-  for (i = 0; i < siz; i++) {
-	fprintf(fp,"%d, ",cont[i]);
-	if ((i % 20) == 0) putc('\n',fp);
+  for (i = 0; i < siz; ) {
+	fprintf(fp,"%2d, ",cont[i]);
+	if ((++i % 16) == 0) putc('\n',fp);
 	}
   fprintf(fp,"};\n");
 }
@@ -439,7 +444,7 @@ char *argv[];
 #endif
   exit(GOOD_EXIT);
 }
-
+
 
 /*
  * fatal error handler
@@ -475,7 +480,7 @@ FILE *in,*out;
   int c;
   while ((c = getc(in)) != EOF) putc(c,out);
 }
-
+
 
 /*
  * gettoken - returns token type of next token, sets tokval
@@ -506,7 +511,7 @@ FILE *fp;
 	    	      rdcmnt(fp);	/* skip over the comment */
 		      continue; }	/* and keep looping */
 		    else {
-			ungetc(c);	/* put this back into input */
+			ungetc(c,fp);	/* put this back into input */
 			c = '/'; }	/* put character back, fall thru */
 
 	  default: if (isword(c)) {
@@ -536,7 +541,7 @@ FILE *fp;
     if (c == '\n') lines++; }
 }
 
-
+
 
 /*
  * symbol table management for wart
@@ -593,7 +598,7 @@ char *s;
   strcpy(new,s);
   return(new);
 }
-
+
 
 /*
  * enter state name into the hash table
@@ -606,7 +611,7 @@ int svalue;
   int h;
   struct sym *cur;
   if (lkup(name) != -1) {
-	fprintf(stderr,"state %s appears twice...\n",name);
+	fprintf(stderr,"state %s appears twice...\n");
 	exit(BAD_EXIT); }
   h = hash(name);
   cur = (struct sym *)malloc(sizeof (struct sym));

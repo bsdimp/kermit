@@ -2,6 +2,10 @@
 
 /*  ...Part 2 (continued from ckcfns.c)  */
 /*
+ Modified July 87 to incorporate changes from Jim Noble of
+ Planning Research Corp for Macintosh Megamax C support.
+*/
+/*
  Author: Frank da Cruz (SY.FDC@CU20B),
  Columbia University Center for Computing Activities, January 1985.
  Copyright (C) 1985, Trustees of Columbia University in the City of New York.
@@ -14,23 +18,44 @@
  the top of ckcfns.c accordingly.
 */
 
+#include "ckcsym.h"		/* Conditional compilation (for Macintosh) */
 #include "ckcker.h"
 #include "ckcdeb.h"
 
-extern int spsiz, rpsiz, timint, npad, chklen, ebq, ebqflg, rpt, rptq, rptflg,
- capas;
-extern int pktnum, prvpkt, sndtyp, bctr, bctu,
- size, osize, maxsize, spktl, nfils, stdouf, warn, timef;
-extern int parity, speed, turn, turnch, 
- delay, displa, pktlog, tralog, seslog, xflg, mypadn;
-extern long filcnt, ffc, flci, flco, tlci, tlco, tfc, fsize;
+extern int spsiz, rpsiz, timint, npad, ebq, ebqflg, rpt, rptq, rptflg, capas;
+extern int pktnum, prvpkt, sndtyp, bctr, bctu, rsn, rln, maxtry, size;
+extern int osize, maxsize, spktl, nfils, stdouf, warn, timef, parity, speed;
+extern int turn, turnch,  delay, displa, pktlog, tralog, seslog, xflg, mypadn;
 extern int deblog, hcflg, binary, fncnv, local, server, cxseen, czseen;
-extern CHAR padch, mypadc, eol, seol, ctlq, myctlq, sstate, *hlptxt;
-extern CHAR filnam[], sndpkt[], recpkt[], data[], srvcmd[], *srvptr, stchr, 
- mystch;
+extern long filcnt, ffc, flci, flco, tlci, tlco, tfc, fsize;
 extern char *cmarg, *cmarg2, **cmlist;
-char *strcpy();
-CHAR dopar();
+extern CHAR padch, mypadc, eol, seol, ctlq, myctlq, sstate, *hlptxt;
+extern CHAR filnam[], sndpkt[], recpkt[], data[], srvcmd[];
+extern CHAR *srvptr, stchr, mystch, *rdatap;
+
+char *strcpy();				/* Forward declarations */
+unsigned chk2();			/* of non-int functions */
+CHAR dopar();				/* ... */
+
+static CHAR partab[] = {		/* Even parity table for dopar() */
+
+    '\000', '\201', '\202', '\003', '\204', '\005', '\006', '\207',
+    '\210', '\011', '\012', '\213', '\014', '\215', '\216', '\017',
+    '\220', '\021', '\022', '\223', '\024', '\225', '\226', '\027',
+    '\030', '\231', '\232', '\033', '\234', '\035', '\036', '\237',
+    '\240', '\041', '\042', '\243', '\044', '\245', '\246', '\047',
+    '\050', '\251', '\252', '\053', '\254', '\055', '\056', '\257',
+    '\060', '\261', '\262', '\063', '\264', '\065', '\066', '\267',
+    '\270', '\071', '\072', '\273', '\074', '\275', '\276', '\077',
+    '\300', '\101', '\102', '\303', '\104', '\305', '\306', '\107',
+    '\110', '\311', '\312', '\113', '\314', '\115', '\116', '\317',
+    '\120', '\321', '\322', '\123', '\324', '\125', '\126', '\327',
+    '\330', '\131', '\132', '\333', '\134', '\335', '\336', '\137',
+    '\140', '\341', '\342', '\143', '\344', '\145', '\146', '\347',
+    '\350', '\151', '\152', '\353', '\154', '\355', '\356', '\157',
+    '\360', '\161', '\162', '\363', '\164', '\365', '\366', '\167',
+    '\170', '\371', '\372', '\173', '\374', '\175', '\176', '\377'
+};
 
 /*  I N P U T  --  Attempt to read packet number 'pktnum'.  */
 
@@ -51,31 +76,35 @@ CHAR dopar();
 */
 
 input() {
-    int len, num, type, numtry;
+    int type, numtry;
 
     if (sstate != 0) {			/* If a start state is in effect, */
 	type = sstate;			/* return it like a packet type, */
 	sstate = 0;			/* and then nullify it. */
-	*data = '\0';
 	return(type);
-    } else type = rpack(&len,&num,data); /* Else, try to read a packet. */
+    } else type = rpack();		/* Else, try to read a packet. */
+
+debug(F111,"input",rdatap,type);
 
 /* If it's the same packet we just sent, it's an echo.  Read another. */
 
-    if (type == sndtyp) type = rpack(&len,&num,data);
+    if (type == sndtyp) type = rpack();
 
     chkint();				/* Check for console interrupts. */
 /*
  If previous packet again, a timeout pseudopacket, or a bad packet, try again.
 */
     for (numtry = 0;
-      (num == prvpkt || type == 'T' || type == 'Q' || type == 'N');
+      (rsn == prvpkt || type == 'T' || type == 'Q' || type == 'N');
       numtry++) {
-	if (numtry > MAXTRY) {		/* If too many tries, give up */
-	    strcpy(data,"Timed out.");	/* and send a timeout error packet. */
+	if (numtry > maxtry) {		/* If too many tries, give up */
+	    strcpy(data,"Timed out.");	/* and send a timeout error packet, */
+	    rdatap = data;		/* and pretend we read one. */
 	    return('E');
 	}
-	if (type == 'N' && num == (pktnum+1) & 63) { /* NAK for next packet */
+	if (type == 'E') return('E');	/* Don't even bother about seq no */
+	if ((type == 'N') && (rsn == ((pktnum+1) & 63))) {
+					/* NAK for next packet */
 	    return('Y');		/* is ACK for current. */
 	} else {    
 	    resend();			/* Else, send last packet again, */
@@ -85,77 +114,94 @@ input() {
 	    sstate = 0;			/* that. */
 	    *data = '\0';
 	    return(type);
-	} else type = rpack(&len,&num,data); /* Else, try to read a packet. */
+	} else type = rpack();		/* Else try to read a packet. */
 	chkint();			/* Look again for interruptions. */
-	if (type == sndtyp) type = rpack(&len,&num,data);
+	if (type == sndtyp) type = rpack();
     }
     ttflui();			/* Got what we want, clear input buffer. */
     return(type);		/* Success, return packet type. */
 }
 
+
 /*  S P A C K  --  Construct and send a packet  */
 
-spack(type,num,len,dat) char type, *dat; int num, len; {
-    int i,j,k;
-    
-    j = dopar(padch);
-    for (i = 0; i < npad; sndpkt[i++] = j)  /* Do any requested padding */
-    	;
-    sndpkt[i++] = dopar(mystch);	/* Start packet with the start char */
-    k = i;
-    sndpkt[i++] = dopar(tochar(len+bctu+2));	/* Put in the length */
-    sndpkt[i++] = dopar(tochar(num));		/* The packet number */
-    sndpkt[i++] = dopar(sndtyp = type);		/* Packet type */
+/*
+ spack() sends a packet of the given type, sequence number n, with len
+ data characters pointed to by d, in either a regular or extended-
+ length packet, depending on length.  Returns the number of bytes
+ actually sent, or else -1 upon failure.  Uses global npad, padch,
+ mystch, bctu.  Leaves packet in null-terminated global sndpkt[] array for
+ later retransmission.  Updates global sndpktl (send-packet length).
+*/
 
-    for (j = len; j > 0; j-- ) sndpkt[i++] = dopar(*dat++); /* Data */
+spack(type,n,len,d) char type, *d; int n, len; {
+    int i, j, lp; CHAR *sohp = sndpkt; CHAR pc;
 
-    sndpkt[i] = '\0';			/* Mark end for block check */
-    switch(bctu) {
-	case 1: 			/* Type 1 - 6 bit checksum */
-	    sndpkt[i++] = dopar(tochar(chk1(sndpkt+k)));
+    spktl = 0;
+    pc = dopar(padch);			/* The pad character, if any. */
+    for (i = 0; i < npad; sndpkt[i++] = pc) /* Do any requested padding */
+      sohp++;
+    sndpkt[i++] = dopar(mystch);	/* MARK */
+    lp = i++;				/* Position of LEN, fill in later */
+    sndpkt[i++] = dopar(tochar(n));	/* SEQ field */
+    sndpkt[i++] = dopar(sndtyp = type);	/* TYPE field */
+    j = len + bctu;			/* True length */
+    if (j > 95) {			/* Long packet? */
+        sndpkt[lp] = dopar(tochar(0));	/* Set LEN to zero */
+        sndpkt[i++] = dopar(tochar(j / 95)); /* High part */
+        sndpkt[i++] = dopar(tochar(j % 95)); /* Low part */
+        sndpkt[i] = '\0';		/* Header checksum */
+        sndpkt[i++] = dopar(tochar(chk1(sndpkt+lp)));
+    } else sndpkt[lp] = dopar(tochar(j+2)); /* Normal LEN */
+
+    while (len-- > 0) sndpkt[i++] = dopar(*d++); /* Packet data */
+    sndpkt[i] = '\0';			/* Null-terminate */
+
+    switch (bctu) {			/* Block check */
+	case 1:				/* 1 = 6-bit chksum */
+	    sndpkt[i++] = dopar(tochar(chk1(sndpkt+lp)));
 	    break;
-	case 2:				/* Type 2 - 12 bit checksum*/
-	    j = chk2(sndpkt+k);
-	    sndpkt[i++] = dopar(tochar((j & 07700) >> 6));
-	    sndpkt[i++] = dopar(tochar(j & 077));
+	case 2:				/* 2 = 12-bit chksum */
+	    j = chk2(sndpkt+lp);
+	    sndpkt[i++] = dopar( (unsigned) tochar((j >> 6) & 077));
+	    sndpkt[i++] = dopar( (unsigned) tochar(j & 077));
 	    break;
-        case 3:				/* Type 3 - 16 bit CRC-CCITT */
-	    j = chk3(sndpkt+k);
+        case 3:				/* 3 = 16-bit CRC */
+	    j = chk3(sndpkt+lp);
 	    sndpkt[i++] = dopar(tochar(( (unsigned)(j & 0170000)) >> 12));
-	    sndpkt[i++] = dopar(tochar((j & 07700) >> 6));
+	    sndpkt[i++] = dopar(tochar((j >> 6) & 077));
 	    sndpkt[i++] = dopar(tochar(j & 077));
 	    break;
-	}
-
-    sndpkt[i++] = dopar(seol);		/* EOL character */
-    sndpkt[i] = '\0';			/* End of the packet */
-    ttol(sndpkt,spktl=i);		/* Send the packet just built */
+    }
+    sndpkt[i++] = dopar(seol);		/* End of line (packet terminator) */
+    sndpkt[i] = '\0';			/* Terminate string */
+    if (ttol(sndpkt,i) < 0) return(-1);	/* Send the packet */
+    spktl = i;				/* Remember packet length */
     flco += spktl;			/* Count the characters */
     tlco += spktl;
-    if (pktlog) zsoutl(ZPFILE,sndpkt);	/* If logging packets, log it */
-    screen(SCR_PT,type,(long)num,sndpkt); /* Update screen */
+    if (pktlog) {			/* If logging packets, log it */
+	zsout(ZPFILE,"s-");
+	if (*sndpkt) zsoutl(ZPFILE,sndpkt); else zsoutl(ZPFILE,sohp);
+    }	
+    screen(SCR_PT,type,(long)n,sohp);	/* Update screen */
+    return(i);				/* Return length */
 }
-
+
 /*  D O P A R  --  Add an appropriate parity bit to a character  */
 
 CHAR
-dopar(ch) char ch; {
-    int a, b;
-    if (!parity) return(ch); else ch &= 0177;
+dopar(ch) CHAR ch; {
+    int a;
+    if (!parity) return(ch & 255); else a = ch & 127;
     switch (parity) {
-	case 'm':  return(ch | 128);		/* Mark */
-	case 's':  return(ch & 127);		/* Space */
-	case 'o':  			    	/* Odd (fall thru) */
-	case 'e':				/* Even */
-	    a = (ch & 15) ^ ((ch >> 4) & 15);
-	    a = (a & 3) ^ ((a >> 2) & 3);
-	    a = (a & 1) ^ ((a >> 1) & 1);
-	    if (parity == 'o') a = 1 - a;       /* Switch sense for odd */
-	    return(ch | (a << 7));
-	default:   return(ch);
+	case 'e':  return(partab[a]) & 255;	   /* Even */
+	case 'm':  return(a | 128);                /* Mark */
+	case 'o':  return(partab[a] ^ 128) & 255;  /* Odd */
+	case 's':  return(a & 127);                /* Space */
+	default:   return(a);
     }
 }
-
+
 /*  C H K 1  --  Compute a type-1 Kermit 6-bit checksum.  */
 
 chk1(pkt) char *pkt; {
@@ -167,14 +213,13 @@ chk1(pkt) char *pkt; {
 
 /*  C H K 2  --  Compute the numeric sum of all the bytes in the packet.  */
 
-chk2(pkt) char *pkt; {
-    unsigned int chk;
-    int p;
-    for (chk = 0; *pkt != '\0'; *pkt++) {
-    	p = (parity) ? *pkt & 0177 : *pkt;
-	chk += p;
-    }
-    return(chk);
+unsigned
+chk2(pkt) CHAR *pkt; {
+    long chk; unsigned int m;
+    m = (parity) ? 0177 : 0377;
+    for (chk = 0; *pkt != '\0'; pkt++)
+      chk += *pkt & m;
+    return(chk & 07777);
 }
 
 
@@ -184,14 +229,15 @@ chk2(pkt) char *pkt; {
  tableless algorithm invented by Andy Lowry (Columbia University).  The
  magic number 010201 is derived from the CRC-CCITT polynomial x^16+x^12+x^5+1.
  Note - this function could be adapted for strings containing imbedded 0's
- by including a length argument.
+ by including a length argument.  Another note - Replacing this function by
+ a table lookup version might speed things up.
 */
 chk3(s) char *s; {
     unsigned int c, q;
     LONG crc = 0;
 
     while ((c = *s++) != '\0') {
-	if (parity) c &= 0177;
+	if (parity) c &= 0177;		/* Strip any parity */
 	q = (crc ^ c) & 017;		/* Low-order nibble */
 	crc = (crc >> 4) ^ (q * 010201);
 	q = (crc ^ (c >> 4)) & 017;	/* High order nibble */
@@ -217,20 +263,16 @@ nack() {				/* Negative acknowledgment. */
 }
 
 resend() {				/* Send the old packet again. */
-    int w;
-
-    for (w = 0; w < timint - 2; w++) {	/* Be extra sure no stuff is */
-	ttflui();			/*  still coming in. */
-	sleep(1);
-	if (!ttchk() ) ttinc(1);	/* be extra sure no stuff in SIII/V */
-	if (!ttchk() ) break;
-    }
-    if (*sndpkt)
-    	ttol(sndpkt,spktl);		/* Resend if buffer not empty */
-    else nack();
+    if (spktl)				/* If buffer has something, */
+    	ttol(sndpkt,spktl);		/* resend it, */
+    else nack();			/* otherwise send a NAK. */
     
-    screen(SCR_PT,'%',(long)pktnum,sndpkt); /* Display that resend occurred */
-    if (pktlog && *sndpkt) zsoutl(ZPFILE,sndpkt); /* Log packet if desired */
+    debug(F111,"resend",sndpkt,spktl);
+    screen(SCR_PT,'%',(long)pktnum,"(resend)");	/* Say resend occurred */
+    if (pktlog) {
+	zsout(ZPFILE,"s-");
+	zsoutl(ZPFILE,"(resend)"); /* Log packet if desired */
+    }
 }
 
 errpkt(reason) char *reason; {		/* Send an error packet. */
@@ -262,208 +304,112 @@ sigint() {				/* Terminal interrupt handler */
 
 /* R P A C K  --  Read a Packet */
 
-rpack(l,n,dat) int *l, *n; char *dat; {
-    int i, j, x, done, pstart, pbl, cccount, tries, gotsoh;
-    CHAR chk[4], xchk[4], t, type;
+/*
+ rpack reads a packet and returns the packet type, or else Q if the
+ packet was invalid, or T if a timeout occurred.  Upon successful return, sets
+ the values of global rsn (received sequence number),  rln (received
+ data length), and rdatap (pointer to null-terminated data field).
+*/
+rpack() {
+    int i, j, x, try, type, lp;		/* Local variables */
+    CHAR pbc[4];			/* Packet block check */
+    CHAR *sohp = recpkt;		/* Pointer to SOH */
+    CHAR e;				/* Packet end character */
 
-/* Try 3 times to get a line that has a start-of-packet char in it. */
-/* This allows skipping of blank lines that some hosts might send.  */
+    rsn = rln = -1;			/* In case of failure. */
+    *recpkt = '\0';			/* Clear receive buffer. */
+    
+    e = (turn) ? turnch : eol;		/* Use any handshake char for eol */
 
-    for (gotsoh = tries = 0; (tries < 3) && (gotsoh == 0); tries++) {
-	j = inlin();			/* Read a line */
+/* Try several times to get a "line".  This allows for hosts that echo our */
+/* normal CR packet terminator as CRLF.  Don't diagnose CRLF as an */
+/* invalid packet. */
+
+#define TTITRY 3
+
+    for (try = 0; try < TTITRY; try++) { /* Try x times to get a "line". */
+	j = ttinl(recpkt,MAXRP,timint,e); 
 	if (j < 0) {
-	    debug(F101,"rpack: inlin fails","",j);
+	    if (j < -1) doexit(BAD_EXIT); /* Bail out if ^C^C typed. */
+	    debug(F101,"rpack: ttinl fails","",j);
 	    screen(SCR_PT,'T',(long)pktnum,"");
-	    return('T');
+	    return('T');		/* Otherwise, call it a timeout. */
 	}
-	debug(F111,"rpack: inlin ok, recpkt",recpkt,j);
-	for (i = 0; ((t = recpkt[i]) != stchr) && (i < j); i++)
-	    ;				/* Look for start of packet char */
-	gotsoh = (t == stchr);
+	tlci += j;			/* All OK, Count the characters. */
+	flci += j;
+
+	for (i = 0; (recpkt[i] != stchr) && (i < j); i++)
+	  sohp++;			/* Find mark */
+	if (i++ < j) break;		/* Found it. */
     }
-    if (gotsoh) i++; else return('Q');	/* No SOH in 3 tries, fail. */
+    if (try >= TTITRY) return('Q');	/* Diagnose bad packet. */
 
-/* Got something that starts out like a packet, now "parse" it. */
-
-    debug(F101,"entering rpack with i","",i);
-    done = 0;
-    while (!done) {
-	debug(F101,"rpack starting at i","",i);
-        pstart = i;			/* remember where packet started */
-
-/* length */
-
-	if ((t = recpkt[i++]) == stchr) continue; /* Resynch if SOH */
-
-  	if (t == 3) cccount++;		/* Count any control-C's */
-
-	if (t == eol) return('Q');
-	*l = unchar(t);			/* Packet length */
-	debug(F101," pkt len","",*l);
-	if (*l + i + 2 > RBUFL) { 	/* Sticks out too far? */
-	    debug(F101," ** overrun","",i);
-	    return('Q'); 				
-	}
-
-/* sequence number */
-
-	if ((t = recpkt[i++]) == stchr) continue;
-	if (cccount && (t == 3)) { conoll("^C^C exit..."); doexit(0); }
-	if (t == eol) return('Q');
-	*n = unchar(t);
-	debug(F101,"rpack: n","",*n);
-
-/* cont'd... */
-
-/* ...rpack(), cont'd */
-
-
-/* type */
-
-	if ((type = recpkt[i++]) == stchr) continue;
-	if (type == eol) return('Q');
-	debug(F101,"rpack: type","",type);
-
-	if ((type == 'S') || (type == 'I')) pbl = 1;	/* Heuristics for  */
-	else if (type == 'N') pbl = *l - 2;    /* syncing block check type */
-	else pbl = bctu;
-
-	*l -= (pbl + 2);		/* Now compute data length */
-	debug(F101,"rpack: bctu","",bctu);
-	debug(F101," pbl","",pbl);
-	debug(F101," data length","",*l);
-
-/* data */
-
-	dat[0] = '\0';			/* Return null string if no data */
-	for (j=0; j<*l; i++,j++)
-	    if ((dat[j] = recpkt[i]) == stchr) continue;
-		else if (dat[j] == eol) return('Q');
-	dat[j] = '\0';
-
-/* get the block check */
-
-    	debug(F110," packet chk",recpkt+i,0);
-    	for (j = 0; j < pbl; j++) {
-	    chk[j] = recpkt[i];
-	    debug(F101," chk[j]","",chk[j]);
-	    if (chk[j] == stchr) break;
-	    if (chk[j] == eol) return('Q');
-	    recpkt[i++] = '\0';
-	}
-	chk[j] = 0;
-	debug(F111," chk array, j",chk,j);
-	if (j != pbl) continue;		/* Block check right length? */
-	done = 1;			/* Yes, done. */
+    debug(F111,"ttinl",sohp,j);		/* Log packet if requested. */
+    if (pktlog) {
+	zsout(ZPFILE,"r-");
+	zsoutl(ZPFILE,sohp);
     }
+    lp = i;				/* Remember LEN position. */
+    if ((j = xunchar(recpkt[i++])) == 0) {
+        if ((j = lp+5) > MAXRP) return('Q'); /* Long packet */
+	x = recpkt[j];			/* Header checksum. */
+	recpkt[j] = '\0';		/* Calculate & compare. */
+	if (xunchar(x) != chk1(recpkt+lp)) return('Q');
+	recpkt[j] = x;			/* Checksum ok. */
+	rln = xunchar(recpkt[j-2]) * 95 + xunchar(recpkt[j-1]) - bctu;
+	j = 3;				/* Data offset. */
+    } else if (j < 3) {
+	debug(F101,"rpack packet length less than 3","",j);
+	return('Q');
+    } else {
+	rln = j - bctu - 2;		/* Regular packet */
+	j = 0;				/* No extended header */
+    }
+    rsn = xunchar(recpkt[i++]);		/* Sequence number */
+    type = recpkt[i++];			/* Packet type */
+    i += j;				/* Where data begins */
+    rdatap = recpkt+i;			/* The data itself */
+    if ((j = rln + i) > MAXRP ) {
+	debug(F101,"packet sticks out too far","",j);
+	return('Q'); /* Find block check */
+    }
+/** debug(F101,"block check at","",j); **/
+    for (x = 0; x < bctu; x++)		/* Copy it */
+      pbc[x] = recpkt[j+x];
 
-/* cont'd... */
-
-/* ...rpack(), cont'd */
+    pbc[x] = '\0';
+/** debug(F110,"block check",pbc,bctu); **/
+    recpkt[j] = '\0';			/* Null-terminate data */
 
-
-/* Got packet, now check the block check */
-
-    switch (pbl) {
+    switch (bctu) {			/* Check the block check */
 	case 1:
-	    xchk[0] = tochar(chk1(&recpkt[pstart]));
-	    if (chk[0] != xchk[0]) {
-		if (deblog) {
-		    debug(F000,"rpack: chk","",chk[0]);
-		    debug(F000," should be ","",xchk[0]);
-		}
-		screen(SCR_PT,'Q',(long)n,recpkt);
+	    if (xunchar(*pbc) != chk1(recpkt+lp)) {
+		debug(F110,"checked chars",recpkt+lp,0);
+	        debug(F101,"block check","",xunchar(*pbc));
+		debug(F101,"should be","",chk1(recpkt+lp));
 		return('Q');
-	    }
+ 	    }
 	    break;
 	case 2:
-	    x = chk2(&recpkt[pstart]);
-	    xchk[0] = tochar((x & 07700) >> 6);
-	    xchk[1] = tochar(x & 077);
-	    if (deblog) {
-		debug(F000," xchk[0]","=",xchk[0]);
-		debug(F000," xchk[1]","=",xchk[1]);
-	    }
-	    if ((xchk[0] != chk[0]) || (xchk[1] != chk[1])) {
-		debug(F100," bct2's don't compare","",0);
-		screen(SCR_PT,'Q',(long)n,recpkt);
+	    x = xunchar(*pbc) << 6 | xunchar(pbc[1]);
+	    if (x != chk2(recpkt+lp)) {
+		debug(F110,"checked chars",recpkt+lp,0);
+	        debug(F101,"block check","", x);
+		debug(F101,"should be","", chk2(recpkt+lp));
 		return('Q');
-            }
+	    }
 	    break;
 	case 3:
-	    x = chk3(&recpkt[pstart]);
-	    xchk[0] = tochar(( (unsigned)(x & 0170000)) >> 12);
-	    xchk[1] = tochar((x & 07700) >> 6);
-	    xchk[2] = tochar(x & 077);
-	    if (deblog) {
-		debug(F000," xchk[0]","=",xchk[0]);
-		debug(F000," xchk[1]","=",xchk[1]);
-		debug(F000," xchk[2]","=",xchk[2]);
-            }
-	    if ((xchk[0] != chk[0]) || 
-	    	(xchk[1] != chk[1]) || 
-		(xchk[2] != chk[2])) {
-		    debug(F100," bct3's don't compare","",0);
-		    screen(SCR_PT,'Q',(long)n,recpkt);
-		    return('Q');
+	    x = xunchar(*pbc) << 12 | xunchar(pbc[1]) << 6 | xunchar(pbc[2]);
+	    if (x != chk3(recpkt+lp)) {
+		debug(F110,"checked chars",recpkt+lp,0);
+	        debug(F101,"block check","",xunchar(*pbc));
+		debug(F101,"should be","",chk1(recpkt+lp));
+		return('Q');
 	    }
 	    break;
-        }
-
-/* Good packet, return its type */
-
-    screen(SCR_PT,type,(long)(*n),recpkt); /* Update screen */
-    return(type);
-}
-
-/*  I N C H R  --  Input character from communication line, with timeout  */
-    	
-inchr(timo) int timo; {
-    int c;
-    c = ttinc(timo);
-    debug(F101,"inchr ttinc","",c);
-    if (c < 0) return(c); 		/* Get a character */
-    if (parity) c = c & 0177;		/* If parity on, discard parity bit. */
-    debug(F101," after parity","",c);
-    return(c);
-}
-
-
-/*  I N L I N  -- Input a line (up to break char) from communication line  */
-
-/*  Returns number of chars input on success, -1 on failure.  */
-/*  Number of chars guaranteed to be within RBUFL.  */
-
-inlin() {
-    int i, j, k, maxt;
-    CHAR e;
-
-    maxt = (speed >= 110) ? (MAXTRY * 9600 / speed) : MAXTRY;
-    debug(F101,"inlin: speed","",speed);
-    debug(F101," maxt","",maxt);
-    e = (turn) ? turnch : eol;
-    i = j = k = 0;
-    if (parity) {
-    	while ((j != e) && (i < RBUFL) && (k < maxt)) {
-	    j = inchr(1);		/* Get char, 1 second timeout */
-	    debug(F101,"inlin inchr","",j);
-	    if (j < 0) k++;		/* Timed out, count. */
-	    else {
-		if (j) recpkt[i++] = j;	/* Got one, save it, */
-		k = 0;			/* and reset timeout counter. */
-	    }
-	}
-    } else {
-    	i = ttinl(recpkt,RBUFL,timint,e);	/* Get them all at once */
-	if (i < 0) k = 1;
+	default: return('Q');
     }
-    recpkt[i+1] = '\0';			/* Terminate near end of packet */
-    debug(F111,"inlin",recpkt,i);	/* Debug report... */
-    debug(F101," timeouts","",k);
-    if (i < 1) return(-1);		/* No characters, return. */
-    if (pktlog) zsoutl(ZPFILE,recpkt);	/* Log any we got, if logging. */
-    if (k > maxt) return(-1);		/* If too many tries, give up. */
-    tlci += i;				/* All OK, Count the characters. */
-    flci += i;
-    return(i);
+    screen(SCR_PT,type,(long)rsn,sohp);	/* Update screen */
+    return(type);			/* Return packet type */
 }

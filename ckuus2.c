@@ -18,9 +18,18 @@
 #include "ckucmd.h"
 #include "ckuusr.h"
  
-extern char cmdbuf[];
-extern int nrmt, nprm, dfloc;
-extern char *dftty;
+extern CHAR mystch, stchr, eol, seol, padch, mypadc, ctlq;
+extern CHAR data[], *rdatap, ttname[];
+extern char cmdbuf[], line[], debfil[], pktfil[], sesfil[], trafil[];
+extern int nrmt, nprm, dfloc, deblog, seslog, speed, local, parity, duplex;
+extern int turn, turnch, pktlog, tralog, mdmtyp, flow, cmask, timef, spsizf;
+extern int rtimo, timint, npad, mypadn, bctr, delay;
+extern int maxtry, spsiz, urpsiz, maxsps, maxrps, ebqflg, ebq;
+extern int rptflg, rptq, fncnv, binary, pktlog, warn, quiet, fmask, keep;
+extern int tsecs, bctu, len, atcapu, lpcapu, swcapu, wsize, sq, rpsiz;
+extern int capas;
+extern long filcnt, tfc, tlci, tlco, ffc, flci, flco;
+extern char *dftty, *versio, *ckxsys;
 extern struct keytab prmtab[];
 extern struct keytab remcmd[];
  
@@ -39,16 +48,16 @@ char *hlp1[] = {
 "     * -f           finish remote server\n",
 "     * -c           connect before transaction\n",
 "     * -n           connect after transaction\n",
-"       -h           help - print this message\n",
 "     settings --\n",
 "       -l line      communication line device\n",
 "       -b baud      line speed, e.g. 1200\n",
-"       -i           binary file or Unix-to-Unix\n",
+"       -i           binary file or Unix-to-Unix (text by default)\n",
 "       -p x         parity, x is one of e,o,m,s,n\n",
 "       -t           line turnaround handshake = xon, half duplex\n",
 "       -w           don't write over preexisting files\n",
 "       -q           be quiet during file transfer\n",
 "       -d           log debugging info to debug.log\n",
+"       -e length    (extended) receive packet length\n",
 " If no action command is included, enter interactive dialog.\n",
 ""
 };
@@ -210,7 +219,11 @@ case XXCWD:
     return(hmsg("\
 Change Working Directory, equivalent to VMS SET DEFAULT command"));
 #else
+#ifdef datageneral
+    return(hmsg("Change Working Directory, equivalent to DG 'dir' command"));
+#else
     return(hmsg("Change Working Directory, equivalent to Unix 'cd' command"));
+#endif
 #endif
  
 case XXDEL:
@@ -277,8 +290,13 @@ Issue a command to VMS (space required after '!')"));
     return(hmsg("\
 Issue a command to CLI (space required after '!')"));
 #else
+#ifdef datageneral
+    return(hmsg("\
+Issue a command to the CLI (space required after '!')"));
+#else
     return(hmsg("\
 Issue a command to the Unix shell (space required after '!')"));
+#endif
 #endif
 #endif
  
@@ -288,7 +306,13 @@ Display current values of 'set' parameters; 'show version' will display\n\
 program version information for each of the C-Kermit modules."));
  
 case XXSPA:
+#ifdef datageneral
+    return(hmsg("\
+Display disk usage in current device, directory,\n\
+or return space for a specified device, directory."));
+#else
     return(hmsg("Display disk usage in current device, directory"));
+#endif
  
 case XXSTA:
     return(hmsg("Display statistics about most recent file transfer"));
@@ -311,7 +335,7 @@ default:
  
 hmsg(s) char *s; {
     int x;
-    if (x = (cmcfm()) < 0) return(x);
+    if ((x = cmcfm()) < 0) return(x);
     puts(s);
     return(0);
 }
@@ -409,6 +433,11 @@ case XYPROM:
     puts("Prompt string for this program, normally 'C-Kermit>'.");
     return(0);
  
+case XYRETR:
+    puts("\
+How many times to retransmit a particular packet before giving up");
+    return(0);
+
 case XYSPEE:
     puts("\
 Communication line speed for external tty line specified in most recent");
@@ -419,9 +448,16 @@ Communication line speed for external tty line specified in most recent");
     puts("\
 110, 150, 300, 600, 1200, 1800, 2400, 4800, 9600, 19200, 38400, 57600.");
 #else
+#ifdef datageneral
+    puts("\
+'set line' command.  Any of the common baud rates:");
+    puts(" 0, 50, 75, 110, 134, 150, 300, 600, 1200, 1800, ");
+    puts(" 2400, 3600, 7200, 4800, 9600, 19200, 38400.");
+#else
     puts("\
 'set line' command.  Any of the common baud rates:");
     puts(" 0, 110, 150, 300, 600, 1200, 1800, 2400, 4800, 9600.");
+#endif
 #endif
     return(0);
 
@@ -429,7 +465,7 @@ case XYRECV:
     puts("\
 Specify parameters for inbound packets:");
     puts("\
-End-Of-Packet (ASCII value), Packet-Length (94 or less),");
+End-Of-Packet (ASCII value), Packet-Length (1000 or less),");
     puts("\
 Padding (amount, 94 or less), Pad-Character (ASCII value),");
     puts("\
@@ -442,7 +478,7 @@ case XYSEND:
     puts("\
 Specify parameters for outbound packets:");
     puts("\
-End-Of-Packet (ASCII value), Packet-Length (94 or less),");
+End-Of-Packet (ASCII value), Packet-Length (2000 or less),");
     puts("\
 Padding (amount, 94 or less), Pad-Character (ASCII value),");
     puts("\
@@ -505,4 +541,316 @@ default:
     printf("%s","not working yet - %s\n",cmdbuf);
     return(-2);
     }
+}
+
+/*** The following functions moved here from ckuusr.c because that module ***/
+/*** got too big for PDP-11s. ***/
+
+/*  D O L O G  --  Do the log command  */
+ 
+dolog(x) int x; {
+    int y; char *s;
+ 
+    switch (x) {
+ 
+	case LOGD:
+#ifdef DEBUG
+	    y = cmofi("Name of debugging log file","debug.log",&s);
+#else
+    	    y = -2; s = "";
+	    printf("%s","- Sorry, debug log not available\n");
+#endif
+	    break;
+ 
+	case LOGP:
+	    y = cmofi("Name of packet log file","packet.log",&s);
+	    break;
+ 
+	case LOGS:
+	    y = cmofi("Name of session log file","session.log",&s);
+	    break;
+ 
+	case LOGT:
+#ifdef TLOG
+	    y = cmofi("Name of transaction log file","transact.log",&s);
+#else
+    	    y = -2; s = "";
+	    printf("%s","- Sorry, transaction log not available\n");
+#endif
+	    break;
+ 
+	default:
+	    printf("\n?Unexpected log designator - %d\n",x);
+	    return(-2);
+    }
+    if (y < 0) return(y);
+ 
+    strcpy(line,s);
+    s = line;
+    if ((y = cmcfm()) < 0) return(y);
+ 
+/* cont'd... */
+
+/* ...dolog, cont'd */
+ 
+ 
+    switch (x) {
+ 
+	case LOGD:
+	    return(deblog = debopn(s));
+ 
+	case LOGP:
+	    zclose(ZPFILE);
+	    y = zopeno(ZPFILE,s);
+	    if (y > 0) strcpy(pktfil,s); else *pktfil = '\0';
+	    return(pktlog = y);
+ 
+	case LOGS:
+	    zclose(ZSFILE);
+	    y = zopeno(ZSFILE,s);
+	    if (y > 0) strcpy(sesfil,s); else *sesfil = '\0';
+	    return(seslog = y);
+ 
+	case LOGT:
+	    zclose(ZTFILE);
+	    tralog = zopeno(ZTFILE,s);
+	    if (tralog > 0) {
+		strcpy(trafil,s);
+		tlog(F110,"Transaction Log:",versio,0l);
+		tlog(F100,ckxsys,"",0);
+		ztime(&s);
+		tlog(F100,s,"",0l);
+    	    }
+	    else *trafil = '\0';
+	    return(tralog);
+ 
+	default:
+	    return(-2);
+    }
+}
+ 
+ 
+/*  D E B O P N  --  Open a debugging file  */
+ 
+debopn(s) char *s; {
+#ifdef DEBUG
+    char *tp;
+    zclose(ZDFILE);
+    deblog = zopeno(ZDFILE,s);
+    if (deblog > 0) {
+	strcpy(debfil,s);
+	debug(F110,"Debug Log ",versio,0);
+	debug(F100,ckxsys,"",0);
+	ztime(&tp);
+	debug(F100,tp,"",0);
+    } else *debfil = '\0';
+    return(deblog);
+#else
+    return(0);
+#endif
+}
+
+/*  S H O P A R  --  Show Parameters  */
+ 
+shopar() {
+ 
+    int i;
+    extern struct keytab mdmtab[]; extern int nmdm;
+
+    printf("\n%s,%s, ",versio,ckxsys); 
+    puts("Communications Parameters:");
+    printf(" Line: %s, speed: %d, mode: ",ttname,speed);
+    if (local) printf("local"); else printf("remote");
+ 
+    for (i = 0; i < nmdm; i++) {
+	if (mdmtab[i].val == mdmtyp) {
+	    printf(", modem-dialer: %s",mdmtab[i].kwd);
+	    break;
+	}
+    }
+    printf("\n Bits: %d",(parity) ? 7 : 8);
+    printf(", parity: ");
+    switch (parity) {
+	case 'e': printf("even");  break;
+	case 'o': printf("odd");   break;
+	case 'm': printf("mark");  break;
+	case 's': printf("space"); break;
+	case 0:   printf("none");  break;
+	default:  printf("invalid - %d",parity); break;
+    }		
+    printf(", duplex: ");
+    if (duplex) printf("half, "); else printf("full, ");
+    printf("flow: ");
+    if (flow == 1) printf("xon/xoff");
+	else if (flow == 0) printf("none");
+	else printf("%d",flow);
+    printf(", handshake: ");
+    if (turn) printf("%d\n",turnch); else printf("none\n");
+    printf("Terminal emulation: %d bits\n", (cmask == 0177) ? 7 : 8);
+ 
+    printf("\nProtocol Parameters:   Send    Receive");
+    if (timef || spsizf) printf("    (* = override)");
+    printf("\n Timeout:      %11d%9d", rtimo,  timint);
+    if (timef) printf("*");
+    printf("\n Padding:      %11d%9d", npad,   mypadn);
+    printf("        Block Check: %6d\n",bctr);
+    printf(  " Pad Character:%11d%9d", padch,  mypadc);
+    printf("        Delay:       %6d\n",delay);
+    printf(  " Packet Start: %11d%9d", mystch, stchr);
+    printf("        Max Retries: %6d\n",maxtry);
+    printf(  " Packet End:   %11d%9d", seol,   eol);
+    if (ebqflg)
+      printf("        8th-Bit Prefix: '%c'",ebq);
+    printf(  "\n Packet Length:%11d", spsiz);
+    printf( spsizf ? "*" : " " ); printf("%8d",  urpsiz);
+    printf( (urpsiz > 94) ? " (94)" : "     ");
+    if (rptflg)
+      printf("   Repeat Prefix:  '%c'",rptq);
+    printf(  "\n Length Limit: %11d%9d\n", maxsps, maxrps);
+ 
+    printf("\nFile parameters:\n File Names:   ");
+    if (fncnv) printf("%-12s","converted"); else printf("%-12s","literal");
+#ifdef DEBUG
+    printf("   Debugging Log:    ");
+    if (deblog) printf("%s",debfil); else printf("none");
+#endif
+    printf("\n File Type:    ");
+    if (binary) printf("%-12s","binary"); else printf("%-12s","text");
+    printf("   Packet Log:       ");
+    if (pktlog) printf(pktfil); else printf("none");
+    printf("\n File Warning: ");
+    if (warn) printf("%-12s","on"); else printf("%-12s","off");
+    printf("   Session Log:      ");
+    if (seslog) printf(sesfil); else printf("none");
+    printf("\n File Display: ");
+    if (quiet) printf("%-12s","off"); else printf("%-12s","on");
+#ifdef TLOG
+    printf("   Transaction Log:  ");
+    if (tralog) printf(trafil); else printf("none");
+#endif
+    printf("\n\nFile Byte Size: %d",(fmask == 0177) ? 7 : 8);
+    printf(", Incomplete File Disposition: ");
+    if (keep) printf("keep"); else printf("discard");
+#ifdef KERMRC    
+    printf(", Init file: %s",KERMRC);
+#endif
+    puts("\n");
+}
+
+/*  D O S T A T  --  Display file transfer statistics.  */
+
+dostat() {
+    printf("\nMost recent transaction --\n");
+    printf(" files: %ld\n",filcnt);
+    printf(" total file characters  : %ld\n",tfc);
+    printf(" communication line in  : %ld\n",tlci);
+    printf(" communication line out : %ld\n",tlco);
+    printf(" elapsed time           : %d sec\n",tsecs);
+    if (filcnt > 0) {
+	if (tsecs > 0) {
+	    long lx;
+	    lx = (tfc * 10l) / tsecs;
+	    printf(" effective baud rate    : %ld\n",lx);
+	    if (speed > 0) {
+		lx = (lx * 100l) / speed;
+		printf(" efficiency             : %ld %%\n",lx);
+	    }
+	}
+	printf(" packet length          : %d (send), %d (receive)\n",
+	       spsiz,urpsiz);
+	printf(" block check type used  : %d\n",bctu);
+	printf(" compression            : ");
+	if (rptflg) printf("yes [%c]\n",rptq); else printf("no\n");
+	printf(" 8th bit prefixing      : ");
+	if (ebqflg) printf("yes [%c]\n",ebq); else printf("no\n\n");
+    } else printf("\n");
+    return(0);
+}
+
+/*  F S T A T S  --  Record file statistics in transaction log  */
+
+fstats() {
+    tlog(F100," end of file","",0l);
+    tlog(F101,"  file characters        ","",ffc);
+    tlog(F101,"  communication line in  ","",flci);
+    tlog(F101,"  communication line out ","",flco);
+}
+
+
+/*  T S T A T S  --  Record statistics in transaction log  */
+
+tstats() {
+    char *tp; int x;
+
+    ztime(&tp);				/* Get time stamp */
+    tlog(F110,"End of transaction",tp,0l);  /* Record it */
+
+    if (filcnt < 1) return;		/* If no files, done. */
+
+/* If multiple files, record character totals for all files */
+
+    if (filcnt > 1) {
+	tlog(F101," files","",filcnt);
+	tlog(F101," total file characters   ","",tfc);
+	tlog(F101," communication line in   ","",tlci);
+	tlog(F101," communication line out  ","",tlco);
+    }
+
+/* Record timing info for one or more files */
+
+    tlog(F101," elapsed time (seconds)  ","",(long) tsecs);
+    if (tsecs > 0) {
+	x = (tfc / tsecs) * 10;
+	tlog(F101," effective baud rate     ","",x);
+	if (speed > 0) {
+	    x = (x * 100) / speed;
+	    tlog(F101," efficiency (percent)    ","",x);
+	}
+    }
+    tlog(F100,"","",0);			/* Leave a blank line */
+}
+
+/*  S D E B U  -- Record spar results in debugging log  */
+
+sdebu(len) int len; {
+    debug(F111,"spar: data",rdatap,len);
+    debug(F101," spsiz ","", spsiz);
+    debug(F101," timint","",timint);
+    debug(F101," npad  ","",  npad);
+    debug(F101," padch ","", padch);
+    debug(F101," seol  ","",  seol);
+    debug(F101," ctlq  ","",  ctlq);
+    debug(F101," ebq   ","",   ebq);
+    debug(F101," ebqflg","",ebqflg);
+    debug(F101," bctr  ","",  bctr);
+    debug(F101," rptq  ","",  rptq);
+    debug(F101," rptflg","",rptflg);
+    debug(F101," atcapu","",atcapu);
+    debug(F101," lpcapu","",lpcapu);
+    debug(F101," swcapu","",swcapu);
+    debug(F101," wsize ","", wsize);
+}
+/*  R D E B U -- Debugging display of rpar() values  */
+
+rdebu(len) int len; {
+    debug(F111,"spar: data",rdatap,len);
+    debug(F101," rpsiz ","",xunchar(data[1]));
+    debug(F101," rtimo ","", rtimo);
+    debug(F101," mypadn","",mypadn);
+    debug(F101," mypadc","",mypadc);
+    debug(F101," eol   ","",   eol);
+    debug(F101," ctlq  ","",  ctlq);
+    debug(F101," sq    ","",    sq);
+    debug(F101," ebq   ","",   ebq);
+    debug(F101," ebqflg","",ebqflg);
+    debug(F101," bctr  ","",  bctr);
+    debug(F101," rptq  ","",data[9]);
+    debug(F101," rptflg","",rptflg);
+    debug(F101," capas ","",capas);
+    debug(F101," bits  ","",data[capas]);
+    debug(F101," atcapu","",atcapu);
+    debug(F101," lpcapu","",lpcapu);
+    debug(F101," swcapu","",swcapu);
+    debug(F101," wsize ","", wsize);
+    debug(F101," rpsiz(extended)","",rpsiz);
 }

@@ -1,31 +1,35 @@
 
+UNIX KERMIT
 
-
-9. UNIX KERMIT
+********
+This document is formatted as an ordinary, plain text ASCII disk file.  Typeset
+copies are available  in  the  Kermit  User  Guide  from  Columbia  University.
+Changes should be made to CKUKER.MSS.
+********
 
 Program:    Frank  da  Cruz,  Bill Catchings, Jeff Damens, Columbia University;
             Herm Fischer, Encino CA; contributions by many others.
 Language:   C
 Documentation:
             Frank da Cruz, Herm Fischer
-Version:    4D(061)
-Date:       September 9, 1986
+Version:    4E(068)
+Date:       January 24, 1988
 
 C-Kermit is an implementation of Kermit, written modularly and transportably in
 C. The protocol state transition table is written in wart, a  (non-proprietary)
 lex-like  preprocessor for C. System-dependent primitive functions are isolated
 into separately compiled modules so that the program should be easily  portable
 among  Unix systems and also to non-Unix systems that have C compilers, such as
-the Apple Macintosh and the Commodore Amiga.  This document applies to Unix im-
-plementations of C-Kermit, and in most ways also to the VMS and other implemen-
-tations.
+VAX/VMS, Data General AOS/VS, Apollo Aegis, the Apple Macintosh, and  the  Com-
+modore  Amiga.   This document applies to Unix implementations of C-Kermit, and
+in most ways also to the VMS, Data General, and other implementations.
 
 
 Unix Kermit Capabilities At A Glance:
 
   Local operation:                   Yes
   Remote operation:                  Yes
-  Login scripts:                     Yes
+  Login scripts:                     Yes (UUCP style)
   Transfer text files:               Yes
   Transfer binary files:             Yes
   Wildcard send:                     Yes
@@ -37,7 +41,7 @@ Unix Kermit Capabilities At A Glance:
   Alternate block checks:            Yes
   Terminal emulation:                Yes
   Communication settings:            Yes
-  Transmit BREAK:                    Yes
+  Transmit BREAK:                    Yes (most versions)
   Support for dialout modems:        Yes
   IBM mainframe communication:       Yes
   Transaction logging:               Yes
@@ -50,6 +54,8 @@ Unix Kermit Capabilities At A Glance:
   Local file management:             Yes
   Command/Init files:                Yes
   UUCP and multiuser line locking:   Yes
+  Long packets:                      Yes
+  Sliding Windows:                   No
   File attributes packets:           No
   Command macros:                    No
   Raw file transmit:                 No
@@ -57,9 +63,6 @@ Unix Kermit Capabilities At A Glance:
 All numbers in the C-Kermit documentation are decimal unless noted otherwise.
 
 C-Kermit provides traditional Unix command line operation  as  well  as  inter-
-
-
-
 active  command  prompting and execution.  The command line options provide ac-
 cess to a basic subset of C-Kermit's capabilities; the interactive command  set
 is far richer.
@@ -70,52 +73,51 @@ operating  systems, including the use of scheduled (e.g. late night) unattended
 operation.
 
 
-9.1. The Unix File System
+1.1. The Unix File System
 
 Consult your Unix manual for details about the file system under  your  version
-of  Unix.  In general, Unix files generally have lowercase names, possibly con-
-taining one or more dots or other special characters.    Unix  directories  are
-tree-structured.    Directory  levels  are separated by slash ("/") characters.
-For example, 
+of  Unix.  In general, Unix files have lowercase names, possibly containing one
+or more dots or other special characters.   Unix  directories  are  tree-struc-
+tured.  Directory levels are separated by slash ("/") characters.  For example,
 
-  /usr/foo/bar
+    /usr/foo/bar
 
-denotes the file bar in the directory /usr/foo.  Wildcard or "meta"  characters
-allow groups of files to be specified.  "*" matches any string; "?" matches any
-single character.
+denotes the file bar in the directory /usr/foo.  Alphabetic case is significant
+in  Unix  file and directory names, i.e. "a" is a different file (or directory)
+from "A".  Wildcard or "meta" characters allow groups of files to be specified.
+"*" matches any string; "?" matches any single character.
 
-When C-Kermit is invoked with file arguments  specified  on  the  Unix  command
-line,  the  Unix  shell  (Bourne Shell, C-Shell, K-Shell, etc) expands the meta
+When  C-Kermit  is  invoked  with  file arguments specified on the Unix command
+line, the Unix shell (Bourne Shell, C-Shell, K-Shell,  etc)  expands  the  meta
 characters itself, and in this case a wider variety is available.  For example,
 
-  kermit -s ~/ck[uvm]*.{upd,bwr}]
+    kermit -s ~/ck[uvm]*.{upd,bwr}]
 
-is  expanded by the Berkeley C-Shell into a list of all the files in the user's
-home directory (~/) that start with the characters "ck", followed by  a  single
-character  "u", "v", or "m", followed by zero or more characters, followed by a
-dot, followed by one of the strings "upd" or "bwr".  Internally,  the  C-Kermit
+is expanded by the Berkeley C-Shell into a list of all the files in the  user's
+home  directory  (~/) that start with the characters "ck", followed by a single
+character "u", "v", or "m", followed by zero or more characters, followed by  a
+dot,  followed  by one of the strings "upd" or "bwr".  Internally, the C-Kermit
 program itself expands only the "*" and "?" meta characters.
 
-Unix  files are linear (sequential) streams of 8-bit bytes.  Text files consist
+Unix files are linear (sequential) streams of 8-bit bytes.  Text files  consist
 of 7-bit ASCII characters, with the high-order bit off (0), and lines separated
-by  the Unix newline character, which is linefeed (LF, ASCII 10).  This distin-
-guishes Unix text files from those on most other ASCII systems, in which  lines
-are  separated  by a carriage-return linefeed sequence (CRLF, ASCII 13 followed
-by ASCII 10).  Binary files are likely to contain data in the high bits of  the
-file bytes, and have no particular line or record structure.
+by the Unix newline character, which is linefeed (LF, ASCII 10).  This  distin-
+guishes  Unix text files from those on most other ASCII systems, in which lines
+are separated by a carriage-return linefeed sequence (CRLF, ASCII 13,  followed
+by  linefeed,  ASCII  10).  Binary files are likely to contain data in the high
+bits of the file bytes, and have no particular line or record structure.
 
-When  transferring  files,  C-Kermit  will convert between upper and lower case
-filenames and between LF and CRLF line terminators automatically,  unless  told
-to  do  otherwise.   When binary files must be transferred, the program must be
-instructed not to perform LF/CRLF conversion (-i on the command  line  or  "set
+When transferring files, C-Kermit will convert between  upper  and  lower  case
+filenames  and  between LF and CRLF line terminators automatically, unless told
+to do otherwise.  When binary files must be transferred, the  program  must  be
+instructed  not  to  perform LF/CRLF conversion (-i on the command line or "set
 file type binary" interactively; see below).
-
 
 
-9.2. File Transfer
+1.2. File Transfer
 
-If  C-Kermit  is  in  local mode, the screen (stdout) is continously updated to
-show the progress of the file transer.  A dot is printed for  every  four  data
+If C-Kermit is in local mode, the screen (stdout)  is  continously  updated  to
+show  the  progress  of the file transer.  A dot is printed for every four data
 packets, other packets are shown by type:
 
     I Exchange Parameter Information
@@ -137,35 +139,33 @@ You may type certain "interrupt" commands during file transfer:
     Control-R:  Resend the current packet
     Control-A:  Display a status report for the current transaction.
 
-These  interrupt characters differ from the ones used in other Kermit implemen-
-tations to avoid conflict with commonly used Unix shell  interrupt  characters.
-With  Version  7,  System  III, and System V implementations of Unix, interrupt
+These interrupt characters differ from the ones used in other Kermit  implemen-
+tations  to  avoid conflict with commonly used Unix shell interrupt characters.
+With Version 7, System III, and System V  implementations  of  Unix,  interrupt
 commands must be preceeded by the 'connect' escape character (e.g. normally-\).
-Ctrl-F  and  Ctrl-B are effective only during the transfer of data (D) packets,
+Ctrl-F and Ctrl-B are effective only during the transfer of data  (D)  packets,
 and cannot be used to interrupt a transfer that has not yet reached that stage.
 
     CAUTION:  If Control-F or Control-B is used to cancel an incoming file,
-    and  a file of the same name previously existed, and the "file warning"
-    feature is not enabled, then the previous copy of the  file  will  dis-
+    and a file of the same name previously existed, and the "file  warning"
+    feature  is  not  enabled, then the previous copy of the file will dis-
     appear.
 
 EMERGENCY EXIT:  When running Unix Kermit in remote mode, if you have started a
 protocol operation (sending or receiving a file, server command wait, etc), you
-will not be able to regain control of the terminal until the protocol operation
-has run its course (completed or timed out).  In particular,  you  cannot  stop
-the protocol by typing the normal Unix interrupt characters, since the terminal
-has been put in "raw mode".  If you need to regain control quickly --  for  in-
-stance, because the protocol is stuck -- you can type the following sequence of
-four characters directly  to  the  Unix  Kermit  program  ("connect"  first  if
-necessary):  
+will not be able to communicate with the terminal in the normal way.   In  par-
+ticular,  you  cannot  stop  the  protocol  by typing the normal Unix interrupt
+characters, since the terminal has been put in "raw mode".    If  you  need  to
+regain  control  quickly  -- for instance, because the protocol is stuck -- you
+can type two Control-C's directly to the Unix Kermit program  ("connect"  first
+if necessary):  
 
-    Control-A Control-C Control-C Carriage-Return
+    Control-C Control-C
 
 This will cause the program to exit and restore the terminal to normal.
-
 
 
-9.3. Command Line Operation
+1.3. Command Line Operation
 
 The  C-Kermit command line syntax conforms to the Proposed Syntax Standards for
 Unix System Commands put forth by Kathy Hemenway and Helene  Armitage  of  AT&T
@@ -209,28 +209,26 @@ cc      A decimal number between 0 and 31, or else  exactly  127,  representing
 
 {x,y,z} Alternatives are listed in curly braces.
 
-C-Kermit  command  line  options  may  specify  either actions or settings.  If
-C-Kermit is invoked with a command line that specifies no actions, then it will
-issue  a  prompt  and  begin interactive dialog.  Action options specify either
-protocol transactions or terminal connection.
+C-Kermit  command  line options may specify any combination of actions and set-
+tings.  If C-Kermit is invoked with a command line that specifies  no  actions,
+then  it  will  issue  a  prompt  and begin interactive dialog.  Action options
+specify either protocol transactions or terminal connection.
 
 -s fn   Send the specified file or files.    If  fn  contains  wildcard  (meta)
         characters,  the  Unix shell expands it into a list.  If fn is '-' then
-        kermit sends from standard input, which must come from a file:  
+        kermit sends from standard input, which may come from a file:  
 
-          kermit -s - < foo.bar
+            kermit -s - < foo.bar
 
         or a parallel process:  
-
 
-
-          ls -l | grep christin | kermit -s -
+            ls -l | grep christin | kermit -s -
 
         You cannot use this mechanism to send terminal typein.  If you want  to
         send  a  file  whose  actual name is "-" you can precede it with a path
         name, as in 
 
-          kermit -s ./-
+            kermit -s ./-
 
 -r      Receive a file or files.  Wait passively for files to arrive.
 
@@ -250,18 +248,18 @@ protocol transactions or terminal connection.
             Pipes the incoming data (single or multiple files) to the indicated
             command, as in 
 
-              kermit -k | sort > sorted.stuff
+                kermit -k | sort > sorted.stuff
 
 -a fn1  If you have specified a file transfer option, you may give an alternate
         name for a single file with the -a ("as") option.  For example, 
 
-          kermit -s foo -a bar
+            kermit -s foo -a bar
 
         sends  the file foo telling the receiver that its name is bar.  If more
         than one file arrives or is sent, only the first file  is  affected  by
         the -a option:  
 
-          kermit -ra baz
+            kermit -ra baz
 
         stores the first incoming file under the name baz.
 
@@ -275,26 +273,24 @@ sole.   C-Kermit is remote if it is running on a multiuser system and transfer-
 ring files over its own controlling  terminal's  communication  line  (normally
 /dev/tty), connected to your PC or workstation.
 
-If  you  are running C-Kermit on a PC, it is in local mode by default, with the
-"back port" designated for file transfer and terminal connection.  If  you  are
-running  C-Kermit on a multiuser (timesharing) system, it is in remote mode un-
-less you explicitly point it at an external line for file transfer or  terminal
-connection.  The following command sets C-Kermit's "mode":
-
-
+If  you  are  running C-Kermit on a PC, it is normally used in local mode, with
+the "back port" designated for file transfer and terminal connection.   If  you
+are  running C-Kermit on a multiuser (timesharing) system, it is in remote mode
+unless you explicitly point it at an external line for file  transfer  or  ter-
+minal connection.  The following command sets C-Kermit's "mode":
 
 -l dev  Line  --  Specify a terminal line to use for file transfer and terminal
         connection, as in 
 
-          kermit -l /dev/ttyi5
+            kermit -l /dev/ttyi5
 
-When an external line is being used, you might also need  some  additional  op-
-tions for successful communication with the remote system:
+When an external line is being used, you will also need some additional options
+for successful communication with the remote system:
 
 -b n    Baud  --  Specify the baud rate for the line given in the -l option, as
         in 
 
-          kermit -l /dev/ttyi5 -b 9600
+            kermit -l /dev/ttyi5 -b 9600
 
         This option should always be included with the  -l  option,  since  the
         speed of an external line is not necessarily what you expect.
@@ -312,10 +308,14 @@ by default or else because the -l option has been specified.
 
 -g rfn  Actively request a remote server to send the named file or  files;  rfn
         is a file specification in the remote host's own syntax.  If fn happens
-        to contain any special  shell  characters,  like  '*',  these  must  be
-        quoted, as in 
+        to contain any special shell characters, like  space,  '*',  '[',  etc,
+        these must be quoted, as in 
 
-          kermit -g x\*.\?
+            kermit -g x\*.\?
+
+        or 
+
+            kermit -g "profile exec"
 
 -f      Send a 'finish' command to a remote server.
 
@@ -328,8 +328,8 @@ by default or else because the -l option has been specified.
         both  be used in the same command.  The use of -n and -c is illustrated
         below.
 
-On a timesharing system, the -l and -b options will also have  to  be  included
-with the -r, -k, or -s options if the other Kermit is on a remote system.
+If the other Kermit is on a remote system, the -l and -b options should also be
+included with the -r, -k, or -s options.
 
 Several other command-line options are provided:
 
@@ -339,42 +339,47 @@ Several other command-line options are provided:
         Unix Kermit programs), where it will improve performance by circumvent-
         ing  the  normal  text-file conversions, and will allow mixture of text
         and binary files in a single file group.
-
-
 
 -w      Write-Protect -- Avoid filename collisions for incoming files.
 
--q      Quiet -- Suppress screen update during file transfer, for  instance  to
+-e n    Extended packet length -- Specify that C-Kermit is allowed  to  receive
+        packets  up  to length n, where n may be between 10 and some large num-
+        ber, like 1000, depending on the system.  The  default  maximum  length
+        for  received  packets is 90.  Packets longer than 94 will be used only
+        if the other Kermit supports, and agrees  to  use,  the  "long  packet"
+        protocol extension.
+
+-q      Quiet  --  Suppress screen update during file transfer, for instance to
         allow a file transfer to proceed in the background.
 
 -d      Debug -- Record debugging information in the file debug.log in the cur-
-        rent directory.  Use this option if you believe  the  program  is  mis-
-        behaving, and show the resulting log to your local kermit maintainer.
+        rent  directory.    Use  this option if you believe the program is mis-
+        behaving, and show the resulting log to your local Kermit maintainer.
 
 -h      Help -- Display a brief synopsis of the command line options.
 
 The command line may contain no more than one protocol action option.
 
-Files  are  sent with their own names, except that lowercase letters are raised
+Files are sent with their own names, except that lowercase letters  are  raised
 to upper, pathnames are stripped off, certain special characters like (`~') and
-(`#')  are changed to `X', and if the file name begins with a period, an `X' is
-inserted before it.  Incoming files are stored under  their  own  names  except
-that  uppercase  letters  are  lowered, and, if -w was specified, a "generation
-number" is appended to the name if it has the same name  as  an  existing  file
-which  would  otherwise be overwritten.  If the -a option is included, then the
-same rules apply to its argument.  The file transfer display shows  any  trans-
+(`#') are changed to `X', and if the file name begins with a period, an `X'  is
+inserted  before  it.    Incoming files are stored under their own names except
+that uppercase letters are lowered, and, if -w  was  specified,  a  "generation
+number"  is  appended  to  the name if it has the same name as an existing file
+which would otherwise be overwritten.  If the -a option is included,  then  the
+same  rules  apply to its argument.  The file transfer display shows any trans-
 formations performed upon filenames.
 
 During transmission, files are encoded as follows:
 
    - Control characters are converted to prefixed printables.
 
-   - Sequences  of repeated characters are collapsed via repeat counts, if
+   - Sequences of repeated characters are collapsed via repeat counts,  if
      the other Kermit is also capable of repeated-character compression.
 
-   - If parity is being used on the communication  line,  data  characters
-     with  the  8th  (parity)  bit on are specially prefixed, provided the
-     other Kermit is capable of 8th-bit prefixing; if  not,  8-bit  binary
+   - If  parity  is  being used on the communication line, data characters
+     with the 8th (parity) bit on are  specially  prefixed,  provided  the
+     other  Kermit  is  capable of 8th-bit prefixing; if not, 8-bit binary
      files cannot be successfully transferred.
 
    - Conversion is done between Unix newlines and carriage-return-linefeed
@@ -387,25 +392,22 @@ Command Line Examples:
     kermit -l /dev/ttyi5 -b 1200 -cn -r
 
 This command connects you to the system on the other end of ttyi5 at 1200 baud,
-where  you  presumably  log in and run Kermit with a 'send' command.  After you
-escape back, C-Kermit waits for a file (or files) to arrive.    When  the  file
+where you presumably log in and run Kermit with a 'send' command.    After  you
+escape  back,  C-Kermit  waits  for a file (or files) to arrive.  When the file
 transfer is completed, you are reconnected to the remote system so that you can
 logout.
-
-
     kermit -l /dev/ttyi4 -b 1800 -cntp m -r -a foo
 
-This command is like the preceding one, except the remote system in  this  case
-uses  half  duplex communication with mark parity.  The first file that arrives
+This  command  is like the preceding one, except the remote system in this case
+uses half duplex communication with mark parity.  The first file  that  arrives
 is stored under the name foo.
-
 
 
     kermit -l /dev/ttyi6 -b 9600 -c | tek
 
-This example uses Kermit to connect your terminal to the system  at  the  other
+This  example  uses  Kermit to connect your terminal to the system at the other
 end of ttyi6.  The C-Kermit terminal connection does not provide any particular
-terminal  emulation,  so  C-Kermit's  standard   i/o   is   piped   through   a
+terminal   emulation,   so   C-Kermit's   standard   i/o  is  piped  through  a
 (hypothetical) program called tek, which performs (say) Tektronix emulation.
 
 
@@ -418,33 +420,33 @@ is invoked after -f (-c would have been invoked before).
 
     kermit -l /dev/ttyi6 -b 9600 -qg foo.\* &
 
-This  command  causes C-Kermit to be invoked in the background, getting a group
+This command causes C-Kermit to be invoked in the background, getting  a  group
 of files from a remote server (note the quoting of the `*' character).  No dis-
-play  occurs  on  the  screen, and the keyboard is not sampled for interruption
-commands.  This allows other work to be done while file  transfers  proceed  in
+play occurs on the screen, and the keyboard is  not  sampled  for  interruption
+commands.    This  allows other work to be done while file transfers proceed in
 the background.
 
 
     kermit -l /dev/ttyi6 -b 9600 -g foo.\* > foo.log < /dev/null &
 
-This  command  is  like  the previous one, except the file transfer display has
-been redirected to the file foo.log.  Standard input  is  also  redirected,  to
+This command is like the previous one, except the  file  transfer  display  has
+been  redirected  to  the  file foo.log.  Standard input is also redirected, to
 prevent C-Kermit from sampling it for interruption commands.
 
 
     kermit -iwx
 
-This  command  starts  up  C-Kermit as a server.  Files are transmitted with no
+This command starts up C-Kermit as a server.  Files  are  transmitted  with  no
 newline/carriage-return-linefeed conversion; the -i option is necessary for bi-
-nary  file transfer and recommended for Unix-to-Unix transfers.  Incoming files
+nary file transfer and recommended for Unix-to-Unix transfers.  Incoming  files
 that have the same names as existing files are given new, unique names.
 
 
     kermit -l /dev/ttyi6 -b 9600
 
-This command sets the communication  line  and  speed.    Since  no  action  is
-specified,  C-Kermit issues a prompt and enters an interactive dialog with you.
-Any settings given on the command line remain in force during the  dialog,  un-
+This  command  sets  the  communication  line  and  speed.   Since no action is
+specified, C-Kermit issues a prompt and enters an interactive dialog with  you.
+Any  settings  given on the command line remain in force during the dialog, un-
 less explicitly changed.
 
 
@@ -452,72 +454,68 @@ less explicitly changed.
 
 This command starts up Kermit interactively with all default settings.
 
-The  next  example shows how Unix Kermit might be used to send an entire direc-
-tory tree from one Unix system to another, using the tar  program  as  Kermit's
-standard  input and output.  On the orginating system, in this case the remote,
+The next example shows how Unix Kermit might be used to send an  entire  direc-
+tory  tree  from  one Unix system to another, using the tar program as Kermit's
+standard input and output.  On the orginating system, in this case the  remote,
 type (for instance):
-
 
 
     tar cf - /usr/fdc | kermit -is -
 
-This causes tar to send the directory /usr/fdc (and all its files and  all  its
+This  causes  tar to send the directory /usr/fdc (and all its files and all its
 subdirectories and all their files...) to standard output instead of to a tape;
-kermit receives this as standard input and sends it as a binary file.   On  the
+kermit  receives  this as standard input and sends it as a binary file.  On the
 receiving system, in this case the local one, type (for instance):
 
 
     kermit -il /dev/ttyi5 -b 9600 -k | tar xf -
 
-Kermit  receives  the  tar archive, and sends it via standard output to its own
+Kermit receives the tar archive, and sends it via standard output  to  its  own
 copy of tar, which extracts from it a replica of the original directory tree.
 
-A final example shows how a Unix compression utility might be used to speed  up
+A  final example shows how a Unix compression utility might be used to speed up
 Kermit file transfers:
 
-  compress file | kermit -is -     (sender)
-  kermit -ik | uncompress          (receiver)
+    compress file | kermit -is -     (sender)
+    kermit -ik | uncompress          (receiver)
 
 
 Exit Status Codes:
 
-Unix  Kermit  returns  an exit status of zero, except when a fatal error is en-
-countered, where the exit status is set to  one.    With  background  operation
+Unix Kermit returns an exit status of zero, except when a fatal  error  is  en-
+countered,  where  the  exit  status  is set to one.  With background operation
 (e.g., `&' at end of invoking command line) driven by scripted interactive com-
-mands (redirected standard input and/or take  files),  any  failed  interactive
+mands  (redirected  standard  input  and/or take files), any failed interactive
 command (such as failed dial or script attempt) causes the fatal error exit.
 
 
-9.4. Interactive Operation
+1.4. Interactive Operation
 
-C-Kermit's  interactive  command  prompt  is  "C-Kermit>".  In response to this
-prompt, you may type any valid command.  C-Kermit executes the command and then
-prompts  you for another command.  The process continues until you instruct the
-program to terminate.
+C-Kermit's interactive command prompt is "C-Kermit>".    In  response  to  this
+prompt, you may type any valid interactive C-Kermit command.  C-Kermit executes
+the command and then prompts you for another command.   The  process  continues
+until you instruct the program to terminate.
 
-Commands begin with a keyword, normally an English verb, such as "send".    You
-may  omit  trailing  characters  from  any keyword, so long as you specify suf-
-ficient characters to distinguish it from  any  other  keyword  valid  in  that
-field.    Certain commonly-used keywords (such as "send", "receive", "connect")
-also have special non-unique abbreviations ("s" for "send", "r" for  "receive",
+Commands  begin  with a keyword, normally an English verb, such as "send".  You
+may omit trailing characters from any keyword, so  long  as  you  specify  suf-
+ficient  characters  to  distinguish  it  from  any other keyword valid in that
+field.  Certain commonly-used keywords (such as "send",  "receive",  "connect")
+also  have special non-unique abbreviations ("s" for "send", "r" for "receive",
 "c" for "connect").
 
-Certain  characters  have  special  functions during typein of interactive com-
+Certain characters have special functions during  typein  of  interactive  com-
 mands:
 
-    ?   Question mark, typed at any point in a command, will produce a  message
-        explaining  what  is  possible or expected at that point.  Depending on
-        the context, the message may be a brief phrase, a menu of keywords,  or
+    ?   Question  mark, typed at any point in a command, will produce a message
+        explaining what is possible or expected at that point.    Depending  on
+        the  context, the message may be a brief phrase, a menu of keywords, or
         a list of files.
 
-    ESC (The  Escape  or  Altmode  key)  --  Request  completion of the current
-        keyword or filename, or insertion of a default value.  The result  will
+    ESC (The Escape or Altmode  key)  --  Request  completion  of  the  current
+        keyword  or filename, or insertion of a default value.  The result will
         be a beep if the requested operation fails.
 
-    DEL (The  Delete  or  Rubout key) -- Delete the previous character from the
-
-
-
+    DEL (The Delete or Rubout key) -- Delete the previous  character  from  the
         command.  You may also use BS (Backspace, Control-H) for this function.
 
     ^W  (Control-W) -- Erase the rightmost word from the command line.
@@ -529,14 +527,19 @@ mands:
     SP  (Space) -- Delimits fields (keywords, filenames, numbers) within a com-
         mand.  HT (Horizontal Tab) may also be used for this purpose.
 
-    CR  (Carriage  Return)  -- Enters the command for execution.  LF (Linefeed)
+    CR  (Carriage Return) -- Enters the command for execution.   LF  (Linefeed)
         or FF (formfeed) may also be used for this purpose.
 
-    \   (Backslash) -- Enter any of the  above  characters  into  the  command,
-        literally.    To enter a backslash, type two backslashes in a row (\\).
-        A backslash at the end of a command line causes the  next  line  to  be
-        treated  as a continuation line; this is useful for readability in com-
+    \   (Backslash)  --  Enter  any  of  the above characters into the command,
+        literally.  To enter a backslash, type two backslashes in a  row  (\\).
+        A  backslash  at  the  end of a command line causes the next line to be
+        treated as a continuation line; this is useful for readability in  com-
         mand files, especially in the 'script' command.
+
+    ^Z  (Control-Z)  --  On  systems (like Berkeley Unix, Ultrix) with job con-
+        trol, suspend Kermit, i.e. put it into the  background in  such  a  way
+        that  it  can  be  brought  back into the foreground (e.g. with an 'fg'
+        shell command) with all its settings intact.
 
 You may type the editing characters (DEL, ^W, etc) repeatedly,  to  delete  all
 the  way  back to the prompt.  No action will be performed until the command is
@@ -549,18 +552,18 @@ A command line beginning with a percent sign "%" is ignored.  Such lines may be
 used to include illustrative commentary in Kermit command dialogs.
 
 Interactive C-Kermit accepts commands from files as well as from the  keyboard.
-When  you enter interactive dialog, C-Kermit looks for the file .kermrc in your
-home or current directory (first it looks in the home directory,  then  in  the
-current  one) and executes any commands it finds there.  These commands must be
-in interactive format, not Unix command-line format (the initialization file is
-not  processed  if  you  invoke Kermit with command-line action arguments, such
-that it does not enter interactive dialog).  A "take" command is also  provided
-for  use at any time during an interactive session, to allow interactive-format
-commands to be executed from a file; command files may be nested to any reason-
-able depth.
+When you start C-Kermit, the program looks for the file .kermrc in your home or
+current directory (first it looks in the home directory, then  in  the  current
+one)  and  executes any commands it finds there.  These commands must be in in-
+teractive format, not Unix command-line format (the initialization file is  not
+processed if you invoke Kermit with command-line action arguments, such that it
+does not enter interactive dialog).  A "take" command is also provided for  use
+at any time during an interactive session, to allow interactive-format commands
+to be executed from a file; command files  may  be  nested  to  any  reasonable
+depth.
 
 Here is a brief list of C-Kermit interactive commands:
-
+              %  Comment
               !  Execute a Unix shell command, or start a shell.
             bye  Terminate and log out a remote Kermit server.
           close  Close a log file.
@@ -574,9 +577,6 @@ Here is a brief list of C-Kermit interactive commands:
             get  Get files from a remote Kermit server.
            help  Display a help message for a given command.
             log  Open a log file -- debugging, packet, session, transaction.
-
-
-
            quit  Same as 'exit'.
         receive  Passively wait for files to arrive.
          remote  Issue file management commands to a remote Kermit server.
@@ -590,7 +590,6 @@ Here is a brief list of C-Kermit interactive commands:
            take  Execute commands from a file.
 
 The 'set' parameters are:
-
     block-check  Level of packet error detection.
           delay  How long to wait before sending first packet.
          duplex  Specify which side echoes during 'connect'.
@@ -604,73 +603,73 @@ The 'set' parameters are:
          parity  Communication line character parity.
          prompt  The C-Kermit program's interactive command prompt.
         receive  Parameters for inbound packets.
+          retry  Packet retransmission limit.
            send  Parameters for outbound packets.
           speed  Communication line speed.
+       terminal  Terminal parameters.
 
 The 'remote' commands are:
-
             cwd  Change remote working directory.
          delete  Delete remote files.
       directory  Display a listing of remote file names.
            help  Request help from a remote server.
-           host  Issue a command to the remote host in its own command language
+           host  A command to the remote host in its own command language.
           space  Display current disk space usage on remote system.
            type  Display a remote file on your screen.
             who  Display who's logged in, or get information about a user.
 
-Most of these commands are described adequately in the Kermit User Guide.  Spe-
-cial aspects of certain Unix Kermit commands are described below.
+Most of these commands are described adequately in the Kermit User Guide or the
+Kermit book.  Special aspects of certain Unix  Kermit  commands  are  described
+below.
 
 
                               THE 'SEND' COMMAND
 
 Syntax:  send fn  - or -  send fn1 rfn1
 
-Send the file or files denoted by fn to the other Kermit, which should be  run-
+Send  the file or files denoted by fn to the other Kermit, which should be run-
 ning as a server, or which should be given the 'receive' command.  Each file is
-sent under its own name (as described above, or as specified by the  'set  file
-names'  command).  If the second form of the 'send' command is used, i.e.  with
+sent  under  its own name (as described above, or as specified by the 'set file
+names' command).  If the second form of the 'send' command is used, i.e.   with
 fn1 denoting a single Unix file, rfn1 may be specified as a name to send it un-
-der.    The  'send' command may be abbreviated to 's', even though 's' is not a
+der.  The 'send' command may be abbreviated to 's', even though 's'  is  not  a
 unique abbreviation for a top-level C-Kermit command.
-
-
 
 The wildcard (meta) characters `*' and `?' are accepted in fn.  If `?' is to be
 included, it must be prefixed by `\' to override its normal function of provid-
-ing help.  `*' matches any string, `?' matches any  single  character.    Other
-notations  for  file  groups,  like `[a-z]og', are not available in interactive
-commands (though of course they are available on the command line).    When  fn
-contains  `*'  or  `?' characters, there is a limit to the number of files that
-can be matched, which varies from system to system.  If  you  get  the  message
+ing  help.    `*'  matches any string, `?' matches any single character.  Other
+notations for file groups, like `[a-z]og', are  not  available  in  interactive
+commands  (though  of  course they are available on the command line).  When fn
+contains `*' or `?' characters, there is a limit to the number  of  files  that
+can  be  matched,  which  varies from system to system.  If you get the message
 "Too many files match" then you'll have to make a more judicious selection.  If
 fn was of the form 
 
-  usr/longname/anotherlongname/*
+    usr/longname/anotherlongname/*
 
-then C-Kermit's string space will fill up rapidly  --  try  doing  a  cwd  (see
+then  C-Kermit's  string  space  will  fill  up rapidly -- try doing a cwd (see
 below) to the path in question and reissuing the command.
 
-Note  --  C-Kermit sends only from the current or specified directory.  It does
+Note -- C-Kermit sends only from the current or specified directory.   It  does
 not traverse directory trees.  If the source directory contains subdirectories,
-they  will be skipped.  By the same token, C-Kermit does not create directories
-when receiving files.  If you have a need to do this, you can pipe tar  through
-C-Kermit,  as  shown in the example on page 125, or under System III/V Unix you
-can use cpio.
+they will be skipped.  By the same token, C-Kermit does not create  directories
+when  receiving files.  If you have a need to do this, you can pipe tar through
+C-Kermit, as shown in the example on page 3, or under System III/V Unix you can
+use cpio.
 
-Another Note -- C-Kermit does not skip over "invisible" files  that  match  the
-file  specification;  Unix systems usually treat files whose names start with a
-dot (like .login, .cshrc, and .kermrc) as invisible.  Similarly for "temporary"
-files whose names start with "#".
+Another  Note  --  The 'send' command does not skip over "invisible" files that
+match the file specification; Unix systems  usually  treat  files  whose  names
+start  with  a  dot (like .login, .cshrc, and .kermrc) as invisible.  Similarly
+for "temporary" files whose names start with "#".
 
 
                              THE 'RECEIVE' COMMAND
 
 Syntax:  receive  - or -  receive fn1
 
-Passively  wait  for files to arrive from the other Kermit, which must be given
+Passively wait for files to arrive from the other Kermit, which must  be  given
 the 'send' command -- the 'receive' command does not work in conjunction with a
-server  (use  'get'  for  that).  If fn1 is specified, store the first incoming
+server (use 'get' for that).  If fn1 is specified,  store  the  first  incoming
 file under that name.  The 'receive' command may be abbreviated to 'r'.
 
 
@@ -678,44 +677,42 @@ file under that name.  The 'receive' command may be abbreviated to 'r'.
 
 Syntax:  get rfn
 
-      or: get
-              rfn
-              fn1
+        or: get
+                rfn
+                fn1
 
 Request a remote Kermit server to send the named file or files.  Since a remote
-file  specification  (or  list)  might  contain  spaces, which normally delimit
-fields of a C-Kermit command, an alternate form of the command is  provided  to
-allow  the inbound file to be given a new name: type 'get' alone on a line, and
-you will be prompted separately for the remote and local  file  specifications,
+file specification (or list)  might  contain  spaces,  which  normally  delimit
+fields  of  a C-Kermit command, an alternate form of the command is provided to
+allow the inbound file to be given a new name: type 'get' alone on a line,  and
+you  will  be prompted separately for the remote and local file specifications,
 for example
 
-  C-Kermit>get
-   Remote file specification: profile exec
-   Local name to store it under: profile.exec
-
+    C-Kermit>get
+     Remote file specification: profile exec
+     Local name to store it under: profile.exec
 
-
-As  with 'receive', if more than one file arrives as a result of the 'get' com-
-mand, only the first will be stored under the alternate name given by fn1;  the
-remaining  files will be stored under their own names if possible.  If a `?' is
+As with 'receive', if more than one file arrives as a result of the 'get'  com-
+mand,  only the first will be stored under the alternate name given by fn1; the
+remaining files will be stored under their own names if possible.  If a `?'  is
 to be included in the remote file specification, you must prefix it with `\' to
 suppress its normal function of providing help.
 
-If  you  have started a multiline 'get' command, you may escape from its lower-
+If you have started a multiline 'get' command, you may escape from  its  lower-
 level prompts by typing a carriage return in response to the prompt, e.g.
 
-  C-Kermit>get
-   Remote file specification: foo
-   Local name to store it under: (Type a carriage return here)
-  (cancelled)
-  C-Kermit>
+    C-Kermit>get
+     Remote file specification: foo
+     Local name to store it under: (Type a carriage return here)
+    (cancelled)
+    C-Kermit>
 
 
                              THE 'SERVER' COMMAND:
 
 The 'server' command places C-Kermit in "server mode" on the currently selected
-communication  line.   All further commands must arrive as valid Kermit packets
-from the Kermit on the other end of the line.    The  Unix  Kermit  server  can
+communication line.  All further commands must arrive as valid  Kermit  packets
+from  the  Kermit  on  the  other  end of the line.  The Unix Kermit server can
 respond to the following commands:
 
 Command                Server Response
@@ -732,9 +729,10 @@ Command                Server Response
   remote host            Executes a Unix shell command
   remote help            Lists these capabilities
 
-Note  that  the  Unix Kermit server cannot always respond to a BYE command.  It
-will attempt to do so using "kill()", but this will not work on all systems  or
-under all conditions.
+The Unix Kermit server cannot always respond properly to a  BYE  command.    It
+will  attempt to do so using "kill()", but this will not work on all systems or
+under all conditions because of the complicated process structures that can  be
+set up under Unix.
 
 If  the  Kermit  server  is  directed at an external line (i.e. it is in "local
 mode") then the console may be used for other work if you have 'set  file  dis-
@@ -749,7 +747,6 @@ including "-q", and with a terminating "&".
 When  the  Unix  Kermit server is given a 'remote host' command, it executes it
 using the shell invoked upon login, e.g.  the  Bourne  shell  or  the  Berkeley
 C-Shell.
-
 
 
                   THE 'REMOTE', 'BYE', AND 'FINISH' COMMANDS:
@@ -761,7 +758,8 @@ Kermit server:
     remote cwd [directory]
         If the optional remote directory specification is included, you will be
         prompted  on a separate line for a password, which will not echo as you
-        type it.
+        type it.  If the remote system does not require  a  password  for  this
+        operation, just type a carriage return.
 
     remote delete rfn       delete remote file or files.
     remote directory [rfn]  directory listing of remote files.
@@ -772,9 +770,9 @@ Kermit server:
     remote help             display remote server's capabilities.
 
     bye and finish:
-        When  connected  to  a  remote  Kermit server, these commands cause the
-        remote server to terminate; 'finish' returns it  to  Kermit  or  system
-        command  level  (depending on the implementation or how the program was
+        When connected to a remote Kermit  server,  these  commands  cause  the
+        remote  server  to  terminate;  'finish' returns it to Kermit or system
+        command level (depending on the implementation or how the  program  was
         invoked); 'bye' also requests it to log itself out.
 
 
@@ -782,153 +780,151 @@ Kermit server:
 
 Syntax: log {debugging, packets, session, transactions} [ fn1 ]
 
-C-Kermit's progress may be logged in various ways.  The 'log' command  opens  a
-log,  the  'close' command closes it.  In addition, all open logs are closed by
+C-Kermit's  progress  may be logged in various ways.  The 'log' command opens a
+log, the 'close' command closes it.  In addition, all open logs are  closed  by
 the 'exit' and 'quit' commands.  A name may be specified for a log file; if the
 name is omitted, the file is created with a default name as shown below.
 
 log debugging
     This produces a voluminous log of the internal workings of C-Kermit, of use
-    to  Kermit developers or maintainers in tracking down suspected bugs in the
-    C-Kermit program.  Use of this feature dramatically slows down  the  Kermit
+    to Kermit developers or maintainers in tracking down suspected bugs in  the
+    C-Kermit  program.   Use of this feature dramatically slows down the Kermit
     protocol.  Default name: debug.log.
 
 log packets
-    This produces a record of all the packets that go in and out  of  the  com-
+    This  produces  a  record of all the packets that go in and out of the com-
     munication port.  This log is of use to Kermit maintainers who are tracking
-    down protocol problems in either C-Kermit or any Kermit  that  C-Kermit  is
+    down  protocol  problems  in either C-Kermit or any Kermit that C-Kermit is
     connected to.  Default name:  packet.log.
 
 log session
-    This log will contain a copy of everything you see on  your  screen  during
-    the  'connect' command, except for local messages or interaction with local
+    This  log  will  contain a copy of everything you see on your screen during
+    the 'connect' command, except for local messages or interaction with  local
     escape commands.  Default name:  session.log.
 
 log transactions
     The transaction log is a record of all the files that were sent or received
-    while transaction logging was in effect.    It  includes  time  stamps  and
-    statistics,  filename  transformations,  and records of any errors that may
-
-
-
+    while  transaction  logging  was  in  effect.   It includes time stamps and
+    statistics, filename transformations, and records of any  errors  that  may
     have occurred.  The transaction log allows you to have long unattended file
-    transfer  sessions  without  fear  of  missing  some  vital screen message.
+    transfer sessions without  fear  of  missing  some  vital  screen  message.
     Default name:  transact.log.
 
 The 'close' command explicitly closes a log, e.g. 'close debug'.
 
-Note:  Debug and Transaction logs are a compile-time option;  C-Kermit  may  be
-compiled  without these logs, in which case it will run faster, it will take up
+Note:    Debug  and Transaction logs are a compile-time option; C-Kermit may be
+compiled without these logs, in which case it will run faster, it will take  up
 less space on the disk, and the commands relating to them will not be present.
 
 
                         LOCAL FILE MANAGEMENT COMMANDS:
 
-Unix Kermit allows some degree of local file management from  interactive  com-
+Unix  Kermit  allows some degree of local file management from interactive com-
 mand level:
 
 directory [fn]
-    Displays a listing of the names, modes, sizes, and dates of files  matching
+    Displays  a listing of the names, modes, sizes, and dates of files matching
     fn (which defaults to `*').  Equivalent to `ls -l'.
 
 cwd [directory-name]
-    Changes Kermit's working directory to the one  given,  or  to  the  default
-    directory  if the directory name is omitted.  This command affects only the
+    Changes  Kermit's  working  directory  to  the one given, or to the default
+    directory if the directory name is omitted.  This command affects only  the
     Kermit process and any processes it may subsequently create.
 
 space
-    Display  information about disk space and/or quota in the current directory
+    Display information about disk space and/or quota in the current  directory
     and device.
 
 ! [command]
-    The  command  is  executed  by the Unix shell.  If no command is specified,
-    then an interactive shell is started;  exiting  from  the  shell,  e.g.  by
+    The command is executed by the Unix shell.  If  no  command  is  specified,
+    then  an  interactive  shell  is  started;  exiting from the shell, e.g. by
     typing Control-D or 'exit', will return you to C-Kermit command level.  Use
-    the `!' command to provide file  management  or  other  functions  not  ex-
-    plicitly  provided  by  C-Kermit  commands.    The  `!' command has certain
+    the  `!'  command  to  provide  file  management or other functions not ex-
+    plicitly provided by C-Kermit  commands.    The  `!'  command  has  certain
     peculiarities:
 
        - C-Kermit attempts to use your preferred, customary (login) shell.
        - At least one space must separate the '!' from the shell command.
-       - A 'cd' (change directory) command executed in  this  manner  will
+       - A  'cd'  (change  directory) command executed in this manner will
          have no effect -- use the C-Kermit 'cwd' command instead.
 
 
                         THE 'SET' AND 'SHOW' COMMANDS:
 
-Since  Kermit  is designed to allow diverse systems to communicate, it is often
-necessary to issue special instructions  to  allow  the  program  to  adapt  to
-peculiarities  of the another system or the communication path.  These instruc-
+Since Kermit is designed to allow diverse systems to communicate, it  is  often
+necessary  to  issue  special  instructions  to  allow  the program to adapt to
+peculiarities of the another system or the communication path.  These  instruc-
 tions are accomplished by the 'set' command.  The 'show' command may be used to
-display  current  settings.   Here is a brief synopsis of settings available in
+display current settings.  Here is a brief synopsis of  settings  available  in
 the current release of C-Kermit:
 
 block-check {1, 2, 3}
-    Determines  the  level  of  per-packet  error  detection.  "1" is a single-
-    character 6-bit checksum, folded to include the values  of  all  bits  from
-    each  character.    "2"  is  a  2-character,  12-bit  checksum.    "3" is a
-
-
-
-    3-character, 16-bit cyclic redundancy check (CRC).  The  higher  the  block
-    check,  the  better  the  error detection and correction and the higher the
-    resulting overhead.  Type 1 is most commonly used; it is supported  by  all
-    Kermit  implementations,  and it has proven adequate in most circumstances.
-    Types 2 or 3 would be used to  advantage  when  transferring  8-bit  binary
+    Determines the level of per-packet error  detection.    "1"  is  a  single-
+    character  6-bit  checksum,  folded  to include the values of all bits from
+    each character.   "2"  is  a  2-character,  12-bit  checksum.    "3"  is  a
+    3-character,  16-bit  cyclic  redundancy check (CRC).  The higher the block
+    check, the better the error detection and correction  and  the  higher  the
+    resulting  overhead.   Type 1 is most commonly used; it is supported by all
+    Kermit implementations, and it has proven adequate in  most  circumstances.
+    Types  2  or  3  would  be used to advantage when transferring 8-bit binary
     files over noisy lines.
 
 delay n
-    How many seconds to wait before sending the first  packet  after  a  'send'
+    How  many  seconds  to  wait before sending the first packet after a 'send'
     command.  Used in remote mode to give you time to escape back to your local
     Kermit and issue a 'receive' command.  Normally 5 seconds.
 
 duplex {full, half}
-    For  use  during  'connect'.    Specifies  which side is doing the echoing;
+    For use during 'connect'.  Specifies  which  side  is  doing  the  echoing;
     'full' means the other side, 'half' means C-Kermit must echo typein itself.
 
 escape-character cc
     For use during 'connect' to get C-Kermit's attention.  The escape character
-    acts as a prefix to an 'escape command', for instance to close the  connec-
-    tion  and  return  to  C-Kermit  or  Unix command level.  The normal escape
-    character is Control-Backslash (28).  The escape character is also used  in
-    System  III/V  implementations  to  prefix  interrupt  commands during file
+    acts  as a prefix to an 'escape command', for instance to close the connec-
+    tion and return to C-Kermit or Unix  command  level.    The  normal  escape
+    character  is Control-Backslash (28).  The escape character is also used in
+    System III/V implementations  to  prefix  interrupt  commands  during  file
     transfers.
 
 file {display, names, type, warning}
     Establish various file-related parameters:
 
     display {on, off}
-        Normally 'on'; when in local mode, display progress of  file  transfers
-        on  the  screen (stdout), and listen to the keyboard (stdin) for inter-
-        ruptions.  If off (-q on command line) none of this is  done,  and  the
+        Normally  'on';  when in local mode, display progress of file transfers
+        on the screen (stdout), and listen to the keyboard (stdin)  for  inter-
+        ruptions.    If  off (-q on command line) none of this is done, and the
         file transfer may proceed in the background oblivious to any other work
         concurrently done at the console terminal.
 
     names {converted, literal}
-        Normally  converted,  which  means  that  outbound  filenames have path
-        specifications stripped, lowercase letters raised to upper, tildes  and
-        extra  periods  changed  to X's, and an X inserted in front of any name
-        that starts  with  period.    Incoming  files  have  uppercase  letters
+        Normally converted, which  means  that  outbound  filenames  have  path
+        specifications  stripped, lowercase letters raised to upper, tildes and
+        extra periods changed to X's, and an X inserted in front  of  any  name
+        that  starts  with  period.    Incoming  files  have  uppercase letters
         lowered.  Literal means that none of these conversions are done; there-
-        fore, any directory path appearing in  a  received  file  specification
+        fore,  any  directory  path  appearing in a received file specification
         must exist and be write-accessible.  When literal naming is being used,
-        the sender should not use path names in the file  specification  unless
+        the  sender  should not use path names in the file specification unless
         the same path exists on the target system and is writable.
 
-    type {binary, text}
-        Normally text, which means that conversion is done between Unix newline
-        characters  and  the carriage-return/linefeed sequences required by the
-        canonical Kermit file transmission format, and in common  use  on  non-
-        Unix  systems.   Binary means to transmit file contents without conver-
-        sion.  Binary (`-i' in command line notation) is necessary  for  binary
-        files,  and  desirable  in all Unix-to-Unix transactions to cut down on
-        overhead.
+    type {binary, text} [{7, 8}]
+        The file type is normally text, which means that conversion is done be-
+        tween Unix newline  characters  and  the  carriage-return/linefeed  se-
+        quences  required by the canonical Kermit file transmission format, and
+        in common use on non-Unix systems.  Binary means to transmit file  con-
+        tents  without  conversion.   Binary (`-i' in command line notation) is
+        necessary for binary files, and desirable in  all  Unix-to-Unix  trans-
+        actions to cut down on overhead.
+
+        The  optional  trailing parameter tells the bytesize for file transfer.
+        It is 8 by default.  If you specify 7,  the  high  order  bit  will  be
+        stripped from each byte of sent and received files.  This is useful for
+        transferring text files that may have extraneous high order bits set in
+        their  disk  representation  (e.g.   Wordstar or similar word processor
+        files).
 
     warning {on, off}
         Normally  off,  which means that incoming files will silently overwrite
-
-
-
         existing files of the same name.  When on (`-w' on command line) Kermit
         will check if an arriving file would overwrite an existing file; if so,
         it will construct a new name for the arriving file, of the form  foo~n,
@@ -985,9 +981,6 @@ modem-dialer {direct, hayes, racalvadic, ventel, ...}
     The type of modem dialer on the communication line.  "Direct" indicates ei-
     ther there is no dialout modem, or that if the line requires carrier detec-
     tion  to  open,  then  'set  line'  will hang waiting for an incoming call.
-
-
-
     "Hayes", "Ventel", and the others indicate  that  'set  line'  (or  the  -l
     argument)  will  prepare  for  a  subsequent  'dial'  command for the given
     dialer.  Support for new dialers is added from time to time, so  type  'set
@@ -1026,7 +1019,7 @@ send parameter
         higher  the  overhead,  but the lower the chance of a packet being cor-
         rupted by noise, and the less time  to  retransmit  corrupted  packets.
         This  command  overrides the value requested by the other Kermit during
-        protocol initiation.
+        protocol initiation unless the other Kermit requests a shorter length.
 
     pad-character cc
         Designate  a  character  to send before each packet.  Normally, none is
@@ -1044,9 +1037,6 @@ send parameter
         The  normal Kermit packet prefix is Control-A (1); this command changes
         the prefix C-Kermit puts on outbound packets.  The  only  reasons  this
         should  ever be changed would be: Some piece of equipment somewhere be-
-
-
-
         tween the two Kermit programs will not pass through  a  Control-A;  or,
         some  piece  of of equipment similarly placed is echoing its input.  In
         the latter case, the recipient of such an echo can  change  the  packet
@@ -1068,7 +1058,13 @@ receive parameter
 
     packet-length n
         Specify the maximum packet length to that you want the other Kermit  to
-        send.  Normally 90.
+        send,  normally  90.  If you specify a length of 95 or greater, then it
+        will be used if the other Kermit supports, and agrees to use, the  Ker-
+        mit  protocol  extension  for  long packets.  In this case, the maximum
+        length depends upon the systems involved, but there would  normally  be
+        no  reason for packets to be more than about 1000 characters in length.
+        The 'show parameters' command displays C-Kermit's current  and  maximum
+        packet lengths.
 
     pad-character cc
         C-Kermit normally does not need to have incoming packets preceded  with
@@ -1096,7 +1092,10 @@ speed {0, 110, 150, 300, 600, 1200, 1800, 2400, 4800, 9600}
     are set up in such a way that you must give this command after a 'set line'
     command  before  you  can  use  the line.  'set baud' is a synomym for 'set
     speed'.
-
+
+terminal
+    Used for specifying terminal parameters.  Currently, 'bytesize' is the only
+    parameter provided, and it can be set to 7 or 8.  It's 7 by default.
 
 
                               THE 'SHOW' COMMAND:
@@ -1125,18 +1124,33 @@ Syntax: take fn1
 
 The  'take' command instructs C-Kermit to execute commands from the named file.
 The file may contain any interactive C-Kermit commands, including 'take';  com-
-mand  files  may  be nested to any reasonable depth.  The 'echo' command may be
-used within command files to issue greetings, announce progress, ring the  ter-
-minal bell, etc.
+mand  files  may be nested to any reasonable depth, but it may not contain text
+to be sent to a remote system during the 'connect' command.  This means that  a
+command file like this:
 
-The  'echo'  command should not be confused with the Unix 'echo' command, which
-can be used to show how meta characters would be expanded.    The  Kermit  echo
-command  simply  displays its text argument (almost) literally at the terminal;
-the argument may contain octal escapes of the form "\ooo", where o is an  octal
-digit  (0-7),  and  there may be 1, 2, or 3 such digits, whose value specify an
-ASCII character, such as "\007" (or "\07" or just "\7") for  beep,  "\012"  for
-newline, etc.  Of course, each backslash must be must be entered twice in order
-for it to be passed along to the echo command by the Kermit command parser.
+    set line /dev/tty17
+    set speed 9600
+    connect
+    login myuserid
+    mypassword
+    etc
+
+will  not  send "login myserid" or any of the following text to the remote sys-
+tem.  To carry on a canned dialog, use the 'script' command, described later.
+
+The '%' command is useful for including comments in take-command files.  It may
+only be used at the beginning of a line.
+
+The  'echo'  command  may  be used within command files to issue greetings, an-
+nounce progress, ring the terminal bell, etc.  The 'echo' command should not be
+confused  with  the  Unix  'echo'  command,  which can be used to show how meta
+characters would be expanded.  The Kermit echo command simply displays its text
+argument (almost) literally at the terminal; the argument may contain octal es-
+capes of the form "\ooo", where o is an octal digit (0-7), and there may be  1,
+2, or 3 such digits, whose value specify an ASCII character, such as "\007" (or
+"\07" or just "\7") for beep, "\012" for newline, etc.  Of course,  each  back-
+slash  must  be must be entered twice in order for it to be passed along to the
+echo command by the Kermit command parser.
 
 Take-command files are in exactly the  same  syntax  as  interactive  commands.
 Note  that  this  implies  that  if you want to include special characters like
@@ -1150,89 +1164,86 @@ mented in this version of C-Kermit.  For instance, if you commonly connect to a
 system  called  'B' that is connected to ttyh7 at 4800 baud, you could create a
 file called b containing the commands
 
-  % C-Kermit command file to connect to System B thru /dev/ttyh7
-  set line /dev/ttyh7
-  set speed 4800
-  % Beep and give message
-  echo \\007Connecting to System B...
-
-
-
-  connect
+    % C-Kermit command file to connect to System B thru /dev/ttyh7
+    set line /dev/ttyh7
+    set speed 4800
+    % Beep and give message
+    echo \\007Connecting to System B...
+    connect
 
 and then simply type 'take b' (or 't b' since no other commands begin with  the
 letter  't')  whenever  you wish to connect to system B. Note the comment lines
 and the beep inserted into the 'echo' command.
 
 For connecting to IBM mainframes, a number  of  'set'  commands  are  required;
-these, too, are conveniently collected into a 'take' file like this one:
+these, too, can be conveniently collected into a 'take' file like this one:
 
-  % Sample C-Kermit command file to set up current line
-  % for IBM mainframe communication
-  %
-  set parity mark
-  set handshake xon
-  set flow-control none
-  set duplex half
+    % Sample C-Kermit command file to set up current line
+    % for IBM mainframe communication
+    %
+    set parity mark
+    set handshake xon
+    set flow-control none
+    set duplex half
 
 Note  that no single command is available to wipe out all of these settings and
 return C-Kermit to its default startup state; to do that, you can  either  res-
 tart the program, or else make a command file that executes the necessary 'set'
 commands:
 
-  % Sample C-Kermit command file to restore normal settings
-  %
-  set parity none
-  set handshake none
-  set flow-control xon/xoff
-  set duplex full
+    % Sample C-Kermit command file to restore normal settings
+    %
+    set parity none
+    set handshake none
+    set flow-control xon/xoff
+    set duplex full
 
-An implicit 'take' command is executed upon your .kermrc file  upon  C-Kermit's
-initial  entry  into interactive dialog.  The .kermrc file should contain 'set'
-or other commands you want to be in effect at all times.    For  instance,  you
-might  want override the default action when incoming files have the same names
-as existing files -- in that case, put the command 
+An implicit 'take' command is executed upon your  .kermrc  file  when  C-Kermit
+starts  up,  upon  either  interactive or command-line invocation.  The .kermrc
+file should contain 'set' or other commands you want to be  in  effect  at  all
+times.   For instance, you might want override the default action when incoming
+files have the same names as existing files -- in that case, put the command 
 
-  set file warning on
+    set file warning on
 
-in your .kermrc file.  On some non-Unix systems that run  C-Kermit,  this  file
-might have a different name, such as kermit.ini.
+in your .kermrc file.  On some non-Unix systems  that  run  C-Kermit,  the  in-
+itialization file might have a different name, such as kermit.ini.
 
-    NOTE:  The  initialization file is currently not processed if Kermit is
-    invoked with an action command from the command line.  The same  effect
-    can  be achieved, however, by defining an alias or shell procedure that
-    starts up Kermit with the desired command line options.
-
-Commands executed from take files are not echoed at the terminal.  If you  want
-to see the commands as well as their output, you could feed the command file to
-C-Kermit via redirected stdin, as in 
-
-  'kermit < cmdfile'
-
-Errors encountered during execution of take files (such as failure to  complete
-dial  or script operations) cause termination of the current take file, popping
-to the level that invoked it (take file,  interactive  level,  or  the  shell).
-When  kermit  is  executed in the background, errors during execution of a take
+Errors  encountered during execution of take files (such as failure to complete
+dial or script operations) cause termination of the current take file,  popping
+to  the  level  that  invoked  it (take file, interactive level, or the shell).
+When kermit is executed in the background, errors during execution  of  a  take
 file are fatal.
-
+
+Under  Unix,  you  may  also  use  the  shell's  redirection mechanism to cause
+C-Kermit to execute commands from a file:  
+
+    kermit < cmdfile
+
+or you can even pipe commands in from another process:  
+
+    cmdprocess | kermit
 
 
                             THE 'CONNECT' COMMAND:
 
-The connect command links your terminal to another computer as if it were a lo-
-cal  terminal to that computer, through the device specified in the most recent
-'set line' command, or through the default device if your system  is  a  PC  or
-workstation.    All  characters you type at your keyboard are sent out the com-
-munication line, all characters arriving at the  communication  port  are  dis-
-played  on  your  screen.  Current settings of speed, parity, duplex, and flow-
-control are honored.  If you have issued a 'log  session'  command,  everything
-you  see  on  your  screen  will  also  be  recorded to your session log.  This
-provides a way to "capture" files from systems that don't have Kermit  programs
+The 'connect'  command  ('c'  is  an  acceptable  non-unique  abbreviation  for
+'connect')  links  your terminal to another computer as if it were a local ter-
+minal to that computer, through the device specified in the  most  recent  'set
+line' command, or through the default device if your system is a PC or worksta-
+tion.  All characters you type at your keyboard are sent out the  communication
+line  (and  if  you have 'set duplex half', also displayed on your screen), and
+all characters arriving at the communication port are displayed on the  screen.
+Current  settings  of  speed, parity, duplex, and flow-control are honored, and
+the data connection is 7 bits wide unless you have given the command 'set  ter-
+minal  bytesize 8'.  If you have issued a 'log session' command, everything you
+see on your screen will also be recorded to your session log.  This provides  a
+way  to  "capture"  files  from  remote systems that don't have Kermit programs
 available.
 
-To  get  back  to your own system, you must type the escape character, which is
-Control-Backslash (^\) unless you have changed it with the  'set  escape'  com-
-mand,   followed  by  a  single-character  command,  such  as  'c'  for  "close
+To get back to your own system, you must type the escape  character,  which  is
+Control-Backslash  (^\)  unless  you have changed it with the 'set escape' com-
+mand,  followed  by  a  single-character  command,  such  as  'c'  for   "close
 connection".  Single-character commands include:
 
   c     Close the connection
@@ -1240,43 +1251,41 @@ connection".  Single-character commands include:
   0     (zero) send a null
   s     Give a status report about the connection
   h     Hangup the phone
-  ^\    Send Control-Backslash itself (whatever you  have  defined  the  escape
+  ^\    Send  Control-Backslash  itself  (whatever  you have defined the escape
         character to be, typed twice in a row sends one copy of it).
 
-Uppercase and control equivalents for these letters are also accepted.  A space
-typed after the escape character is ignored.  Any other character will  produce
-a beep.
+Uppercase and control equivalents for (most of)  these  letters  are  also  ac-
+cepted.    A  space  typed  after  the  escape character is ignored.  Any other
+character will produce a beep.
 
-The  connect  command simply displays incoming characters on the screen.  It is
-assumed any screen control sequences sent by the host will be  handled  by  the
-firmware  in  your  terminal or PC.  If terminal emulation is desired, then the
-connect command can invoked from the  Unix  command  line  (-c  or  -n),  piped
-through a terminal emulation filter, e.g.  
+The connect command simply displays incoming characters on the screen.   It  is
+assumed  any  screen  control sequences sent by the host will be handled by the
+firmware or emulation software in your terminal or PC.    If  special  terminal
+emulation is desired, then the 'connect' command can invoked from the Unix com-
+mand line (-c or -n), piped through a terminal emulation filter, e.g.  
 
-  kermit -l /dev/acu -b 1200 -c | tek
-
-'c' is an acceptable non-unique abbreviation for 'connect'.
+    kermit -l /dev/acu -b 1200 -c | tek
 
 
                               THE 'DIAL' COMMAND:
 
 Syntax: dial telephone-number-string
 
-This  command  controls  dialout  modems; you should have already issued a "set
-line" and "set speed" command to identify  the  terminal  device,  and  a  "set
-modem"  command  to  identify the type of modem to be used for dialing.  In the
-"dial" command, you supply the phone number and the Kermit program feeds it  to
+This command controls dialout modems; you should have  already  issued  a  "set
+line"  and  "set  speed"  command  to  identify the terminal device, and a "set
+modem" command to identify the type of modem to be used for dialing.    In  the
+"dial"  command, you supply the phone number and the Kermit program feeds it to
 the modem in the appropriate format and then interprets dialer return codes and
-modem signals to inform you whether the call was  completed.    The  telephone-
-number-string  may  contain  imbedded  modem-dialer commands, such as comma for
-Hayes pause, or `&' for Ventel dialtone wait and `%' for Ventel pause  (consult
+modem  signals  to  inform  you whether the call was completed.  The telephone-
+number-string may contain imbedded modem-dialer commands,  such  as  comma  for
+Hayes  pause, or `&' for Ventel dialtone wait and `%' for Ventel pause (consult
 your modem manual for details).
 
 At the time of this writing, support is included for the following modems:
-
 
-
+   - AT&T 7300 Internal Modem
    - Cermetek Info-Mate 212A
+   - Concord Condor CDS 220
    - DEC DF03-AC
    - DEC DF100 Series
    - DEC DF200 Series
@@ -1290,73 +1299,73 @@ At the time of this writing, support is included for the following modems:
 Support for new modems is added to the program from time to time; you can check
 the current list by typing "set modem ?".
 
-The device used for dialing out is the one selected in  the  most  recent  "set
-line"  command  (or on a workstation, the default line if no "set line" command
-was given).  The "dial" command calls locks the path (see the section  on  line
-locking  below) and establishes a call on an exclusive basis.  If it is desired
-to dial a call and then return to the shell (such as to  do  kermit  activities
-depending  on standard in/out redirection), it is necessary to place the dialed
-call under one device name (say, "/dev/cua0") and  then  escape  to  the  shell
-within  Kermit  on a linked device which is separate from the dialed line (say,
-"/dev/cul0").  This is the same technique used by uucp (to allow  locks  to  be
+The  device  used  for  dialing out is the one selected in the most recent "set
+line" command (or on a workstation, the default line if no "set  line"  command
+was  given).   The "dial" command calls locks the path (see the section on line
+locking below) and establishes a call on an exclusive basis.  If it is  desired
+to  dial  a  call and then return to the shell (such as to do kermit activities
+depending on standard in/out redirection), it is necessary to place the  dialed
+call  under  one  device  name  (say, "/dev/cua0") and then escape to the shell
+within Kermit on a linked device which is separate from the dialed  line  (say,
+"/dev/cul0").    This  is the same technique used by uucp (to allow locks to be
 placed separately for dialing and conversing).
 
-Because  modem  dialers have strict requirements to override the carrier-detect
+Because modem dialers have strict requirements to override  the  carrier-detect
 signal most Unix implementations expect, the sequence for dialing is more rigid
 than most other C-Kermit procedures.
 
 Example one:
 
-  kermit -l /dev/cul0 -b 1200
-  C-Kermit>set modem-dialer hayes    hint: abbreviate set m h
-  C-Kermit>dial 9,5551212
-  Connected!
-  C-Kermit>connect                   hint: abbreviate c
-  logon, request remote server, etc.
-  ^\c                                escape back
-  C-Kermit> ...
-  C-Kermit>quit                      hint: abbreviate q
+    kermit -l /dev/cul0 -b 1200
+    C-Kermit>set modem-dialer hayes    hint: abbreviate set m h
+    C-Kermit>dial 9,5551212
+    Connected!
+    C-Kermit>connect                   hint: abbreviate c
+    logon, request remote server, etc.
+    ^\c                                escape back
+    C-Kermit> ...
+    C-Kermit>quit                      hint: abbreviate q
 
 this disconnects modem, and unlocks line.
 
 Example two:
 
-  kermit
-  C-Kermit>set modem-dialer ventel
-  C-Kermit>set line /dev/cul0
-  C-Kermit>dial 9&5551212%
-  Connected!
-  C-Kermit> ...
+    kermit
+    C-Kermit>set modem-dialer ventel
+    C-Kermit>set line /dev/cul0
+    C-Kermit>dial 9&5551212%
+    Connected!
+    C-Kermit> ...
 
 Example three:
 
-  kermit
-  C-Kermit>take my-dial-procedure
-
+    kermit
+    C-Kermit>take my-dial-procedure
+    Connected!
 
+    file my-dial-procedure:
+    set modem hayes
+    set line /dev/tty99
+    dial 5551212
+    connect
 
-  Connected!
+In general, C-Kermit requires that the modem provide the "carrier detect"  (CD)
+signal  when  a  call is in progress, and remove that signal when the call com-
+pletes or the line drops.  If a modem switch setting is available to force  CD,
+it  should  normally  not  be in that setting.  C-Kermit also requires (on most
+systems) that the modem track the computer's "data terminal ready"  (DTR)  sig-
+nal.    If  a  switch  setting is available to simulate DTR asserted within the
+modem, then it should normally not be in that setting.    Otherwise  the  modem
+will  be unable to hang up at the end of a call or when interrupts are received
+by Kermit.
 
-  file my-dial-procedure:
-  set modem hayes
-  set line /dev/tty99
-  dial 5551212
-  connect
-
-For  Hayes  dialers, two important switch settings are #1 and #6.  #1 should be
-up so that the DTR is only asserted when the line is 'open'.  #6 should  be  up
-so carrier-detect functions properly.  Switches #2 (English versus digit result
-codes) and #4 (Hayes echoes modem commands) may be in either position.
-
-For any dialers in general, this Kermit program requires that the modem provide
-the  "carrier detect" signal when a call is in progress, and remove that signal
-when the call completes or the line drops.  If a switch setting is available to
-force  carrier detect, it should not be in that setting.  Secondly, this Kermit
-program requires that the modem track the computer's "data terminal ready" sig-
-nal  (DTR).    If a switch setting is available to simulate DTR asserted within
-the modem, then it should not be in that setting.  Otherwise the modem will  be
-unable  to hang up at the end of a call or when interrupts are received by Ker-
-mit.
+For Hayes  dialers, two important switch settings are #1 and  #6.    Switch  #1
+should be normally be UP so that the modem can act according to your computer's
+DTR signal.  But if your computer, or particular implementation of Kermit, can-
+not control DTR, then switch 1 should be DOWN.  Switch #6 should normally be UP
+so carrier-detect functions properly (but put it DOWN if you have trouble  with
+the  UP  position).    Switches  #2  (English versus digit result codes) and #4
+(Hayes echoes modem commands) may be in either position.
 
 If you want to interrupt a dial command in progress (for instance, because  you
 just  realize  that you gave it the wrong number), type a Control-C to get back
@@ -1369,19 +1378,21 @@ Syntax: script expect send [expect send] . . .
 
 "expect" has the syntax: expect[-send-expect[-send-expect[...]]]
 
-This command facilitates logging into a remote system and/or invoking  programs
-or other facilities after login on a remote system.
+The 'script' command carries on a "canned dialog"  with  a  remote  system,  in
+which data is sent according to the remote system's responses.  The typical use
+is for logging in to a remote system automatically.
 
-This  login  script facility operates in a manner similar to that commonly used
-by the Unix uucp System's "L.sys" file entries.  A login script is  a  sequence
+C-Kermit's script facility operates in a manner similar to that  commonly  used
+by  the  Unix UUCP system's "L.sys" file entries.  A login script is a sequence
 of the form:  
 
-  expect send [expect send] . . .
+    expect send [expect send] . . .
 
-where  expect  is a prompt or message to be issued by the remote site, and send
-is the string (names, numbers, etc) to return.    The  send  may  also  be  the
-keyword  EOT,  to send Control-D, or BREAK, to send a break signal.  Letters in
-send may be prefixed by `~' to send special characters.  These are:
+where expect is a prompt or message to be issued by the remote site,  and  send
+is  the  string (names, numbers, etc) to return, and expects are separated from
+sends by spaces.  The send may also be the keyword EOT, to send  Control-D,  or
+BREAK, to send a break signal.  Letters in sends may be prefixed by `~' to send
+special characters, including:
 
     ~b  backspace
     ~s  space
@@ -1391,9 +1402,6 @@ send may be prefixed by `~' to send special characters.  These are:
     ~t  tab
     ~'  single quote
     ~~  tilde
-
-
-
     ~"  double quote
     ~x  XON (Control-Q)
     ~c  don't append a carriage return
@@ -1401,100 +1409,98 @@ send may be prefixed by `~' to send special characters.  These are:
     ~d  delay approx 1/3 second during send
     ~w[d[d]]  wait specified interval during expect, then time out
 
-As with some uucp systems, sent strings are followed by ~r unless they  have  a
+As with some UUCP systems, sent strings are followed by ~r unless they  have  a
 ~c.
 
 Only  the last 7 characters in each expect are matched.  A null expect, e.g. ~0
 or two adjacent dashes, causes a short delay before proceeding to the next send
 sequence.  A null expect always succeeds.
 
-As  with  uucp, if the expect string does not arrive, the script attempt fails.
-If you expect that a sequence might not arrive, as with uucp,  conditional  se-
+As  with  UUCP, if the expect string does not arrive, the script attempt fails.
+If you expect that a sequence might not arrive, as with UUCP,  conditional  se-
 quences may be expressed in the form:  
 
-  -send-expect[-send-expect[...]]
+    -send-expect[-send-expect[...]]
 
 where dashed sequences are followed as long as previous expects fail.  Timeouts
 for expects can be specified using ~w; ~w with no arguments waits 15 seconds.
 
 Expect/send transactions can be easily be  debugged  by  logging  transactions.
-This records all exchanges, both expected and actual.
+This  records  all  exchanges,  both expected and actual.  The script execution
+will also be logged in the session log, if that is activated.
 
 Note that `\' characters in login scripts, as in any other C-Kermit interactive
-commands, must be doubled up.  A line may be ended with a single `\'  for  con-
+commands,  must  be doubled up.  A line may be ended with a single `\' for con-
 tinuation.
 
 Example one:
 
-Using  a  modem,  dial  a  UNIX  host site.  Expect "login" (...gin), and if it
+Using a modem, dial a UNIX host site.   Expect  "login"  (...gin),  and  if  it
 doesn't come, simply send a null string with a ~r.  (Some Unixes require either
-an  EOT  or  a  BREAK instead of the null sequence, depending on the particular
+an EOT or a BREAK instead of the null sequence,  depending  on  the  particular
 site's "logger" program.)  After providing user id and password, respond "x" to
-a  question-mark prompt, expect the Bourne shell "$" prompt (and send return if
-it doesn't arrive).  Then cd to directory kermit, and run  the  program  called
+a question-mark prompt, expect the Bourne shell "$" prompt (and send return  if
+it  doesn't  arrive).   Then cd to directory kermit, and run the program called
 "wermit", entering the interactive connect state after wermit is loaded.
 
-  set modem ventel
-  set line /dev/tty77
-  set baud 1200
-  dial 9&5551212
-  script gin:--gin:--gin: smith ssword: mysecret ~q x $--$ \
-   cd~skermit $ wermit
-  connect
+    set modem ventel
+    set line /dev/tty77
+    set baud 1200
+    dial 9&5551212
+    script gin:--gin:--gin: smith ssword: mysecret ~q x $--$ \
+     cd~skermit $ wermit
+    connect
 
-Note  that  'set  line'  is  issued after 'set modem', but before 'set baud' or
+Note that 'set line' is issued after 'set modem',  but  before  'set  baud'  or
 other line-related parameters.
 
 Example two:
 
-Using a modem, dial the Telenet network.  This network  expects  three  returns
-with  slight  delays between them.  These are sent following null expects.  The
+Using  a  modem,  dial the Telenet network.  This network expects three returns
+with slight delays between them.  These are sent following null expects.    The
 single return is here sent as a null string, with a return appended by default.
-
-
-
-Four  returns  are  sent  to  be  safe before looking for the prompt.  Then the
-Telenet id and password are entered.  Then Telenet is instructed to connect  to
-a  host  site  (c 12345).  The host has a data switch that asks "which system";
-the script responds "myhost" (if the "which system" prompt doesn't appear,  the
-Telenet  connect command is reissued).  The script waits for an "@" prompt from
-the host, then sends the user ID ("joe") and  password  ("secret"),  looks  for
-another  "@" prompt, runs Kermit, and in response to the Kermit's prompt (which
-ends in ">"), gives the commands "set parity even" and  "server".    Files  are
-then  exchanged.  The commands are in a take file; note the continuation of the
+Four returns are sent to be safe before looking  for  the  prompt.    Then  the
+Telenet  id and password are entered.  Then Telenet is instructed to connect to
+a host site (c 12345).  The host has a data switch that  asks  "which  system";
+the  script responds "myhost" (if the "which system" prompt doesn't appear, the
+Telenet connect command is reissued).  The script waits for an "@" prompt  from
+the  host,  then  sends  the user ID ("joe") and password ("secret"), looks for
+another "@" prompt, runs Kermit, and in response to the Kermit's prompt  (which
+ends  in  ">"),  gives  the commands "set parity even" and "server".  Files are
+then exchanged.  The commands are in a take file; note the continuation of  the
 'script' command onto several lines using the `\' terminator.
 
-  set modem hayes
-  set line /dev/acu
-  set speed 1200
-  set parity mark
-  dial 9,5551212
-  script ~0 ~0 ~0 ~0 ~0 ~0 ~0 ~0 @--@--@ id~saa001122 = 002211 @ \
-      c~s12345 ystem-c~s12345-ystem myhost @ joe~ssecret @ kermit \
-      > set~sparity~seven > server
-  send some.stuff
-  get some.otherstuff
-  bye
-  quit
+    set modem hayes
+    set line /dev/acu
+    set speed 1200
+    set parity mark
+    dial 9,5551212
+    script ~0 ~0 ~0 ~0 ~0 ~0 ~0 ~0 @--@--@ id~saa001122 = 002211 @ \
+        c~s12345 ystem-c~s12345-ystem myhost @ joe~ssecret @ kermit \
+        > set~sparity~seven > server
+    send some.stuff
+    get some.otherstuff
+    bye
+    quit
 
-Since these commands may be executed totally in the background, they  can  also
-be  scheduled.  A typical shell script, which might be scheduled by cron, would
+Since  these  commands may be executed totally in the background, they can also
+be scheduled.  A typical shell script, which might be scheduled by cron,  would
 be as follows (csh used for this example):
 
-  #
-  #keep trying to dial and log onto remote host and exchange files
-  #wait 10 minutes before retrying if dial or script fail.
-  #
-  cd someplace
-  while ( 1 )
-          kermit < /tonight.cmd >> nightly.log &
-          if ( ! $status ) break
-          sleep 600
-  end
+    #
+    #keep trying to dial and log onto remote host and exchange files
+    #wait 10 minutes before retrying if dial or script fail.
+    #
+    cd someplace
+    while ( 1 )
+            kermit < /tonight.cmd >> nightly.log &
+            if ( ! $status ) break
+            sleep 600
+    end
 
-File tonight.cmd might have two takes in it, for example, one to  take  a  file
-with  the set modem, set line, set baud, dial, and script, and a second take of
-a file with send/get commands for  the  remote  server.    The  last  lines  of
+File  tonight.cmd  might  have two takes in it, for example, one to take a file
+with the set modem, set line, set baud, dial, and script, and a second take  of
+a  file  with  send/get  commands  for  the  remote  server.  The last lines of
 tonight.cmd should be a bye and a quit.
 
 
@@ -1504,17 +1510,14 @@ Syntax: help
    or: help keyword
    or: help {set, remote} keyword
 
-Brief  help messages or menus are always available at interactive command level
-by typing a question mark at any point.  A slightly more verbose form  of  help
-is  available through the 'help' command.  The 'help' command with no arguments
-prints a brief summary of how to enter commands and how to  get  further  help.
-'help'  may be followed by one of the top-level C-Kermit command keywords, such
-
-
-
-as 'send', to request information about a command.  Commands such as 'set'  and
-'remote'  have  a further level of help.  Thus you may type 'help', 'help set',
-or 'help set parity'; each will provide a successively more detailed  level  of
+Brief help messages or menus are always available at interactive command  level
+by  typing  a question mark at any point.  A slightly more verbose form of help
+is available through the 'help' command.  The 'help' command with no  arguments
+prints  a  brief  summary of how to enter commands and how to get further help.
+'help' may be followed by one of the top-level C-Kermit command keywords,  such
+as  'send', to request information about a command.  Commands such as 'set' and
+'remote' have a further level of help.  Thus you may type 'help',  'help  set',
+or  'help  set parity'; each will provide a successively more detailed level of
 help.
 
 
@@ -1525,291 +1528,257 @@ These two commands are identical.  Both of them do the following:
    - Attempt to insure that the terminal is returned to normal.
    - Relinquish access to any communication line assigned via 'set line'.
    - Relinquish any uucp and multiuser locks on the communications line.
-   - Hang  up the modem, if the communications line supports data terminal
+   - Hang up the modem, if the communications line supports data  terminal
      ready.
-   - Close any open log files.
+   - Close any open logs or other files.
 
-After exit from C-Kermit, your default directory will be the same as  when  you
+After  exit  from C-Kermit, your default directory will be the same as when you
 started the program.  The 'exit' command is issued implicitly whenever C-Kermit
 halts normally, e.g. after a command line invocation, or after certain kinds of
 interruptions.
 
 
-9.5. UUCP Lock Files
+1.5. UUCP Lock Files
 
-Unix  has  no  standard  way  of obtaining exclusive access to an external com-
-munication line.  When you issue the 'set line' command to  Unix  Kermit,  Unix
-would  normally  grant  you  access  to  the line even if some other process is
-making use of it.  The method adopted by  most  Unix  systems  to  handle  this
-situation  is  the  "UUCP  lock  file".    UUCP, the Unix-to-Unix Copy program,
-creates a file in its  directory  (usually  /usr/spool/uucp,  on  some  systems
-/etc/locks)  with a name like LCK..name, where name is the device name, for in-
+Unix has no standard way of obtaining exclusive  access  to  an  external  com-
+munication  line.    When you issue the 'set line' command to Unix Kermit, Unix
+would normally grant you access to the line  even  if  some  other  process  is
+making  use  of  it.    The  method adopted by most Unix systems to handle this
+situation is the "UUCP lock  file".    UUCP,  the  Unix-to-Unix  Copy  program,
+creates  a  file  in  its  directory  (usually /usr/spool/uucp, on some systems
+/etc/locks) with a name like LCK..name, where name is the device name, for  in-
 stance tty07.
 
 Unix Kermit uses UUCP lock files in order to avoid conflicts with UUCP, tip, or
-other  programs that follow this convention.  Whenever you attempt to access an
-external line using the 'set line' command or `-l' on the command line,  Kermit
-looks  in the UUCP directory for a lock file corresponding to that device.  For
+other programs that follow this convention.  Whenever you attempt to access  an
+external  line using the 'set line' command or `-l' on the command line, Kermit
+looks in the UUCP directory for a lock file corresponding to that device.   For
 instance, if you 'set line /dev/ttyi6' then Kermit looks for the file 
 
-  /usr/spool/uucp/LCK..ttyi6
+    /usr/spool/uucp/LCK..ttyi6
 
 If it finds this file, it gives you an error message and a directory listing of
 the file so that you can see who is using it, e.g.
 
-  -r--r--r--  1 fdc        4 May  7 13:02 /usr/spool/uucp/LCK..ttyi6
+    -r--r--r--  1 fdc        4 May  7 13:02 /usr/spool/uucp/LCK..ttyi6
 
 In this case, you would look up user fdc to find out how soon the line will be-
 come free.
 
-This convention requires that the  uucp  directory  be  publicly  readable  and
+This  convention  requires  that  the  uucp  directory be publicly readable and
 writable.  If it is not, the program will issue an appropriate warning message,
 but will allow you to proceed at your own risk (and the risk of anyone else who
 might also be using the same line).
 
-If  no lock file is found, Unix Kermit will attempt create one, thus preventing
-
-
-
-anyone who subsequently tries to run Kermit, UUCP, tip, or similar programs  on
-the  same line from gaining access until you release the line.  If Kermit could
-not create the lock file (for instance because the  uucp  directory  is  write-
-protected),  then  you  will  receive  a warning message but will be allowed to
-proceed at your -- and everyone else's -- risk.  When  Kermit  terminates  nor-
+If no lock file is found, Unix Kermit will attempt create one, thus  preventing
+anyone  who subsequently tries to run Kermit, UUCP, tip, or similar programs on
+the same line from gaining access until you release the line.  If Kermit  could
+not  create  the  lock  file (for instance because the uucp directory is write-
+protected), then you will receive a warning message  but  will  be  allowed  to
+proceed  at  your  -- and everyone else's -- risk.  When Kermit terminates nor-
 mally, your lock file is removed.
 
-Even  when  the  lock directory is writable and readable, the locking mechanism
-depends upon all users using the same name for the same device.   If  a  device
-has  more  than one path associated with it, then a lock can be circumvented by
+Even when the lock directory is writable and readable,  the  locking  mechanism
+depends  upon  all  users using the same name for the same device.  If a device
+has more than one path associated with it, then a lock can be  circumvented  by
 using an alias.
 
 When a lock-creating program abruptly terminates, e.g. because it crashes or is
-killed  via  shell  command,  the  lock  file  remains  in  the uucp directory,
-spuriously indicating that the line is in use.  If the lock file  is  owned  by
-yourself,  you  may  remove it.  Otherwise, you'll have to get the owner or the
+killed via shell  command,  the  lock  file  remains  in  the  uucp  directory,
+spuriously  indicating  that  the line is in use.  If the lock file is owned by
+yourself, you may remove it.  Otherwise, you'll have to get the  owner  or  the
 system manager to remove it, or else wait for a system task to do so; uucp sup-
-ports  a function (uuclean) which removes these files after a predetermined age
+ports a function (uuclean) which removes these files after a predetermined  age
 -- uucp sites tend to run this function periodically via crontab.
 
-Locking is not needed, or used, if communications occur over the  user's  login
+Locking  is  not needed, or used, if communications occur over the user's login
 terminal line (normally /dev/tty).
 
 It may be seen that line locking is fraught with peril.  It is included in Unix
-Kermit only because other Unix communication programs rely on it.  While it  is
-naturally  desirable  to  assure  exclusive  access  to  a line, it is also un-
-desirable to refuse access to a vacant line only because  of  a  spurious  lock
+Kermit  only because other Unix communication programs rely on it.  While it is
+naturally desirable to assure exclusive access  to  a  line,  it  is  also  un-
+desirable  to  refuse  access  to a vacant line only because of a spurious lock
 file, or because the uucp directory is not appropriately protected.
 
 
-9.6. C-Kermit under Berkeley or System III/V Unix:
+1.6. C-Kermit under Berkeley or System III/V Unix:
 
-C-Kermit  may be interrupted at command level or during file transfer by typing
-Control-C.  The program will perform its normal exit  function,  restoring  the
+C-Kermit may be interrupted at command level or during file transfer by  typing
+Control-C.    The  program will perform its normal exit function, restoring the
 terminal and releasing any lock.  If a protocol transaction was in progress, an
-error packet will be sent to the opposite  Kermit  so  that  it  can  terminate
+error  packet  will  be  sent  to  the opposite Kermit so that it can terminate
 cleanly.
 
-C-Kermit  may  be invoked in the background ("&" on shell commmand line).  If a
-background process is "killed", the user will have to manually remove any  lock
-file  and  may  need  to  restore  the  modem.  This is because the kill signal
+C-Kermit may be invoked in the background ("&" on shell commmand line).   If  a
+background  process is "killed", the user will have to manually remove any lock
+file and may need to restore the modem.    This  is  because  the  kill  signal
 (kill(x,9)) cannot be trapped by Kermit.
 
 During execution of a system command ('directory', 'cwd', or `!'), C-Kermit can
-often  be returned to command level by typing a single Control-C.  (With System
-III/V, the usual  interrupt  function  (often  the  DEL  key)  is  replaced  by
+often be returned to command level by typing a single Control-C.  (With  System
+III/V,  the  usual  interrupt  function  (often  the  DEL  key)  is replaced by
 Control-C.)
 
-Under  Berkeley  Unix  only:  C-Kermit may also be interrupted by ^Z to put the
-process in the background.  In this case the terminal is  not  restored.    You
-will  have  to type Control-J followed by "reset" followed by another Control-J
+Under Berkeley Unix only: C-Kermit may also be interrupted by  ^Z  to  put  the
+process  in  the  background.   In this case the terminal is not restored.  You
+will have to type Control-J followed by "reset" followed by  another  Control-J
 to get your terminal back to normal.
 
 Control-C, Control-Z, and Control-\ lose their normal functions during terminal
 connection and also during file transfer when the controlling tty line is being
 used for packet i/o.
-
 
-
-If you are running C-Kermit in "quiet mode" in the foreground, then  interrupt-
-ing  the  program  with a console interrupt like Control-C will not restore the
-terminal to normal conversational operation.  This is because the  system  call
-to  enable console interrupt traps will cause the program to block if it's run-
-ning in the background, and the primary reason for quiet mode is to  allow  the
-program  to  run  in  the background without blocking, so that you can do other
+If  you are running C-Kermit in "quiet mode" in the foreground, then interrupt-
+ing the program with a console interrupt like Control-C will  not  restore  the
+terminal  to  normal conversational operation.  This is because the system call
+to enable console interrupt traps will cause the program to block if it's  run-
+ning  in  the background, and the primary reason for quiet mode is to allow the
+program to run in the background without blocking, so that  you  can  do  other
 work in the foreground.
 
 If C-Kermit is run in the background ("&" on shell commmand line), then the in-
-terrupt  signal  (Control-C)  (and System III/V quit signal) are ignored.  This
-prevents an interrupt signal intended for a foreground job (say a  compilation)
+terrupt signal (Control-C) (and System III/V quit signal) are  ignored.    This
+prevents  an interrupt signal intended for a foreground job (say a compilation)
 from being trapped by a background Kermit session.
 
 
-9.7. C-Kermit on the DEC Pro-3xx with Pro/Venix Version 1
+1.7. C-Kermit on the DEC Pro-3xx with Pro/Venix Version 1
 
-The  DEC Professional 300 series are PDP-11/23 based personal computers.  Venix
-Version 1 is a Unix v7 derivative.  It should not be confused with  Venix  Ver-
+The DEC Professional 300 series are PDP-11/23 based personal computers.   Venix
+Version  1  is a Unix v7 derivative.  It should not be confused with Venix Ver-
 sion 2, which is based on ATT System V; these comments apply to Venix Version 1
-only.  C-Kermit runs in local mode on the Pro-3xx when invoked  from  the  con-
-sole;  the default device is /dev/com1.dout.  When connected to a remote system
-(using C-Kermit's 'connect' command), Pro/Venix itself  (not  Kermit)  provides
-VT52  terminal  emulation.   Terminal operation at high speeds (like 9600 baud)
-requires xon/xoff flow control, which unfortunately  interferes  with  applica-
+only.    C-Kermit  runs in local mode on the Pro-3xx when invoked from the con-
+sole; the default device is /dev/com1.dout.  When connected to a remote  system
+(using  C-Kermit's  'connect'  command), Pro/Venix itself (not Kermit) provides
+VT52 terminal emulation.  Terminal operation at high speeds  (like  9600  baud)
+requires  xon/xoff  flow  control, which unfortunately interferes with applica-
 tions such as the EMACS that use Control-Q and Control-S as commands.
 
-When  logging  in to a Pro-3xx (or any workstation) through the "back port", it
-may be necessary to give the command  "set  line  /dev/tty"  in  order  to  get
+When logging in to a Pro-3xx (or any workstation) through the "back  port",  it
+may  be  necessary  to  give  the  command  "set line /dev/tty" in order to get
 C-Kermit to function correctly in remote mode (on a system in which it normally
 expects to be operating in local mode).
 
 
-9.8. C-Kermit under VAX/VMS
+1.8. C-Kermit under VAX/VMS
 
-Version 4C of C-Kermit can be built using VAX-11 C to run under VMS.   Most  of
-the  descriptions  in  this manual hold true, but it should be noted that as of
-this writing the VMS support is not thoroughly tested, and no explicit  support
-exists for the various types of VMS files and their attributes.
+C-Kermit  can  be  built using VAX-11 C to run under VMS.  Most of the descrip-
+tions in this manual hold true, but it should be noted that as of this  writing
+the  VMS  support  is not thoroughly tested, and no explicit support exists for
+the various types of VMS files and their attributes.
 
 The C-Kermit init file for VMS is called KERMIT.INI.
 
 
-9.9. C-Kermit on the Macintosh and other Systems
+1.9. C-Kermit on the Macintosh and other Systems
 
-The  "protocol kernel" of C-Kermit is also used by Columbia's Macintosh Kermit.
-The user and system interface is  entirely  different,  and  is  covered  in  a
+The "protocol kernel" of C-Kermit is also used by Columbia's Macintosh  Kermit.
+The  user  and  system  interface  is  entirely  different, and is covered in a
 separate document.
 
-There  is  also  a Kermit for the Commodore Amiga based on C-Kermit, as well as
-versions for MS-DOS.
-
+There is also a Kermit for the Commodore Amiga based on C-Kermit,  as  well  as
+versions for MS-DOS, Data General operating systems, etc.
 
 
-9.10. C-Kermit Restrictions and Known Bugs
+1.10. C-Kermit Restrictions and Known Bugs
 
-   1. Editing characters:  The program's  interactive  command  interrupt,
-      delete,  and  kill  characters are Control-C, Delete (or Backspace),
-      and Control-U, respectively.  There is currently no  way  to  change
-      them  to  suit your taste or match those used by your shell, in case
+   1. Editing  characters:    The program's interactive command interrupt,
+      delete, and kill characters are Control-C,  Delete  (or  Backspace),
+      and  Control-U,  respectively.   There is currently no way to change
+      them to suit your taste or match those used by your shell,  in  case
       those are different.
 
-   2. High baud rates:  There's no way to specify baud rates  higher  than
-      9600  baud.  Most Unix systems don't supply symbols for them (unless
-      you use EXTA, EXTB), and even when they do, the program has  no  way
-      of  knowing whether a specific port's serial i/o controller supports
+   2. Flow control:  C-Kermit attempts to use XON/XOFF flow control during
+      protocol operations, but it also puts the  communication  line  into
+      "rawmode".   On many systems, rawmode disables flow control, so even
+      though you may have "set flow xon/xoff", no  flow  control  will  be
+      done.  This is highly system and Unix-version dependent.
+
+   3. High  baud  rates:  There's no way to specify baud rates higher than
+      9600 baud.  Most Unix systems don't supply symbols for them  (unless
+      you  use  EXTA, EXTB), and even when they do, the program has no way
+      of knowing whether a specific port's serial i/o controller  supports
       those rates.
 
-   3. Modem controls:  If a connection is made over a  communication  line
-      (rather  than  on  the controlling terminal line), and that line has
-      modem controls, (e.g. data  terminal  ready  and  carrier  detection
-      implementation),  returning  to  the shell level will disconnect the
-      conversation.  In that case, one should use  interactive  mode  com-
-      mands,  and  avoid use of piped shell-level operation (also see 'set
+   4. Modem  controls:   If a connection is made over a communication line
+      (rather than on the controlling terminal line), and  that  line  has
+      modem  controls,  (e.g.  data  terminal  ready and carrier detection
+      implementation), returning to the shell level  will  disconnect  the
+      conversation.    In  that case, one should use interactive mode com-
+      mands, and avoid use of piped shell-level operation (also  see  'set
       modem-dialer' and 'dial' commands.)
 
-   4. Login Scripts:  The present login scripts implementation follows the
+   5. Login Scripts:  The present login scripts implementation follows the
       Unix conventions of uucp's "L.sys" file, rather than the normal Ker-
-      mit "INPUT/OUTPUT" style, so there's no way  to  arbitrarily  mingle
-      script  output  with Kermit commands (e.g. changing parity or duplex
-      in the middle of a script).
+      mit "INPUT/OUTPUT" style.
 
-   5. Dial-out vs dial-in  communications  lines:    C-Kermit  requires  a
+   6. Dial-out  vs  dial-in  communications  lines:    C-Kermit requires a
       dial-out or dedicated line for the "set line" or "-l" options.  Most
-      systems have some lines dedicated  to  dial-in,  which  they  enable
-      "loggers"  on,  and some lines available for dial-out.  Where a line
-      must be shared between dial-in and  dial-out,  several  options  are
-      available (though they are, strictly speaking, outside the pervue of
-      C-Kermit).
+      systems  have  some  lines  dedicated  to dial-in, which they enable
+      "loggers" on,  and  some  lines  available  for  dial-out.    Recent
+      releases  of  Unix (ATT & Berkeley) have mechanisms for changing the
+      directionality of a line.
 
-      A simple shell program can be used to change directionality  of  the
-      line  if  your  Unix  has the enable(8) and disable(8) commands.  In
-      that case, the shell program could "grep" a "who" to see if  anybody
-      is  logged  onto  the  desired  line; if not, it could "disable" the
-      line.  The shell program will need to be set-uID'ed to  root.    The
-      shell  program  can  be  called from kermit prior to a dial command,
-      e.g., "! mydisable.shellprog".   Prior  to  the  final  "quit"  from
-      C-Kermit,  another  shell  program could be executed to "enable" the
-      line again.  This program also needs to be set-uID'ed to root.
-
-      If your Unix lacks the enable(8) and  disable(8)  commands,  another
-      common  technique  works if your system supports the /etc/ttys file.
-      A shell program could call up an awk program to find the line in the
-      file  and  set  the enable byte to 0 (to directly disable the line).
-      Likewise, it can be reenabled by a counterpart at the end.   It  may
-      be  necessary  to pause for 60 seconds after modifying that file be-
-      fore the logger sees it and actually disables the line.
-
-   6. Using C-Kermit on Local Area Networks:   C-Kermit  can  successfully
+   7. Using C-Kermit on Local Area Networks:   C-Kermit  can  successfully
       operate  at  speeds  up to 9600 baud over LANs, provided the network
-
+      buffers are big enough to accommodate Kermit packets.
 
-
-      buffers are big enough to accommodate Kermit packets (which are  al-
-      most always less than 100 characters long).
-
-      When  computers are connected to LAN's through asynchronous terminal
-      interfaces, then the connection should be configured to do  XON/XOFF
-      flow  control between the network interface and the computer, rather
-      than passing these signals through transparently.    This  can  help
-      prevent  Kermit from overrunning the LAN's buffers if they are small
+      When computers are connected to LAN's through asynchronous  terminal
+      interfaces,  then the connection should be configured to do XON/XOFF
+      flow control between the network interface and the computer,  rather
+      than  passing  these  signals  through transparently.  This can help
+      prevent Kermit from overrunning the LAN's buffers if they are  small
       (or if the LAN is congested), and will can also prevent the LAN from
       overrunning a slow Kermit's buffers.
 
-      If  the network hardware cannot accept 100 characters at a time, and
-      flow control cannot be done between the network  and  the  computer,
-      then  Kermit's  "set send/receive packet-length" command can be used
+      If the network hardware cannot accept 100 characters at a time,  and
+      flow  control  cannot  be done between the network and the computer,
+      then Kermit's "set send/receive packet-length" command can  be  used
       to shorten the packets.
 
-   7. Resetting terminal after abnormal termination or kill: When C-Kermit
+   8. Resetting terminal after abnormal termination or kill: When C-Kermit
       terminates abnormally (say, for example, by a kill command issued by
-      the operator) the user may need to reset the  terminal  state.    If
-      commands  do  not  seem  to  be  accepted  at  the shell prompt, try
-      Control-J "stty sane" Control-J  (use  "reset"  on  Berkeley  Unix).
-      That  should  take  the  terminal  out of "raw mode" if it was stuck
+      the  operator)  the  user  may need to reset the terminal state.  If
+      commands do not seem  to  be  accepted  at  the  shell  prompt,  try
+      Control-J  "stty  sane"  Control-J  (use  "reset" on Berkeley Unix).
+      That should take the terminal out of "raw  mode"  if  it  was  stuck
       there.
 
-   8. Remote host commands  may  time-out  on  lengthy  activity:    Using
-      "remote  host"  to instruct the C-Kermit server to invoke Unix func-
-      tions (like "make") that might take a long time  to  produce  output
+   9. Remote  host  commands  may  time-out  on  lengthy  activity:  Using
+      "remote host" to instruct the C-Kermit server to invoke  Unix  func-
+      tions  (like  "make")  that might take a long time to produce output
       can cause timeout conditions.
 
-   9. XOFF  deadlocks:    When  connecting back to C-Kermit after a trans-
+  10. XOFF deadlocks:  When connecting back to  C-Kermit  after  a  trans-
       action, or after finishing the server, it may be necessary to type a
-      Control-Q  to  clear  up  an  XOFF  deadlock.   There's not much the
+      Control-Q to clear up an  XOFF  deadlock.    There's  not  much  the
       program can do about this...
 
-  10. PC/IX Login Scripts -- Unfound Bug:  Though login scripts appear  to
-      work  properly  on  most  processors,  in the case of the PC/XT with
-      PC/IX, it appears that longer scripts need  to  be  broken  up  into
-      shorter  scripts (invoked sequentially from the take file).  This is
-      because the portion of the script handler which checks if an  opera-
-      tion timed out seems to leave the processor in a strange state (i.e.
-      hung).
 
+1.11. How to Build C-Kermit for a Unix System
 
-9.11. How to Build C-Kermit for a Unix System
-
-The C-Kermit files, as distributed from Columbia, all  begin  with  the  prefix
-"ck".    You  should  make  a  directory  for these files and then cd to it.  A
-makefile is provided to build C-Kermit for  various  Unix  systems  (there  are
-separate  makefiles  for  VMS and the Macintosh).  As distributed, the makefile
-has the name "ckuker.mak".  You should rename it to "makefile"  and  then  type
+The  C-Kermit  files,  as  distributed from Columbia, all begin with the prefix
+"ck".  You should make a directory for these files  and  then  cd  to  it.    A
+makefile  is  provided  to  build  C-Kermit for various Unix systems (there are
+separate makefiles for VMS and the Macintosh).  As  distributed,  the  makefile
+has  the  name  "ckuker.mak".  You should rename it to "makefile" and then type
 "make xxx", where xxx is the symbol for your system, for instance "make bsd" to
-make C-Kermit for 4.x BSD Unix.  The result will be a program called  "wermit".
-You  should test this to make sure it works; if it does, then you can rename it
+make  C-Kermit for 4.x BSD Unix.  The result will be a program called "wermit".
+You should test this to make sure it works; if it does, then you can rename  it
 to "kermit" and install it for general use.  See the makefile for a list of the
 systems supported and the corresponding "make" arguments.
-
 
 
-9.12. Adapting C-Kermit to Other Systems
+1.12. Adapting C-Kermit to Other Systems
 
 C-Kermit is designed for portability.  The level of portability is indicated in
-parentheses after the module name: "C" means any system that has a  C  compiler
+parentheses  after  the module name: "C" means any system that has a C compiler
 that conforms to the description in "The C Programming Language" by Kernighan &
-Ritchie (Prentice-Hall, 1978).  "Cf" is like "C", but also requires  "standard"
+Ritchie  (Prentice-Hall, 1978).  "Cf" is like "C", but also requires "standard"
 features like printf and fprintf, argument passing via argv/argc, and so on, as
 described in Kernighan & Ritchie.  "Unix" means the module should be useful un-
-der  any  Unix  implementation;  it requires features such as fork() and pipes.
-Anything else means that the module is  particular  to  the  indicated  system.
+der any Unix implementation; it requires features such  as  fork()  and  pipes.
+Anything  else  means  that  the  module is particular to the indicated system.
 C-Kermit file names are of the form:
 
 ck<system><what>.<type>
@@ -1835,8 +1804,11 @@ the dot no more than 3 characters long, and:
 
   a:    Descriptive material, documentation
   c:    All systems with C compilers
-  d:    MS-DOS
+  d:    Data General
+  h:    Harris computers (reserved)
+  i:    Commodore Amiga (Intuition)
   m:    Macintosh
+  p:    IBM PC, PC-DOS (reserved)
   u:    Unix
   v:    VAX/VMS
   w:    Wart
@@ -1856,9 +1828,6 @@ the dot no more than 3 characters long, and:
   pro:  Protocol
   scr:  Script command
   tio:  System-dependent terminal i/o & control and interrupt handing
-
-
-
   usr:  User interface
   us2:  More user interface
   us3:  Still more user interface
@@ -1873,220 +1842,168 @@ ckuker.nr       Nroff source file for Unix C-Kermit man page
 The following material discusses each of the C-Kermit modules briefly.
 
 ckcmai.c, ckcker.h, ckcdeb.h (Cf):
-    This  is  the  main program.  It contains declarations for global variables
+    This is the main program.  It contains declarations  for  global  variables
     and a small amount of code to initialize some variables and invoke the com-
-    mand  parser.    In  its distributed form, it assumes that command line ar-
-    guments are passed to it via argc and argv.  Since this portion of code  is
+    mand parser.  In its distributed form, it assumes  that  command  line  ar-
+    guments  are passed to it via argc and argv.  Since this portion of code is
     only several lines long, it should be easy to replace for systems that have
-    different styles of user interaction.  The header files define symbols  and
-    macros  used  by  the  various  modules  of C-Kermit.  ckcdeb.h is the only
-    header file that is included by all the C-Kermit modules,  so  it  contains
-    not  only  the  debug  format  definitions, but also any compiler-dependent
+    different  styles of user interaction.  The header files define symbols and
+    macros used by the various modules of  C-Kermit.    ckcdeb.h  is  the  only
+    header  file  that  is included by all the C-Kermit modules, so it contains
+    not only the debug format  definitions,  but  also  any  compiler-dependent
     typedefs.
 
 ckwart.c (Cf), ckcpro.w (C):
-    The  ckcpro module embodies the Kermit protocol state table and the code to
-    accomplish state switching.  It is written in "wart", a language which  may
+    The ckcpro module embodies the Kermit protocol state table and the code  to
+    accomplish  state switching.  It is written in "wart", a language which may
     be regarded as a subset of the Unix "lex" lexical analyzer generator.  Wart
-    implements enough of lex to allow the ckprot module to function.   Lex  it-
-    self  was not used because it is proprietary.  The protocol module ckcpro.w
-    is read by wart, and a system-independent C program is produced.  The  syn-
-    tax  of  a  Wart  program  is  illustrated by ckcpro.w, and is described in
+    implements  enough  of lex to allow the ckprot module to function.  Lex it-
+    self was not used because it is proprietary.  The protocol module  ckcpro.w
+    is  read by wart, and a system-independent C program is produced.  The syn-
+    tax of a Wart program is illustrated  by  ckcpro.w,  and  is  described  in
     ckwart.doc.
 
 ckcfns.c (C):
-    The  module  contains  all  the Kermit protocol support functions -- packet
-    formation, encoding, decoding, block check calculation, filename  and  data
+    The module contains all the Kermit protocol  support  functions  --  packet
+    formation,  encoding,  decoding, block check calculation, filename and data
     conversion, protocol parameter negotiation, and high-level interaction with
     the communication line and file system.  To accommodate small systems, this
     module has been split into two -- ckcfns.c and ckcfn2.c.
 
 ckutio.c:
     This module contains the system-dependent primitives for communication line
-    i/o,  timers, and interrupts for the various versions of Unix.  Certain im-
-    portant variables are defined  in  this  module,  which  determine  whether
-    C-Kermit  is  by  default  remote  or local, what the default communication
+    i/o, timers, and interrupts for the various versions of Unix.  Certain  im-
+    portant  variables  are  defined  in  this  module, which determine whether
+    C-Kermit is by default remote or  local,  what  the  default  communication
     device is, and so forth.  The tio module maintains its own private database
-    of  file descriptors and modes for the console terminal and the file trans-
-    fer communication line so that other modules (like ckcfns or  the  terminal
+    of file descriptors and modes for the console terminal and the file  trans-
+    fer  communication  line so that other modules (like ckcfns or the terminal
     connect module) need not be concerned with them.  The variations among Unix
-    implementations with respect to terminal  control  and  timers  are  accom-
+    implementations  with  respect  to  terminal  control and timers are accom-
     modated via conditional compilation.
 
 ckufio.c:
-    This module contains system-dependent primitives  for  file  i/o,  wildcard
-
-
-
-    (meta  character) expansion, file existence and access checking, and system
+    This  module  contains  system-dependent  primitives for file i/o, wildcard
+    (meta character) expansion, file existence and access checking, and  system
     command execution for the various versions of Unix.  It maintains an inter-
-    nal  database  of i/o "channels" (file pointers in this case) for the files
-    C-Kermit cares about -- the input file (the file which is being sent),  the
+    nal database of i/o "channels" (file pointers in this case) for  the  files
+    C-Kermit  cares about -- the input file (the file which is being sent), the
     output file (the file being received), the various logs, the screen, and so
     forth.  This module varies little among Unix implementations except for the
-    wildcard  expansion  code;  the  directory structure of 4.2bsd Unix is dif-
-    ferent from that of other Unix systems.  Again, variation among  Unix  sys-
+    wildcard expansion code; the directory structure of  4.2bsd  Unix  is  dif-
+    ferent  from  that of other Unix systems.  Again, variation among Unix sys-
     tems is selected using conditional compilation.
 
 ckuusr.h, ckuusr.c, ckuus2.c, ckuus3.c (Unix):
     This is the "user interface" for C-Kermit.  It includes the command parser,
     the screen output functions, and console input functions.  The command par-
     ser comes in two pieces -- the traditional Unix command line decoder (which
-    is  quite  small and compact), and the interactive keyword parser (which is
+    is quite small and compact), and the interactive keyword parser  (which  is
     rather large).  This module is fully replacable; its interface to the other
-    modules  is  very  simple,  and is explained at the beginning of the source
-    file.  The ckuusr  module  also  includes  code  to  execute  any  commands
-    directly  which don't require the Kermit protocol -- local file management,
-    etc.  The module is rated "Unix" because it makes  occasional  use  of  the
+    modules is very simple, and is explained at the  beginning  of  the  source
+    file.    The  ckuusr  module  also  includes  code  to execute any commands
+    directly which don't require the Kermit protocol -- local file  management,
+    etc.    The  module  is rated "Unix" because it makes occasional use of the
     system() function.
 
-    Note  that  while ckuusr is logically one module, it has been split up into
+    Note that while ckuusr is logically one module, it has been split  up  into
     three C source files, plus a header file for the symbols they share in com-
-    mon.   This is to accommodate small systems that cannot handle big modules.
-    ckuusr.c has the command line and  top-level  interactive  command  parser;
-    ckuus2.c  has  the  help command and strings; ckuus3 has the set and remote
+    mon.  This is to accommodate small systems that cannot handle big  modules.
+    ckuusr.c  has  the  command  line and top-level interactive command parser;
+    ckuus2.c has the help command and strings; ckuus3 has the  set  and  remote
     commands along with the logging, screen, and "interrupt" functions.
 
 ckucmd.c, ckucmd.h (Cf):
-    This  is an interactive command parsing package developed for C-Kermit.  It
+    This is an interactive command parsing package developed for C-Kermit.   It
     is written portably enough to be usable on any system that has a C compiler
-    that  supports  functions  like  printf.    The file name parsing functions
-    depend upon primitives defined in the fio module; if these primitives  can-
-    not  be  supplied for a certain system, then the filename parsing functions
-    can be deleted, and the package will still be useful for parsing  keywords,
+    that supports functions like printf.    The  file  name  parsing  functions
+    depend  upon primitives defined in the fio module; if these primitives can-
+    not be supplied for a certain system, then the filename  parsing  functions
+    can  be deleted, and the package will still be useful for parsing keywords,
     numbers, arbitrary text strings, and so forth.  The style of interaction is
     the same as that found on the DECSYSTEM-20.
 
 ckucon.c (Unix):
     This is the connect module.  As supplied, it should operate in any Unix en-
-    vironment, or any C-based environment that provides  the  fork()  function.
-    The  module  requires  access  to global variables that specify line speed,
-    parity, duplex, flow control, etc,  and  invokes  functions  from  the  tio
-    module  to  accomplish the desired settings and input/output, and functions
-    from the fio module to perform session logging.  No terminal  emulation  is
-    performed,  but  since  standard  i/o  is used for the console, this may be
-    piped through a terminal emulation filter.  The ckucon function may be  en-
+    vironment,  or  any  C-based environment that provides the fork() function.
+    The module requires access to global variables  that  specify  line  speed,
+    parity,  duplex,  flow  control,  etc,  and  invokes functions from the tio
+    module to accomplish the desired settings and input/output,  and  functions
+    from  the  fio module to perform session logging.  No terminal emulation is
+    performed, but since standard i/o is used for  the  console,  this  may  be
+    piped  through a terminal emulation filter.  The ckucon function may be en-
     tirely replaced, so long as the global settings are honored by its replace-
-    ment.  PC implementations of C-Kermit may require the ck?con module  to  do
-    screen  control,  escape sequence interpretation, etc, and may also wish to
+    ment.    PC implementations of C-Kermit may require the ck?con module to do
+    screen control, escape sequence interpretation, etc, and may also  wish  to
     write special code to get the best possible performance.
 
 ckudia.c (Unix):
-    This  is the dialer module.  As supplied, it handles Hayes, Ventel, Penril,
+    This is the dialer module.  As supplied, it handles Hayes, Ventel,  Penril,
     Racal-Vadic, and several other modems.
-
-
 
 ckuscr.c (Unix):
-    This  is  the  login  script  module.    As supplied, it handles uucp-style
+    This is the login script  module.    As  supplied,  it  handles  uucp-style
     scripts.
 
 Moving C-Kermit to a new system entails:
 
-   1. Creating a new ck?tio module in C, assembler, or  whatever  language
-      is  most  appropriate  for system programming on the new system.  If
-      the system is Unix-like,  then  support  may  be  added  within  the
+   1. Creating  a  new ck?tio module in C, assembler, or whatever language
+      is most appropriate for system programming on the new  system.    If
+      the  system  is  Unix-like,  then  support  may  be added within the
       ckutio.c module itself using conditional compilation.
 
    2. Creating a new ck?fio module, as above.
 
-   3. If  the system is not Unix-like, then a new ckuusr module may be re-
+   3. If the system is not Unix-like, then a new ckuusr module may be  re-
       quired, as well as a different invocation of it from ckcmai.
 
-   4. If the distributed connect module doesn't work or  performs  poorly,
-      then  it may be replaced.  For instance, interrupt-driven i/o may be
+   4. If  the  distributed connect module doesn't work or performs poorly,
+      then it may be replaced.  For instance, interrupt-driven i/o may  be
       required, especially if the system doesn't have forks.
 
-Those who favor  a  different  style  of  user/program  interaction  from  that
-provided  in ckuusr.c may replace the entire module, for instance with one that
+Those  who  favor  a  different  style  of  user/program  interaction from that
+provided in ckuusr.c may replace the entire module, for instance with one  that
 provides a mouse/window/icon environment, a menu/function-key environment, etc.
 
 A few guidelines should be followed to maintain portability:
 
-   - Keep variable and function names to 6 characters or less.  Don't  use
-     identifiers  that  are  distinguished  from  one  another only by al-
+   - Keep  variable and function names to 6 characters or less.  Don't use
+     identifiers that are distinguished  from  one  another  only  by  al-
      phabetic case.
 
-   - Keep modules small.  For instance, on a PDP-11  it  is  necessary  to
-     keep  the  code segment of each module below 8K in order to allow the
-     segment mapping to occur which is necessary to  run  programs  larger
+   - Keep  modules  small.    For instance, on a PDP-11 it is necessary to
+     keep the code segment of each module below 8K in order to  allow  the
+     segment  mapping  to  occur which is necessary to run programs larger
      than 64K on a non-I-and-D-space machine.
 
-   - Keep  strings short; many compilers have restrictive maximum lengths;
-     128 is the smallest maximum string constant length we've  encountered
+   - Keep strings short; many compilers have restrictive maximum  lengths;
+     128  is the smallest maximum string constant length we've encountered
      so far.
 
-   - Keep  (f,s)printf  formats  short.  If these exceed some compiler de-
+   - Keep (f,s)printf formats short.  If these exceed  some  compiler  de-
      pendent maximum (say, 128) memory will be overwritten and the program
      will probably core dump.
 
    - Do not introduce system dependencies into ckcpro.w or ckcfn*.c.
 
-   - If  a  variable  is a character, declare as CHAR, not int, to prevent
-     the various sign extension and byte swapping foulups that occur  when
+   - If a variable is a character, declare as CHAR, not  int,  to  prevent
+     the  various sign extension and byte swapping foulups that occur when
      characters are placed in integer variables.
 
-   - Remember  that  different  systems may use different length words for
-     different things.  Don't assume an integer can be used as a  pointer,
+   - Remember that different systems may use different  length  words  for
+     different  things.  Don't assume an integer can be used as a pointer,
      etc.
 
-   - Don't  declare  static  functions; these can wreak havoc with systems
+   - Don't declare static functions; these can wreak  havoc  with  systems
      that do segment mapping.
-
 
-
-   - In conditional compilations expressions, use #ifdef and  #ifndef  and
-     not  #if,  which is not supported by some compilers.  Also, don't use
-     any operators in these expressions; many compilers will fail  to  un-
-     derstand expressions like #ifdef FOO | BAR.
+   - In  conditional  compilations expressions, use #ifdef and #ifndef and
+     not #if, which is not supported by some compilers.  Also,  don't  use
+     any  operators  in these expressions; many compilers will fail to un-
+     derstand expressions like #ifdef FOO | BAR.  Also, don't put trailing
+     tokens on #else's or #endif's (use /* comments */).
 
    - Don't define multiline macros.
 
 In  general,  remember that this program will have to be compilable by old com-
 pilers and runnable on small systems.
-
-
-
-Index
-
-,
-          C-Kermit   118
-
-          Dialout Modems   139
-
-          Emergency Exit   120
-
-          File Warning   120
-
-          Hayes Modem   141
-
-          IBM   138
-
-          Modems   139
-
-          TELENET   142
-
-          Unix Kermit   118
-
-          Warning   120
-
-
-
-                               Table of Contents
-
-9. UNIX KERMIT                                                              118
-
-   9.1. The Unix File System                                                119
-   9.2. File Transfer                                                       120
-   9.3. Command Line Operation                                              121
-   9.4. Interactive Operation                                               126
-   9.5. UUCP Lock Files                                                     144
-   9.6. C-Kermit under Berkeley or System III/V Unix:                       145
-   9.7. C-Kermit on the DEC Pro-3xx with Pro/Venix Version 1                146
-   9.8. C-Kermit under VAX/VMS                                              146
-   9.9. C-Kermit on the Macintosh and other Systems                         146
-   9.10. C-Kermit Restrictions and Known Bugs                               147
-   9.11. How to Build C-Kermit for a Unix System                            148
-   9.12. Adapting C-Kermit to Other Systems                                 149
-
-Index                                                                         i

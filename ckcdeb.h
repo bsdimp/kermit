@@ -1,5 +1,9 @@
 /*  C K C D E B . H  */
-
+/*
+ For release 4E of C-Kermit, July 87.  Incorporates changes from Phil Julian 
+ and Jack Rouse of SAS Institute for DG, Apollo, and Amiga support, and from
+ Jim Noble of Planning Research Corp for Macintosh Megamax C support.
+*/ 
 /*
  This file is included by all C-Kermit modules, including the modules
  that aren't specific to Kermit (like the command parser and the ck?tio and
@@ -8,7 +12,7 @@
  modules, and also includes some feature selection compile-time switches.
 */
 /*
- Copyright (C) 1985, Trustees of Columbia University in the City of New York.
+ Copyright (C) 1987 Trustees of Columbia University in the City of New York.
  Permission is granted to any individual or institution to use, copy, or
  redistribute this software so long as it is not sold for profit, provided this
  copyright notice is retained.
@@ -39,18 +43,38 @@
 #define F110 6
 #define F111 7
 
-/* Compiler dependencies */
+/* Unix Kernel Dependencies */
+
+#ifdef SVR3
+/* Sys V R3 declares signal() differently from other systems. */
+typedef void SIGTYP;
+#else
+typedef int SIGTYP;
+#endif
+
+/* C Compiler Dependencies */
+
+#ifdef ZILOG
+#define setjmp setret
+#define longjmp longret
+#define jmp_buf ret_buf
+typedef int ret_buf[10];
+#endif /* zilog */
 
 #ifdef PROVX1
 typedef char CHAR;
 typedef long LONG;
 typedef int void;
 #else
-#ifdef  V7
+#ifdef V7
 typedef char CHAR;
 typedef long LONG;
 #else
-#ifdef  C70
+#ifdef V9
+typedef char CHAR;
+typedef long LONG;
+#else
+#ifdef C70
 typedef char CHAR;
 typedef long LONG;
 #else
@@ -59,7 +83,6 @@ typedef char CHAR;
 typedef long LONG;
 #else
 typedef unsigned char CHAR;
-#ifndef LONG_DEF
 typedef long LONG;
 #endif
 #endif
@@ -77,7 +100,7 @@ typedef int void;
  If the system uses a single character for text file line delimitation,
  define NLCHAR to the value of that character.  For text files, that
  character will be converted to CRLF upon output, and CRLF will be converted
- to that character on input.
+ to that character on input during text-mode (default) packet operations.
 */
 #ifdef MAC                              /* Macintosh */
 #define NLCHAR 015
@@ -96,16 +119,25 @@ typedef int void;
 #ifdef vax11c
 #define CTTNAM "TT:"
 #else
+#ifdef datageneral
+#define CTTNAM "@output"
+#else
 #define CTTNAM "/dev/tty"
 #endif
-
-
+#endif
 
 /* Some special includes for VAX/VMS */
 
+#ifndef vax11c
+/* The following #includes cause problems for some preprocessors. */
+/*
+#endif
 #ifdef vax11c
 #include ssdef
 #include stsdef
+#endif
+#ifndef vax11c
+*/
 #endif
 
 /* Program return codes for VMS, DECUS C, and Unix */
@@ -123,34 +155,10 @@ typedef int void;
 #endif
 #endif
 
-/* /* Special definitions for AMIGA */
-/*
-/* These have been commented out because they are no longer necessary, and
-/* seem to cause some problems.  Once it is certain they are not needed
-/* for anything, they can be removed entirely.  Meanwhile, it has also been
-/* suggested that in order to get the program to build successfully on the
-/* Amiga, it might also be necessary to create a dummy (empty) pwd.h file
-/* so the #include won't fail.
-/*
-/* #ifdef AMIGA
-/*
-/* /* redefine printf and putchar/getchar to use AMIGA window */
-/* /* (I know this is a kludge, but it works) */
-/*
-/* #define printf          conol
-/* #define puts            conolNL
-/* #undef  putchar
-/* #define putchar         conocNL
-/* #undef  getchar
-/* #define getchar()       coninc(0)
-/* 
-/* #define isatty(x)       1            /* always a terminal */
-/* 
-/* #else
-/*
-/* #define printf2         printf       /* make printf2 and printf3 be */
-/* #define printf3         printf       /*  normal printf for all others */
-/*
-/* #endif
-/*
-/* End of commented-out Amiga conditionals */
+/* Special hack for Fortune, which doesn't have <sys/file.h>... */
+
+#ifdef FT18
+#define FREAD 0x01
+#define FWRITE 0x10
+#endif
+

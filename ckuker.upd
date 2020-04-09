@@ -1,3 +1,549 @@
+C-KERMIT FOR UNIX, CHANGES FROM VERSION 4E(069) TO 4E(070), 29 Jan 88
+
+ckuusr.c
+  Put reference to SIGSTOP in #ifdef SIGTSTP conditionals.
+
+ckcmai.c
+  Update version number and date.
+
+C-KERMIT FOR UNIX, CHANGES FROM VERSION 4E(068) TO 4E(069), 27 Jan 88
+
+ckcfn2.c:
+  In input(), set the rdatap pointer to the timeout message.
+
+ckucmd.c:
+  Change name of getwd() to gtword(), to avoid conflict with BSD getwd()
+  function.
+
+ckufio.c:
+  Change to conditionalize zgtdir() function, calling getwd() for BSD,
+  getcwd() for System V, and returning a constant string for others.
+
+ckutio.c:
+  Change foreground/background test in conint() for Berkeley to be based
+  on something that really works, namely testing the process group against
+  the controlling terminal's process group.  There is apparently no way to
+  do this in Sys V...  This fixes the disappearing prompt problem, at least
+  on BSD-based systems.  (Thanks to Fuat Baran for this.)
+
+
+C-KERMIT FOR UNIX, CHANGES FROM VERSION 4E(067) TO 4E(068), 24 Jan 88
+
+Make this the standard released version, rename all files to ck* from xk*.
+
+Change version number and date in ckcmai.c.
+
+Makefile:
+  Add entries for sco286 and sco86 to Makefile (D.W. Bettinger, DEAN@SUVM)
+  Make ckudia.c depend on ckucmd.h (G. Uddeborg, uddeborg@chalmers.se)
+
+ckwart.c:
+  Change ungetc(c) to ungetc(c,fp) in case '/' in gettoken().
+
+ckcfns.c:
+  In function cwd(), after changing directory, ask system for new directory
+  name by calling new function zgtdir().
+
+ckuusr.c:
+  Add stptrap() function to allow job to be suspended by Ctrl-Z.
+  Change call to dial() to ckdial().
+
+ckudia.c:
+  Change name of dial() to ckdial() to avoid name conflict.
+  Add support for ATT 7300 modem from R.E. Hill (untested).
+
+ckutio.c:
+  Add corrections to conint() from Bob Brown (brown@carrara.marble.com)
+  to make Ctrl-Z job suspension work right.
+  Add support for ATT 7300 modem from R.E. Hill (untested).
+
+ck?fio.c:
+  Add new function zgtdir() to ck[uvdmi]fio.c, to return name of current
+  working directory.  Call it from ckcfns.c.
+
+C-KERMIT FOR UNIX, CHANGES FROM VERSION 4E(066) TO 4E(067), 5 Aug 87
+
+This version makes the minor corrections to 4E(066) that proved necessary
+after the beta test of that release.
+
+- ckcfns.c -
+
+In spar(), fix long packet negotiation to allow "set send packet-length"
+ override to work.
+Rename maxsize parameter of getpkt to bufmax to avoid confusion with global
+ maxsize.
+
+- ckcfn2.c -
+
+In rpack(), allow 3 tries to get a packet.  This allows for hosts (like IBM
+ mainframes) that echo the CR that terminates C-Kermit's packets with a CRLF.
+Misc "lint" cleanups.
+
+- ckcmai.c -
+
+Update program version number and date, give credit to more people.
+
+- ckucon.c -
+
+Change wait(0) to wait((int *)0).
+
+- ckudia.c -
+
+Add Concord Condor CDS 220 2400b modem support from Jim Guyton.
+Misc "lint" cleanups.
+
+- ckufio.c -
+
+Change wait(0) to wait((int *)0).
+Don't #include <sys/file.h> for Xenix (this might be dangerous?).
+In zxcmd, set effective group & user IDs for BSD to override security
+ checks of csh.
+
+- ckuker.mak (Makefile) -
+
+Added make options for cleaning out intermediate & object files and for lint.
+Added make option for CDC VX/VE systems.
+Added some comments for improved clarity.
+
+- ckutio.c -
+
+Break a line that was longer than 80 chars.
+Add missing return in conditionals at end of ttpkt(), so program can run
+ on Pyramid and similar systems.
+Add support for CDC VX/VE Sys V Unix from S.O. Lidie, Lehigh U.
+Don't #include <sys/file.h> for Xenix.
+
+- ckuusr.h -
+
+Move definition of KERMRC here from ckuusr.c.
+
+- ckuusr.c -
+
+Fix parsing of "show paramaters" (now you can edit it).
+Change wait(0) to wait((int *)0).
+Remove some debug() statements.
+Move definition of KERMRC from here to ckuusr.h, so "show" command can find it.
+Set default prompt before reading init file instead of after, so "set prompt"
+ in init file will work.
+Set effective group & user IDs for shell command execution.
+
+- ckuus2.c -
+
+Fix help message for "set send/receive packet-length".
+
+- ckuus3.c -
+
+Attempt to fix parsing of "remote cwd" command from take file.
+Fix typo in "Extended-length packets requested" message.
+
+- ckvfio.c -
+
+Define PWDCMD so that "cwd" can work (hopefully).
+
+- ckvtio.c -
+
+Add missing syscleanup() function (just returns 0).
+
+
+C-KERMIT FOR UNIX, CHANGES FROM VERSION 4D(061) TO 4E(066), 5 Aug 87
+
+This version is being released as a test version, because it has not been
+tested at all on the Mac, Amiga, VMS, or Data General, or on many of the common
+Unix systems (SUN, etc), and has not been tested in local mode at all except
+under Ultrix 2.0 on a VAX 750, and under 2.9BSD on a Pro-380.
+
+
+MAJOR CHANGES:
+
+Added support for long packets.
+
+Performance improvements: less copying of received data, more efficient i/o.
+
+C-Kermit now takes its init file always, even if invoked with command-line
+action arguments.
+
+Easy escape from packet mode (^C^C at any time).
+
+Added file bytesize mask to 'set file type {text, binary} {7, 8}' so that
+Kermit can be used to strip 8th data bit during file transfer (e.g. of
+Wordstar files), independent of parity setting.  Default 8.
+
+Added 'set terminal bytesize {7, 8}'.  Default 7.
+
+Added 'set retry' command to adjust packet retransmission limit.
+
+Included changes to support Data General, Apollo, Amiga, Mac with Megamax C.
+
+New 'make' options for sys5r3, CIE Regulus, HP-UX, IBM IX/370, zilog.
+
+Better statistics reporting.
+
+Fix a few major bugs:
+. Loss of trailing control characters at end of file when sending.
+. 2-character checksum now works with 8-bit binary files.
+. Background/take-file interaction fixed, maybe.
+. Insertion of spurious CRLF at position 4096 when doing 'kermit -k'.
+. Parsing of multine 'get' command (again).
+
+                           Tested against:
+Tested under:              MS-Kermit  VM/CMS  DEC-20  VMS  Prime  Ultrix  PDP11
+. Ultrix 1.2 on VAX 8650       x
+. Ultrix 1.1 on VAX 750        x
+. Ultrix 2.0 on VAX 750        x        x        x     x     x      x       x
+. Ultrix 2.0 on VAX 8700       x
+. System V on 3B20             x                 x                  x
+. 2.9BSD on Pro-380                              x                  x
+
+THINGS NOT DONE:
+
+Sliding windows.
+
+Cleaning up the horrible #ifdef mess, especially in CKU[TF]IO.C (at least,
+not very much).
+
+Improving the command parser.  One obvious improvement would be to replace the
+relatively limited CKUCMD command-parsing package with the newer, more general
+and powerful CCMD package.  This was not done because (a) CCMD is bigger, and
+(b) CCMD has not yet been ported to all the systems that C-Kermit can be built
+for (VMS, Data General, etc etc).  Anyway, CKUCMD does the job.
+
+Command macros.
+
+A consistent, sensible treatment of program return codes, to allow C-Kermit
+to be run from scripts or DCL procedures, etc, so that they can tell whether 
+Kermit "succeeded" or "failed".  But what does failure or success mean?
+What if it transfers 29 out of 30 files?  What should the return code be?
+
+Improving modem support.  There are ioctl's in BSD & Ultrix (TIOC(N)MODEM,
+TIOC(N)CAR, TIOCWONLINE) for ignoring/heeding modem signals, but it's not
+clear (to me) which versions of BSD they apply to.  If somebody wants to
+straighten this out in ckutio.c, be my guest.
+
+Dealing in any way with lock files or bidirectional terminal lines, esp. the
+acucntrl business in 4.3BSD, the uugetty business in Sys V, making the program
+run suid, etc.  Got many, many hints about this, but it's so touchy I'll leave
+this to somebody who knows what she's doing and can test the results on a
+variety of systems.  The main problem is that this area is the least
+consistent among all the Unix variants.  Lock files and directories, their
+names, the permissions thereon, and the contents thereof differ from system to
+system, from one version of a system to the next, and within the same version
+of the same system, from site to site.
+
+REMOTE KERMIT command support in the C-Kermit server.
+
+Attribute packets.
+
+Dialing code for ATT7300 from Richard E. Hill.
+
+"Demon dialer" code from Jon Zeeff.
+
+Code for automatically choosing a dialout line from Frank Wortner.
+
+Support for Tandy 6000 and Alcyon Regulus from Frank Wortner.
+
+etc etc
+
+
+CHANGES, MODULE BY MODULE:
+
+- ckcdeb.h -
+
+remove #ifdef LONG_DEF ... #endif because LONG_DEF wasn't used anywhere.
+remove old commented-out Amiga junk (Phil Julian).
+
+define FREAD and FWRITE for Fortune, which doesn't have sys/file.h
+(David Sizeland).
+
+Put conditional comments around vax11c #includes if not vax11c (Ron Heiby).
+
+Add typedef SIGTYP for signal(), it's void under Sys V R3, int elsewhere
+(Ron Heiby).
+
+- ckcfn2.c -
+
+Insert #include ckcsym.h before other includes for benefit of Megamax C,
+so that symbol MAC can be defined (Jim Noble)
+
+Remove extraneous * from "*pkt++" in for-statement in chk2() (Jim Noble).
+
+change all "screen(SCR_PT,'Q',(long)n,recpkt);" to
+           "screen(SCR_PT,'Q',(long)(*n),recpkt);" (3 places) (Jim Noble).
+
+Fix type-2 block checks for binary files (make everything unsigned)
+(David Wilson).
+
+Change name of unchar() macro to xunchar(), to remove conflict with unchar
+typedef for unsigned character on ATT3Bx SVR3 systems (Ron Heiby).
+
+Add support for long packets, mostly in rpack() and spack().
+
+In input(), recognize a valid Error packet even if it has the wrong
+sequence number.
+
+Make chk2() only return the low order 12 bits of the checksum, to ward off
+sign extension problems.
+
+Remove extra level of copying by eliminating call to inlin() in rpack().
+Instead, call ttinl() directly.
+
+Replace rpack() and spack() with "book-Kermit" versions, to allow receiving
+and sending of long packets, and removing many extraneous and time-consuming
+validity checks.
+
+Change packet logging functions to start at the ^A when there are leading
+nulls (e.g. padding) that would otherwise act as string terminators.
+
+Recode dopar() to do a simple table lookup, rather than calculate parity,
+to improve packet construction speed.
+
+Fix resend() to resend a packet even if it has leading null pad characters.
+
+- ckcfns.c -
+
+Zillions of "#ifdef datageneral...#endif" sections added, mostly having
+to do with wildcard expansion, yuck (the ckc* files weren't s'posed to have
+system dependencies).
+
+Changed extern long tsecs to extern int tsecs.
+
+Fixed getpkt() to remember final leftovers, so that trailing control
+characters are not ommitted during send (Gordon Scott).
+
+Fixed sdebu() to display seol rather than eol (Scott Ribe).
+
+Add rdebu() to display rpar() results.
+
+Change name of unchar() macro to xunchar() to avoid S5r3 name conflict.
+
+Cast tsecs to (long) in call to tlog in tstats() (Dan Murphy).
+
+Replace rpar() and spar() with "book-Kermit" versions.
+
+Remove extraneous variable chklen.
+
+Add resetc() function to reset some statistics counters.
+
+Move fstats(), tstats(), sdebu(), and rdebu() from here to ckuus2.c,
+because ckcfns.c had grown too large for some systems (like PDP-11s).
+Must keep text size of each module below 8K!
+
+- ckcker.h -
+
+Change name of unchar() macro to xunchar().
+
+- ckcmai.c -
+
+Process init file before reading command line args.
+
+SAS version had some code to support the REMOTE KERMIT command via a
+temp file kludge, which was omitted (do it right, use CCMD, maybe next
+release).
+
+Shortened hlptxt again, sigh (for Xenix).
+
+#include "ckcsym.h" for Mac.
+
+#ifdef datageneral for longer filenames.
+
+#ifdef for Apollo which wants to use main() for something else.
+
+New server REMOTE HELP message for Mac.
+
+Remove extraneous variable chklen.
+
+- ckcpro.w - 
+
+Change calling convention for rpar(), which now returns a string pointer.
+
+Reset the tty after returning from packet protocol.
+
+Remove extraneous variable 'image', which caused problems for some compilers.
+
+Issue "Escape back" messages when given 'send' or 'receive' command in
+remote mode.
+
+Terminate with message when error packet received and running in background
+(Les Mikesell).
+
+Only reset statistics counters when files are actually being transferred.
+
+- ckucmd.c -
+
+Many conditionals added to support Apollo and Data General.
+
+- ckufio.c -
+
+make zchout return -1 or 0, rather than just passing along ferror's
+return code.
+
+change NULL arg to execl to (char *)NULL in zxcmd().
+
+Various conditionals for Apollo Aegis.
+
+Updated support for Fortune (now FT18), from David Sizeland, London University
+Medical School.
+
+#include <sys/types.h> before other includes (Les M).
+
+- ckutio.c -
+
+Many Apollo Aegis conditionals.
+
+Minor Fortune changes.
+
+In conint(), always perform background check, so that backgrd flag can
+be set correctly.  This allows errors in TAKE files to be fatal once again
+(as they were in 4C). (Gordon Scott) 
+
+Also in conint(), enable SIGTERM and SIGHUP signals so lock files can be
+cleaned up (Les M).
+
+Rearrange the whole conint() function until it seems to make sense, and
+try to make connoi() symmetrical with it, i.e. put back the same interrupts
+that conint() set traps for.
+
+Remove trailing text from #endif's.
+
+In ttpkt(), the call to fcntl should OR the FNDELAY bit into the flags,
+not AND it! (2 places) (Howard Chu, umich)  For BSD, replace this call
+with an ioctl() to set and unset FIONBIO (blocking/nonblocking i/o).
+(Later, don't do any of this for BSD.  Measurements showed BSD does better
+with blocking reads and buffer checks.)
+
+Make some changes to myread() so that it actually works under 4.xBSD.
+Change some of the System III/V code as well, so that myread() can actually
+return -1 when no data is available (inspection of the previous code showed
+that this could never happen before).  (Later, BSD doesn't use myread() any
+more.)
+
+Add parity to list of args for ttpkt(), so that it can be saved for use by
+other tt functions, particularly ttinl().  Saves another copy step.  Add
+parity arg to calls from ckcpro.w and ckudia.c.  *** WARNING -- This required
+corresponding changes in ck[idvm...]tio.c, which could not be tested! ***
+
+Allow user to type ^C^C anytime during packet protocol to exit from
+the program and restore terminal modes, by checking for this in ttinl(),
+and adding a new -2 return code.  *** Need to change ck[vd...]tio.c too! ***
+
+Add support for HP-UX dialout modems from Bill Coalson of McDonnell Douglas.
+
+Add syscleanup() function, currently empty.
+
+Rearrange myread() a little bit for doing myunread() (Les M).
+
+Totally rewrite ttinl() for efficiency & cleanliness.  No #ifdef's!
+
+- ckuusr.h -
+
+Add symbol for 'set terminal'.
+
+- ckuusr.c -
+
+Return(0) from parser when we exit from command file.
+
+change dcl of istat & qstat from int to SIGTYP.
+
+in cmdlin(), make sure to set quiet = 1 if 'k' option was elected.  This
+fixes the infamous 4K CRLF bug (the 'conoll("")' in ckcmai.c was inserting
+an unbuffered CRLF into the buffered data after the first 4K buffer).
+
+Add 'set retry'.
+
+Add call to syscleanup() from doexit().
+
+Change some GOOD_EXITs to BAD_EXITs.
+
+Fix parsing of the last line of multiline 'get' to allow editing.
+
+Fix reading multiline 'get' commands from 'take' file.
+
+Move functions shopar(), dolog(), debopn() to ckuus2 because ckuusr.c was
+getting too big to compile on some systems (PDP-11s, etc).  Also, move
+statistics display to new function dostat() in ckuus2.c.
+
+- ckuus2.c -
+
+Some new messages for Data General.
+
+Add '-e' (extended packet length) to usage() message, but remove -h so
+whole message still fits on screen.
+
+Fix hmsg() to allow editing of 'help' commands.  Previously, operations like
+'help send<esc><^W>' would fracture the command line.
+
+Move functions shopar(), dolog(), debopn() here from ckuusr.c.  Add dostat().
+
+In shopar(), display limits on send & receive packet lengths, file and
+terminal byte sizes.
+
+Move fstats(), tstats(), sdebu(), and rdebu() here from ckcfns.c.
+
+- ckuus3.c -
+
+Conditionals for Data General.
+
+Add 'set retry'.
+
+Add support for long packets in 'set send/receive packet-length'.
+
+Add trailing argument to 'set file type {binary, text} {7, 8}'.
+
+Add 'set terminal bytesize {7, 8}'.
+
+Remove extraneous variable 'image', which caused problems for some compilers.
+
+Increase debug and transaction log string buffer lengths, and do length
+checking before sprintf()'s to avoid core dumps.
+
+- ckucon.c -
+
+Before forking, do signal(SIGUSR1,SIG_SIGN) to avoid killing parent if
+connecting to a line with no carrier.  Without this, the child's signal would
+arrive before the parent's handler was set up (Les M).
+
+- ckudia.c -
+
+Change declarations of savAlrm and savInt from int to SIGTYP (Ron Heiby).
+
+Change Hayes dialing string from AT DT to AT D.
+
+Change Ventel modem dial string from "<K%s'r>" to "<K%s\r>" (Jim Knutson).
+
+- ckuscr.c -
+
+Change declaration of savAlrm from int to SIGTYP (Ron Heiby).
+
+Don't output gratuitous messages when in quiet mode.
+
+Increase script buffer size (SBUFL) from 300 to 512 (Les M).
+
+Remove 7-char restriction on "expect" strings (Les M).  Then remove this
+change after core dumps.
+
+Log script execution to session log.  Requires addition of new flushi()
+function.
+
+- ckwart.c -
+
+Several minor fixes from Jim Noble, mostly regarding format of output file.
+
+- Makefile (ckuker.mak) -
+
+New Fortune support under "make ft18" (David Sizeland).
+
+New make option for "sys5r3" (Ron Heiby).
+
+New make option for "cie" (David Lawyer).
+
+New make option for "hpux" (Bill Coalson).
+
+New make option for "ix370" (Wayne Van Pelt).
+
+New make option for "zilog" (Dave Woolley).
+
+Add Xenix hints (Dan Murphy).
+
+
 C-KERMIT FOR UNIX, CHANGES FROM 4D(060) TO 4D(061), 9 SEP 86:
 
 Changes from Jack Rouse and Phil Julian of SAS Institute:

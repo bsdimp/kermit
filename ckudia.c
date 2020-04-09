@@ -1,4 +1,4 @@
-char *dialv = "Dial Command, V2.0(008) 26 Jul 85";
+char *dialv = "Dial Command, V2.0(009) 24 Jan 88";
 
 /*  C K U D I A  --  Dialing program for connection to remote system */
 
@@ -70,6 +70,9 @@ char *dialv = "Dial Command, V2.0(008) 26 Jul 85";
  *			missing case labels, and modified the failure message
  *			to display the "reason" given by the modem.
  *							-- Dan Schullman
+ *	16-Mar-87	Support for the ATT7300 UNIX PC internal modem was
+ *			added.
+ *							-- Richard E. Hill
  */
 
 /*
@@ -114,11 +117,16 @@ char *dialv = "Dial Command, V2.0(008) 26 Jul 85";
 #include <stdio.h>
 #include <ctype.h>
 #include <signal.h>
-#include <setjmp.h>
 #include "ckcker.h"
 #include "ckucmd.h"
 
-extern int flow, local, mdmtyp, quiet, speed;
+#ifndef ZILOG
+#include <setjmp.h>			/* Longjumps */
+#else
+#include <setret.h>
+#endif
+
+extern int flow, local, mdmtyp, quiet, speed, parity, seslog;
 extern char ttname[], sesfil[];
 
 #define	MDMINF	struct mdminf
@@ -162,6 +170,8 @@ MDMINF		/* structure for modem-specific information */
 #define		n_UNKNOWN	 9
 #define		n_USROBOT	10
 #define		n_VENTEL	11
+#define         n_CONCORD       12
+#define		n_ATT7300	13	/* added for PC7300 */
 
 /*
  * Declare modem "variant" numbers for any of the above for which it is
@@ -287,7 +297,7 @@ MDMINF HAYES =		/* information for "Hayes" modem */
     "",			/* wake_prompt */
     "",			/* dmode_str */
     "",			/* dmode_prompt */
-    "AT DT %s\r",	/* dial_str */
+    "AT D %s\r",	/* dial_str */
     0			/* dial_rate */
     };
 
@@ -362,7 +372,37 @@ MDMINF VENTEL =		/* information for "Ventel" modem */
     "$",		/* wake_prompt */
     "",			/* dmode_str */
     "",			/* dmode_prompt */
-    "<K%s'r>",		/* dial_str */
+    "<K%s\r>",		/* dial_str */
+    0			/* dial_rate */
+    };
+
+static
+MDMINF CONCORD =	/* Info for Condor CDS 220 2400b modem */
+    {
+    35,			/* dial_time */
+    ",",		/* pause_chars */
+    2,			/* pause_time */
+    "\r\r",		/* wake_str */
+    20,			/* wake_rate */
+    "CDS >",		/* wake_prompt */
+    "",			/* dmode_str */
+    "",			/* dmode_prompt */
+    "<D M%s\r>",	/* dial_str */
+    0			/* dial_rate */
+    };
+
+static
+MDMINF ATT7300 =	/* dummy information for "ATT7300" internal modem */
+    {
+    30,			/* dial_time */
+    "",			/* pause_chars */
+    0,			/* pause_time */
+    "",			/* wake_str */
+    0,			/* wake_rate */
+    "",			/* wake_prompt */
+    "",			/* dmode_str */
+    "",			/* dmode_prompt */
+    "%s\r",		/* dial_str */
     0			/* dial_rate */
     };
 
@@ -389,7 +429,9 @@ MDMINF *ptrtab[] =
     &RACAL,
     &UNKNOWN,
     &USROBOT,
-    &VENTEL
+    &VENTEL,
+    &CONCORD,
+    &ATT7300
     };
 
 /*
@@ -400,7 +442,9 @@ MDMINF *ptrtab[] =
  */
 struct keytab mdmtab[] =
     {
+    "att7300",          n_ATT7300,      0,
     "cermetek",		n_CERMETEK,	0,
+    "concord",          n_CONCORD,      0,
     "df03-ac",		n_DF03,		0,
     "df100-series",	n_DF100,	0,
     "df200-series",	n_DF200,	0,
@@ -441,8 +485,8 @@ static char lbuf[LBUFL];
 
 static jmp_buf sjbuf;
 
-static int (*savAlrm)();	/* for saving alarm handler */
-static int (*savInt)();		/* for saving interrupt handler */
+static SIGTYP (*savAlrm)();	/* for saving alarm handler */
+static SIGTYP (*savInt)();	/* for saving interrupt handler */
 
 dialtime() {			/* timer interrupt handler */
     longjmp( sjbuf, F_time );
@@ -498,9 +542,9 @@ reset ()
 
 
 
-/*  D I A L  --  Dial up the remote system */
+/*  C K D I A L  --  Dial up the remote system */
 
-dial(telnbr) char *telnbr; {
+ckdial(telnbr) char *telnbr; {
 
     char c;
     char *i, *j;
@@ -524,7 +568,21 @@ dial(telnbr) char *telnbr; {
 	    printf("Sorry, you must 'set speed' first\n");
 	    return(-2);
         }
-	if (ttopen(ttname,&local,mdmtyp) < 0) {/* Open, no wait for carrier */
+
+#ifdef ATT7300
+/*
+   The following if-statement added by R.E.Hill to handle the internal
+   modem available on the ATT PC7300 computer and other ATT systems which
+   uses internal modems activated by system routines - "dial" & "undial"
+*/
+        if (mdmtyp == n_ATT7300) {
+	    if (attdial(ttname,speed,telnbr)) return (-2);
+	    if ( ! quiet ) printf ("call completed.\07\r\n");
+	    return(0);
+	}
+#endif /* ATT7300 */
+
+	if (ttopen(ttname,&local,mdmtyp) < 0) { /* Open, no carrier wait */
 	    erp = errmsg;
 	    sprintf(erp,"Sorry, can't open %s",ttname);
 	    perror(errmsg);
@@ -532,6 +590,7 @@ dial(telnbr) char *telnbr; {
     	}
 	pmdminf = ptrtab[mdmtyp-1];	/* set pointer to modem info */ 
 	augmdmtyp = mdmtyp;		/* initialize "augmented" modem type */
+
 /* cont'd... */
 
 
@@ -561,7 +620,7 @@ dial(telnbr) char *telnbr; {
 
 /* Condition console terminal and communication line */	    
 				/* place line into "clocal" dialing state */
-	if ( ttpkt(speed,DIALING) < 0 )  {
+	if ( ttpkt(speed,DIALING,parity) < 0 )  {
 	    printf("Sorry, Can't condition communication line\n");
 	    return(-2);
     	}
@@ -803,6 +862,11 @@ switch (augmdmtyp) {
 		    if (didWeGet(lbuf,"BUSY")) status = FAILED;
 		    if (didWeGet(lbuf,"DEAD PHONE")) status = FAILED;
 		    break;
+		  case n_CONCORD:
+		    if (didWeGet(lbuf,"INITIATING")) status = CONNECTED;
+		    if (didWeGet(lbuf,"BUSY")) status = FAILED;
+		    if (didWeGet(lbuf,"CALL FAILED")) status = FAILED;
+		    break;
 		}
 	    }
 	    break;
@@ -829,13 +893,11 @@ switch (augmdmtyp) {
 	    break;
 	}				/* switch (augmdmtyp) */
     }					/* while status == 0 */
-
-
     alarm(0);				/* turn off alarm on connecting */
     if ( status != CONNECTED )		/* modem-detected failure */
 	longjmp( sjbuf, F_modem );	/* exit (with reason in lbuf) */
     alarm(3);				/* precaution in case of trouble */
-    ttpkt(speed,CONNECT);		/* cancel dialing state ioctl */
+    ttpkt(speed,CONNECT,parity);	/* cancel dialing state ioctl */
     reset ();				/* reset alarms, etc. */
     if ( ! quiet )
 	printf ( "Call completed.\07\r\n" );

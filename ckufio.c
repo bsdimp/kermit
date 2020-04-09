@@ -1,6 +1,8 @@
-char *ckzv = "Unix file support, 4C(033) 8 Sep 86";
+char *ckzv = "Unix file support, 4E(037) 27 Jan 88";
 
 /* C K U F I O  --  Kermit file system support for Unix systems */
+
+/* 4E, conditionals added for Apollo Aegis. */
 
 /*
  Author: Frank da Cruz (SY.FDC@CU20B),
@@ -12,14 +14,20 @@ char *ckzv = "Unix file support, 4C(033) 8 Sep 86";
 */
 /* Includes */
 
+#include <sys/types.h>			/* Data types */
 #include "ckcker.h"			/* Kermit definitions */
 #include "ckcdeb.h"			/* Typedefs, debug formats, etc */
 #include <ctype.h>			/* Character types */
 #include <stdio.h>			/* Standard i/o */
-#include <sys/types.h>			/* Data types */
 #include <sys/dir.h>			/* Directory structure */
-#include <sys/stat.h>			/* File status */
 #include <pwd.h>			/* Password file for shell name */
+
+#ifdef CIE
+#include <stat.h>			/* File status */
+#else
+#include <sys/stat.h>
+#endif
+
 
 /* Berkeley Unix Version 4.x */
 /* 4.1bsd support added by Charles E Brooks, EDN-VAX */
@@ -29,9 +37,9 @@ char *ckzv = "Unix file support, 4C(033) 8 Sep 86";
 #define BSD42
 char *ckzsys = " 4.2 BSD";
 #else
-#ifdef FT17
+#ifdef FT18
 #define BSD41
-char *ckzsys = " For:Pro Fortune 1.7";
+char *ckzsys = " Fortune For:Pro 1.8";
 #else
 #define BSD41
 char *ckzsys = " 4.1 BSD";
@@ -47,6 +55,11 @@ char *ckzsys = " 2.9 BSD";
 /* Version 7 Unix  */
 #ifdef V7
 char *ckzsys = " Version 7 Unix";
+#endif
+
+/* Version 9 Unix  */
+#ifdef V9
+char *ckzsys = " Version 9 Unix";
 #endif
 
 /* DEC Professional-300 series with Venturcom Venix v1 */
@@ -71,7 +84,11 @@ char *ckzsys = " PC/IX";
 #ifdef ISIII
 char *ckzsys = " Interactive Systems Corp, System III";
 #else
+#ifdef ZILOG
+char *ckzsys = " Zilog S8000 Zeus 3.21+";
+#else
 char *ckzsys = " AT&T System III/System V";
+#endif
 #endif
 #endif
 #endif
@@ -79,18 +96,36 @@ char *ckzsys = " AT&T System III/System V";
 
 /* Definitions of some Unix system commands */
 
-char *DIRCMD = "ls -l ";		/* For directory listing */
 char *DELCMD = "rm -f ";		/* For file deletion */
-char *TYPCMD = "cat ";			/* For typing a file */
 char *PWDCMD = "pwd ";			/* For saying where I am */
+
+#ifdef FT18
+char *DIRCMD = "ls -l | more ";		/* For directory listing */
+char *TYPCMD = "more ";			/* For typing a file */
+#else
+char *TYPCMD = "cat ";			/* For typing a file */
+char *DIRCMD = "ls -l ";		/* For directory listing */
+#endif
+
+#ifdef FT18
+#undef BSD4
+#endif
 
 #ifdef BSD4
 char *SPACMD = "pwd ; quota ; df .";	/* Space/quota of current directory */
 #else
+#ifdef FT18
+char #SPACMD = "pwd ; du ; df .";
+#else
 char *SPACMD = "df ";
+#endif
 #endif
 
 char *SPACM2 = "df ";			/* For space in specified directory */
+
+#ifdef FT18
+#define BSD4
+#endif
 
 #ifdef BSD4
 char *WHOCMD = "finger ";		/* For seeing who's logged in */
@@ -124,18 +159,28 @@ char *WHOCMD = "who ";			/* For seeing who's logged in */
    zkself()         -- Kill self, log out own job.
  */
 
-
-#ifdef FT17
+#ifdef FT18
 #define PROVX1
 #endif
+
+/* Which systems include <sys/file.h>... */
 #ifndef PROVX1
+#ifndef aegis
+#ifndef CIE
+#ifndef XENIX
+/* Watch out, some versions of Xenix might need to do this include, */
+/* but reportedly SCO Xenix 2.2 on an 80x86 system does not. */
 #include <sys/file.h>			/* File access */
 #endif
-#ifdef FT17
+#endif
+#endif
+#endif
+
+#ifdef FT18
 #undef PROVX1
 #endif
 
-/* Some systems define these in include files, others don't... */
+/* Some systems define these symbols in include files, others don't... */
 #ifndef R_OK
 #define R_OK 4				/* For access */
 #endif
@@ -178,7 +223,7 @@ FILE *fp[ZNFILS] = { 			/* File pointers */
 
 static int pid;	    			/* pid of child fork */
 static int fcount;			/* Number of files in wild group */
-static char nambuf[MAXNAMLEN+1];	/* Buffer for a filename */
+static char nambuf[MAXNAMLEN+2];	/* Buffer for a filename */
 char *malloc(), *getenv(), *strcpy();	/* System functions */
 extern errno;				/* System error code */
 
@@ -187,6 +232,9 @@ static char *mtchs[MAXWLD],		/* Matches found for filename */
 
 /*  Z K S E L F  --  Kill Self: log out own job, if possible.  */
 
+/* Note, should get current pid, but if your system doesn't have */
+/* getppid(), then just kill(0,9)...  */
+
 zkself() {				/* For "bye", but no guarantee! */
 #ifdef PROVX1
     return(kill(0,9));
@@ -194,13 +242,21 @@ zkself() {				/* For "bye", but no guarantee! */
 #ifdef V7
     return(kill(0,9));
 #else
+#ifdef V9
+    return(kill(0,9));
+#else
 #ifdef TOWER1
     return(kill(0,9));
 #else
-#ifdef FT17
+#ifdef FT18
+    return(kill(0,9));
+#else
+#ifdef aegis
     return(kill(0,9));
 #else
     return(kill(getppid(),1));
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -315,11 +371,10 @@ zsoutx(n,s,x) int n, x; char *s; {
 zchout(n,c) int n; char c; {
     if (chkfn(n) < 1) return(-1);
     if (n == ZSFILE)
-/*    	return(write(fp[n]->_file,&c,1));  */
     	return(write(fileno(fp[n]),&c,1)); /* Use unbuffered for session log */
     else {				/* Buffered for everything else */
 	if (putc(c,fp[n]) == EOF)	/* If true, maybe there was an error */
-	    return(ferror(fp[n]));	/* Check to make sure */
+	    return(ferror(fp[n])?-1:0);	/* Check to make sure */
 	else				/* Otherwise... */
 	    return(0);			/* There was no error. */
     }
@@ -368,7 +423,7 @@ chkfn(n) int n; {
 long
 zchki(name) char *name; {
     struct stat buf;
-    int x; long y;			 
+    int x; long y; 
 
     x = stat(name,&buf);
     if (x < 0) {
@@ -454,11 +509,31 @@ zrtol(name,name2) char *name, *name2; {
 zltor(name,name2) char *name, *name2; {
     char work[100], *cp, *pp;
     int dc = 0;
+#ifdef aegis
+    char *getenv(), *index(), *namechars;
+    int tilde = 0, bslash = 0;
+
+    if ((namechars = getenv("NAMECHARS")) != NULL) {
+    	if (index(namechars, '~' ) != NULL) tilde  = '~';
+    	if (index(namechars, '\\') != NULL) bslash = '\\';
+    } else {
+        tilde = '~';
+        bslash = '\\';
+    }
+#endif
 
     debug(F110,"zltor",name,0);
     pp = work;
+#ifdef aegis
+    cp = name;
+    if (tilde && *cp == tilde)
+    	++cp;
+    for (; *cp != '\0'; cp++) {	/* strip path name */
+    	if (*cp == '/' || *cp == bslash) {
+#else
     for (cp = name; *cp != '\0'; cp++) {	/* strip path name */
     	if (*cp == '/') {
+#endif
 	    dc = 0;
 	    pp = work;
 	}
@@ -492,6 +567,36 @@ char *
 zhome() {
     return(getenv("HOME"));
 }
+
+/*  Z G T D I R  --  Return pointer to user's current directory  */
+
+char *
+zgtdir() {
+
+#ifdef MAXPATHLEN
+#define CWDBL MAXPATHLEN
+#else
+#define CWDBL 100
+#endif
+
+#ifdef UXIII
+    char cwdbuf[CWDBL+1];
+    char *buf;
+    char *getcwd();
+    buf = cwdbuf;
+    return(getcwd(buf,CWDBL));
+#else
+#ifdef BSD4
+    char cwdbuf[CWDBL+1];
+    char *buf;
+    char *getwd();
+    buf = cwdbuf;
+    return(getwd(buf));
+#else
+    return("(directory unknown)");
+#endif
+#endif
+}
 
 /*  Z X C M D -- Run a system command so its output can be read like a file */
 
@@ -501,17 +606,23 @@ zxcmd(comand) char *comand; {
 	debug(F100,"zxcmd pipe failure","",0);
 	return(0);			/* can't make pipe, fail */
     }
+#ifdef aegis
+    if ((pid = vfork()) == 0) {		/* child */
+#else
     if ((pid = fork()) == 0) {		/* child */
+#endif
+
 
 /*#if BSD4*/		/* Code from Dave Tweten@AMES-NAS */
 			/* readapted to use getpwuid to find login shell */
 			/*   -- H. Fischer */
 	char *shpath, *shname, *shptr;	/* to find desired shell */
+#ifndef aegis
 	struct passwd *p;
 	extern struct passwd * getpwuid();
 	extern int getuid();
 	char *defShel = "/bin/sh";	/* default shell */
-/*#endif*/
+#endif
 
 	close(pipes[0]);		/* close input side of pipe */
 	close(0);			/* close stdin */
@@ -531,19 +642,28 @@ zxcmd(comand) char *comand; {
 
 	close(pipes[1]);		/* get rid of this copy of the pipe */
 
+#ifdef aegis
+	if ((shpath = getenv("SERVERSHELL")) == NULL) shpath = "/bin/sh";
+#else
+
 /**** 	shptr = shname = shpath = getenv("SHELL");  /* What shell? */
 	p = getpwuid( getuid() );	/* get login data */
 	if ( p == (struct passwd *) NULL || !*(p->pw_shell) ) shpath = defShel;
 	  else shpath = p->pw_shell;
+#endif
 	shptr = shname = shpath;
 	while (*shptr != '\0') if (*shptr++ == '/') shname = shptr;
 	debug(F100,"zxcmd...","",0);
 	debug(F110,shpath,shname,0);
-	execl(shpath,shname,"-c",comand,NULL); /* Execute the command */
 
-/****	execl("/bin/sh","sh","-c",comand,NULL); /* Execute the command */
+/* Remove the following uid calls if they cause trouble... */
+#ifdef BSD4
+	setegid(getgid());		/* Override 4.3BSD csh */
+	seteuid(getuid());		/*  security checks */
+#endif /* bsd4 */
 
-	exit(0);			/* just punt if it didnt work */
+	execl(shpath,shname,"-c",comand,(char *)NULL); /* Execute the cmd */
+	exit(0);			/* just punt if it failed. */
     } else if (pid == -1) {
 	debug(F100,"zxcmd fork failure","",0);
 	return(0);
@@ -560,7 +680,7 @@ zclosf() {
     int wstat;
     if (kill(pid,9) == 0) {
 	debug(F101,"zclosf pid =","",pid);
-        while ((wstat = wait(0)) != pid && wstat != -1) ;
+        while ((wstat = wait((int *)0)) != pid && wstat != -1) ;
         pid = 0;
     }
     fclose(fp[ZIFILE]);
@@ -666,7 +786,12 @@ struct path {
 #ifdef BSD29
 #define SSPACE 500
 #else
+#ifdef aegis
+#define SSPACE 10000			/* size of string-generating buffer */
+static char bslash;			/* backslash character if active */
+#else
 #define SSPACE 2000			/* size of string-generating buffer */
+#endif
 #endif
 #endif
 static char sspace[SSPACE];             /* buffer to generate names in */
@@ -702,11 +827,25 @@ char *p;
    if (head == NULL) head = cur;
    else prv -> fwd = cur;       /* link into chain */
    prv = cur;
+#ifdef aegis
+   /* treat backslash as "../" */
+   if (bslash && *p == bslash) {
+     strcpy(cur->npart, "..");
+     ++p;
+   } else {
+     for (i=0; i < MAXNAMLEN && *p && *p != '/' && *p != bslash; i++)
+       cur -> npart[i] = *p++;
+     cur -> npart[i] = '\0';      /* end this segment */
+     if (i >= MAXNAMLEN) while (*p && *p != '/' && *p != bslash) p++;
+   }
+   if (*p == '/') p++;
+#else
    for (i=0; i < MAXNAMLEN && *p != '/' && *p != '\0'; i++)
      cur -> npart[i] = *p++;
    cur -> npart[i] = '\0';      /* end this segment */
    if (i >= MAXNAMLEN) while (*p != '/' && *p != '\0') p++;
    if (*p == '/') p++;
+#endif
  }
  return(head);
 }
@@ -736,6 +875,33 @@ int len;
 {
  struct path *head;
  char scratch[100],*sptr;
+#ifdef aegis
+ char *getenv(), *index(), *namechars;
+ int tilde = 0, bquote = 0;
+
+ if ((namechars = getenv("NAMECHARS")) != NULL) {
+  if (index(namechars, '~' ) != NULL) tilde  = '~';
+  if (index(namechars, '\\') != NULL) bslash = '\\';
+  if (index(namechars, '`' ) != NULL) bquote = '`';
+ }
+ else { tilde = '~'; bslash = '\\'; bquote = '`'; }
+
+ sptr = scratch;
+ /* copy "`node_data", etc. anchors */
+ if (bquote && *pat == bquote)
+  while (*pat && *pat != '/' && *pat != bslash)
+   *sptr++ = *pat++;
+ else if (tilde && *pat == tilde)
+  *sptr++ = *pat++;
+ while (*pat == '/')
+  *sptr++ = *pat++;
+ if (sptr == scratch)
+ {
+  strcpy(scratch,"./");
+  sptr = scratch+2;
+ }					/* init buffer correctly */
+ head = splitpath(pat);
+#else
  head = splitpath(pat);
  if (*pat == '/')
  {
@@ -747,6 +913,7 @@ int len;
   strcpy(scratch,"./");
   sptr = scratch+2;
  }					/* init buffer correctly */
+#endif
  numfnd = 0;                            /* none found yet */
  freeptr = sspace;			/* this is where matches are copied */
  resptr = resarry;			/* static copies of these so*/
@@ -766,7 +933,7 @@ int len;
  *   in the pattern string; otherwise, we just return.
  *
  *   If the current pattern segment contains wildcards, we open the name
- *   we've accumulated so far (assuming it is really a directory), then read 
+ *   we've accumulated so far (assuming it is really a directory), then read
  *   each filename in it, and, if it matches the wildcard pattern segment, add
  *   that filename to what we have so far and call ourselves recursively on the
  *   next segment.
@@ -837,7 +1004,7 @@ char *sofar,*endcur;
 #else
 
  if ((fd = open(sofar,O_RDONLY)) < 0) return;  	/* can't open, forget it */
- while ( read(fd,dirbuf,sizeof dir_entry) ) 
+ while ( read(fd,dirbuf,sizeof dir_entry) )
 #endif
 #endif
 {
@@ -883,7 +1050,7 @@ char *str;
   return;
  }
  l = strlen(str) + 1;			/* size this will take up */
- if ((freeptr + l) > &sspace[SSPACE]) {
+ if ((freeptr + l) > &sspace[SSPACE-1]) {
     numfnd = -1;			/* do not record if not enough space */
     return;
   }

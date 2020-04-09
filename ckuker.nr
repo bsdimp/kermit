@@ -8,7 +8,8 @@ kermit \- kermit file transfer
 .I Kermit
 is a file transfer program that allows files to be moved
 between machines of many different operating systems and architectures.
-This man page describes version 4C of the program.
+This man page describes version 4E(068) of the program.  See the C-Kermit
+documentation (ckuker.doc) or the Kermit book for further information.
 .PP
 Arguments are optional. If
 .I Kermit
@@ -36,7 +37,7 @@ denote a single file or a group of files.
 A remote file specification which should denote only a single file.
 .TP
 .I n
-A decimal number between 0 and 94.
+A decimal number, in most cases between 0 and 94.
 .TP
 .I c
 A decimal number between 0 and 127 representing the value of an ASCII
@@ -70,7 +71,7 @@ list.  If
 .I fn
 is '-' then
 .I Kermit
-sends from standard input, which must come from a file:  
+sends from standard input, which may come from a file:  
 .sp 0.6v
             kermit -s - < foo.bar
 .sp 0.6v
@@ -144,12 +145,10 @@ your PC or workstation.
 .PP
 If you are running 
 .I Kermit
-on a PC, it is in local mode by default, with the "back port" designated
-for file transfer and terminal connection.  If you are running
+On most systems,
 .I Kermit
-on a multiuser (timesharing) system, it is in remote mode unless you
-explicitly point it at an external line for file transfer or terminal
-connection.  The following command sets
+runs in remote mode by default, so on a PC or workstation, you will have
+to put it into local mode.  The following command sets
 .IR Kermit 's
 "mode":
 .RE 1
@@ -174,7 +173,7 @@ option, as in
 This option should always be included with the
 .B  \-l
 option, since the speed of an external line is not necessarily what you
-expect.
+might expect.
 .TP
 .BI \-p " x"
 Parity \(em
@@ -279,6 +278,11 @@ conversions.  This option is necessary for transmitting binary files.
 It may also be used to slightly boost efficiency in Unix-to-Unix
 transfers of text files by eliminating CRLF/newline conversion.
 .TP
+.B \-e " n"
+Specifies the (extended) receive-packet length, a number between 10
+and about 1000 (depending on the system).  Lengths of 95 or greater require
+that the opposite Kermit support the long packet protocol extension.
+.TP
 .B \-w
 Write-Protect \(em Avoid filename collisions for incoming files.
 .TP
@@ -372,8 +376,8 @@ first time you run
 .PP
 Interactive 
 .I Kermit
-accepts commands from files as well as from the keyboard.  When you
-enter interactive mode,
+accepts commands from files as well as from the keyboard.  Upon
+startup,
 .I Kermit
 looks for the file .kermrc in your home or current directory (first it
 looks in the home directory, then in the current one) and executes any
@@ -387,8 +391,11 @@ Here is a brief list of
 interactive commands:
 .PD 0.6v
 .TP 12
-.B !
-Execute a Unix shell command.
+.B ! command
+Execute a Unix shell command.  A space is required after after the !.
+.TP
+.B % text
+A comment.  Useful in take-command files.
 .TP
 .B bye
 Terminate and log out a remote
@@ -411,7 +418,7 @@ Dial a telephone number.
 Display a directory listing.
 .TP
 .B echo
-Display arguments literally.
+Display arguments literally.  Useful in take-command files.
 .TP
 .B exit
 Exit from the program, closing any open logs.
@@ -456,7 +463,7 @@ Begin server operation.
 Set various parameters.
 .TP
 .B show
-Display values of 'set' parameters.
+Display values of 'set' parameters, program version, etc.
 .TP
 .B space
 Display current disk space usage.
@@ -509,6 +516,9 @@ program's prompt.
 .B receive
 Set various parameters for inbound packets.
 .TP
+.B retry
+Set the packet retransmission limit.
+.TP
 .B send
 Set various parameters for outbound packets.
 .TP
@@ -550,9 +560,15 @@ $HOME/.kermrc	\fIKermit\fR initialization commands
 .SH SEE ALSO
 cu(1C), uucp(1C)
 .br
-Frank da Cruz and Bill Catchings,
+Frank da Cruz,
 .IR "Kermit User's Guide" ,
 Columbia University, 6th Edition
+.TP
+Frank da Cruz,
+.IR "Kermit, A File Transfer Protocol" ,
+Digital Press (1987)
+.TP
+The file ckuker.doc.
 .SH DIAGNOSTICS
 The diagnostics produced by
 .I Kermit

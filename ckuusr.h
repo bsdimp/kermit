@@ -9,9 +9,18 @@
  copyright notice is retained.
 */
  
+/* Name of C-Kermit program initialization file. */
+#ifdef vax11c
+#define KERMRC "kermit.ini"
+#else
+#define KERMRC ".kermrc"
+#endif
+
 #ifndef AMIGA
 #ifndef vax11c
+#ifndef datageneral
 #include <pwd.h>
+#endif
 #endif
 #endif
  
@@ -100,6 +109,7 @@
 #define XYMODM 30	/* Modem type */
 #define XYSEND 31	/* SEND parameters, used with some of the above */
 #define XYRECV 32   	/* RECEIVE parameters, ditto */
+#define XYTERM 33	/* Terminal parameters */
  
 /* REMOTE command symbols */
  

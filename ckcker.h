@@ -21,10 +21,16 @@
 #define SP	   040		/* ASCII Space */
 #define DEL	   0177		/* ASCII Delete (Rubout) */
 
+/* Packet buffer and window sizes, will probably need to be #ifdef'd for */
+/* each system. */
+
+#define MAXSP 2048			/* Send packet buffer size  */
+#define MAXRP 1024			/* Receive packet buffer size  */
+#define MAXWS 1				/* Maximum window size */
+
 /* Kermit parameters and defaults */
 
-#define MAXPACK	   94		/* Maximum packet size */
-#define RBUFL	   200 	    	/* Receive buffer length */
+#define MAXPACK	   94		/* Maximum unextended packet size */
 #define CTLQ	   '#'		/* Control char prefix I will use */
 #define MYEBQ	   '&'		/* 8th-Bit prefix char I will use */
 #define MYRPTQ	   '~'		/* Repeat count prefix I will use */
@@ -84,6 +90,6 @@
 /* Macros */
 
 #define tochar(ch)  ((ch) + SP )	/* Number to character */
-#define unchar(ch)  ((ch) - SP )	/* Character to number */
+#define xunchar(ch) ((ch) - SP )	/* Character to number */
 #define ctl(ch)     ((ch) ^ 64 )	/* Controllify/Uncontrollify */
 #define unpar(ch)   ((ch) & 127)	/* Clear parity bit */
