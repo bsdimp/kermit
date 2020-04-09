@@ -66,12 +66,14 @@
 #endif /* MAXRP */
 #endif /* DYNAMIC */
 
+#ifdef COMMENT				/* Restriction removed in edit 185 */
 #ifdef VMS				/* Dynamic or not, */
 #undef MAXSP				/* VMS seems to have an intrinsic */
 #define MAXSP 1920			/* limit of about 1920. */
 #undef MAXRP
 #define MAXRP 1920
 #endif /* VMS */
+#endif /* COMMENT */
 
 /* Default sizes for windowed packet buffers */
 /* Override these from cc command line via -DSBSIZ=nnn, -DRBSIZ=nnn */
@@ -92,12 +94,14 @@
 #endif /* RBSIZ */
 #endif /* DYNAMIC */
 
+#ifdef COMMENT				/* Restriction removed in edit 185 */
 #ifdef VMS				/* VMS again... */
 #undef SBSIZ
 #define SBSIZ 1930
 #undef RBSIZ
 #define RBSIZ 1930
-#endif
+#endif /* VMS */
+#endif /* COMMENT */
 
 /* Kermit parameters and defaults */
 
@@ -211,6 +215,7 @@
 #define   ST_SKIP 3 	/*  Skipped */
 #define   ST_ERR  4 	/*  Fatal Error */
 #define   ST_REFU 5     /*  Refused (use Attribute codes for reason) */
+#define   ST_INC  6	/* Incompletely received */
 #define SCR_PN 6    	/* packet number */
 #define SCR_PT 7    	/* packet type or pseudotype */
 #define SCR_TC 8    	/* transaction complete */
@@ -220,6 +225,7 @@
 #define SCR_TN 12   	/* arbitrary new text, delimited at beginning */
 #define SCR_TZ 13   	/* arbitrary text, delimited at end */
 #define SCR_QE 14	/* quantity equals (e.g. "foo: 7") */
+#define SCR_CW 15	/* close screen window */
 
 /* Macros */
 
@@ -264,7 +270,7 @@ struct pktinfo {			/* Packet information structure */
     int   pk_rtr;			/*  retransmission count */
 };
 
-/* File-related symbols and structures (moved from ckcfil.h) */
+/* File-related symbols and structures */
 
 #define   XYFILN 0  	/*  Naming  */
 #define   XYFILT 1  	/*  Type    */
@@ -275,6 +281,10 @@ struct pktinfo {			/* Packet information structure */
 #define     XYFT_U 4    /*    Binary Undefined (VMS) */
 #define   XYFILW 2      /*  Warning */
 #define   XYFILD 3      /*  Display */
+#define     XYFD_N 0    /*    None, Off */
+#define     XYFD_R 1    /*    Regular, Dots */
+#define     XYFD_C 2    /*    Cursor-positioning (e.g. with curses) */
+#define     XYFD_S 3    /*    Simple counter */
 #define   XYFILC 4      /*  Character set */
 #define   XYFILF 5      /*  Record Format */
 #define     XYFF_S  0   /*    Stream */
@@ -309,12 +319,13 @@ struct pktinfo {			/* Packet information structure */
 #define     XYFZ_Y 4    /*    Input from pipe/process */
 #define   XYFILS 12     /*  File Byte Size */
 #define   XYFILL 13     /*  File Label (VMS) */
+#define   XYFILI 14     /*  File Incomplete */
 
 /* ANSI-style forward declarations for protocol-related functions. */
 
 _PROTOTYP( int input, (void) );
 _PROTOTYP( int inibufs, (int, int) );
-_PROTOTYP( int makebuf, (int, int, CHAR *, struct pktinfo *) );
+_PROTOTYP( int makebuf, (int, int, CHAR [], struct pktinfo *) );
 _PROTOTYP( int mksbuf, (int) );
 _PROTOTYP( int mkrbuf, (int) );
 _PROTOTYP( int spack, (char, int, int, CHAR *) );
@@ -348,6 +359,7 @@ _PROTOTYP( int dumprbuf, (void) );
 _PROTOTYP( VOID freerpkt, (int) );
 _PROTOTYP( int chkwin, (int, int, int) );
 _PROTOTYP( int rsattr, (CHAR *) );
+_PROTOTYP( char *getreason, (char *) );
 _PROTOTYP( int scmd, (char, CHAR *) );
 _PROTOTYP( int encstr, (CHAR *) );
 _PROTOTYP( int decode, (CHAR *, int (*)(char), int) );
@@ -388,7 +400,7 @@ _PROTOTYP( VOID rinit, (CHAR *) );
 _PROTOTYP( VOID resetc, (void) );
 _PROTOTYP( VOID xsinit, (void) );
 _PROTOTYP( int adjpkl, (int,int,int) );
-_PROTOTYP( VOID chktimo, (void) );
+_PROTOTYP( int chktimo, (int,int) );
 _PROTOTYP( int nxtpkt, (void) );
 _PROTOTYP( int ack, (void) );
 _PROTOTYP( int ackns, (int, CHAR *) );
@@ -415,7 +427,7 @@ _PROTOTYP( SIGTYP stptrap, (int) );
 _PROTOTYP( SIGTYP trap, (int) );
 #endif /* COMMENT */
 
-/* User interface functions needed by main program */
+/* User interface functions needed by main program, etc. */
 
 _PROTOTYP( VOID prescan, (void) );
 _PROTOTYP( VOID setint, (void) );
@@ -423,6 +435,9 @@ _PROTOTYP( VOID cmdini, (void) );
 _PROTOTYP( int dotake, (char *) );
 _PROTOTYP( int cmdlin, (void) );
 _PROTOTYP( int conect, (void) );
+_PROTOTYP( int ckcgetc, (int) );
+_PROTOTYP( int ckcputc, (int) );
+_PROTOTYP (int mdmhup, (void) );
 _PROTOTYP( VOID herald, (void) );
 _PROTOTYP( VOID fixcmd, (void) );
 _PROTOTYP( int doarg, (char) );
@@ -430,10 +445,14 @@ _PROTOTYP( VOID usage, (void) );
 _PROTOTYP( VOID doclean, (void) );
 _PROTOTYP( int sndhlp, (void) );
 _PROTOTYP( VOID ckhost, (char *, int) );
+_PROTOTYP( int gettcs, (int, int) );
+
 #ifdef KANJI
-_PROTOTYP( int xkanjf, (void) );
-_PROTOTYP( int xkanjz, (int (*)(char)) );
-_PROTOTYP( int xkanji, (int, int (*)(char)) );
+_PROTOTYP( int zkanji, (int (*)(void)) ); /* Kanji function prototypes */
+_PROTOTYP( int zkanjf, (void) );
+_PROTOTYP( int zkanjz, (void) );
+_PROTOTYP( int xkanjz, (int (*)(char) ) );
+_PROTOTYP( int xkanji, (int, int (*)(char) ) );
 #endif /* KANJI */
 
 #endif /* CKCKER_H */

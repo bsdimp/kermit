@@ -8,7 +8,7 @@
   retained.  This software may not be included in commercial products without
   written permission of Columbia University.
 */
-#ifndef CKCXLA_H
+#ifndef CKCXLA_H			/* Guard against multiple inclusion */
 #define CKCXLA_H
 
 #ifdef NOCSETS
@@ -18,11 +18,22 @@
 #ifdef CYRILLIC
 #undef CYRILLIC
 #endif /* CYRILLIC */
+#ifdef LATIN2
+#undef LATIN2
+#endif /* LATIN2 */
 
 #else /* Rest of this file... */
 
-#ifndef NOCYRIL
-#define CYRILLIC
+#ifndef NOLATIN2			/* If they didn't say "no Latin-2" */
+#ifndef LATIN2				/* Then if LATIN2 isn't already */
+#define LATIN2				/* defined, define it. */
+#endif /* LATIN2 */
+#endif /* NOLATIN2 */
+
+#ifndef NOCYRIL				/* If they didn't say "no Cyrillic" */
+#ifndef CYRILLIC			/* Then if CYRILLIC isn't already */
+#define CYRILLIC			/* defined, define it. */
+#endif /* CYRILLIC */
 #endif /* NOCYRIL */
 
 /* File ckcxla.h -- Character-set-related definitions, system independent */
@@ -58,8 +69,8 @@
   NOTE: It would perhaps be better to use ISO 639-1988 2-letter "Codes for 
   Representation of Names of Languages" here, shown in the comments below.
 */
-#define L_ASCII       0  /* EN ASCII, American English */
-#define L_USASCII     0  /* EN ASCII, American English */
+#define L_ASCII       0  /* EN ASCII, English */
+#define L_USASCII     0  /* EN ASCII, English */
 #define L_DUTCH       1  /* NL Dutch */
 #define L_FINNISH     2  /* FI Finnish */
 #define L_FRENCH      3  /* FR French */
@@ -109,60 +120,45 @@
 #define L_HEBREW     19			/* IW */
 #define L_GREEK      20			/* EL */
 #define L_TURKISH    21			/* TR */
+/* etc... */
 #endif /* COMMENT */
 
-/* Designators for 8-bit single-byte ISO and other standard character sets */
-/* to be used in Kermit's transfer syntax.  Note that symbols must be unique */
-/* in the first 8 characters, because some C preprocessors have this limit. */
+/*
+  File character-sets are defined in the system-specific ck?xla.h file,
+  except for the following one, which must be available to all versions:
+*/
+#define FC_TRANSP  254			/* Transparent */
 
+/*
+  Designators for Kermit's transfer character sets.  These are all standard
+  sets, or based on them.  Symbols must be unique in the first 8 characters,
+  because some C preprocessors have this limit.
+*/
 /* LIST1 */
 #define TC_TRANSP  0   /* Transparent, no character translation */
 #define TC_USASCII 1   /* US 7-bit ASCII */
 #define TC_1LATIN  2   /* ISO 8859-1, Latin-1 */
+#define TC_2LATIN  3   /* ISO 8859-2, Latin-2 */
+#define TC_CYRILL  4   /* ISO 8859-5, Latin/Cyrillic */
+#define TC_JEUC    5   /* Japanese EUC */
 
-#ifndef CYRILLIC
-#ifndef KANJI
-#define MAXTCSETS  2
-#endif /* KANJI */
-#endif /* CYRILLIC */
-
-/* Cyrillic */
-
-#ifdef CYRILLIC
-#define TC_CYRILL  3			/* ISO 8859-5, Latin/Cyrillic */
-#ifndef KANJI
-#define MAXTCSETS  3
-#endif /* KANJI */
-#endif /* CYRILLIC */
-
-/* Japanese */
-
-#ifdef KANJI			    /* JIS Roman + Katana + Kanji, EUC code */
-#ifndef CYRILLIC
-#define TC_JEUC 3
-#define MAXTCSETS 3
-#else
-#define TC_JEUC 4
-#define MAXTCSETS 4
-#endif /* CYRILLIC */
-#endif /* KANJI */
+#define MAXTCSETS  5   /* Highest Transfer Character Set Number */
 
 #ifdef COMMENT
 /*
-  Not used yet.  Take out hard-coded numbers.  They are wrong anyway.
+  Not used yet.
 */
-#define TC_2LATIN  4  /* ISO 8859-2, Latin-2 */
-#define TC_3LATIN  5  /* ISO 8859-3, Latin-3 */
-#define TC_4LATIN  6  /* ISO 8859-4, Latin-4 */
-#define TC_5LATIN  7  /* ISO 8859-9, Latin-5 */
-#define TC_ARABIC  8  /* ISO-8859-6, Latin/Arabic */
-#define TC_GREEK   9  /* ISO-8859-7, Latin/Greek */
-#define TC_HEBREW 10  /* ISO-8859-8, Latin/Hebrew */
-#define TC_JIS208 11  /* Japanese JIS X 0208 multibyte set */
-#define TC_CHINES 12  /* Chinese Standard GB 2312-80 */
-#define TC_KOREAN 13  /* Korean KS C 5601-1987 */
-#define TC_I10646 14  /* ISO DIS 10646 (not defined yet) */
-/* and possibly others... */
+#define TC_3LATIN  6  /* ISO 8859-3, Latin-3 */
+#define TC_4LATIN  7  /* ISO 8859-4, Latin-4 */
+#define TC_5LATIN  8  /* ISO 8859-9, Latin-5 */
+#define TC_ARABIC  9  /* ISO-8859-6, Latin/Arabic */
+#define TC_GREEK  10  /* ISO-8859-7, Latin/Greek */
+#define TC_HEBREW 11  /* ISO-8859-8, Latin/Hebrew */
+#define TC_JIS208 12  /* Japanese JIS X 0208 multibyte set */
+#define TC_CHINES 13  /* Chinese Standard GB 2312-80 */
+#define TC_KOREAN 14  /* Korean KS C 5601-1987 */
+#define TC_I10646 15  /* ISO DIS 10646 (not defined yet) */
+/* etc... */
 #endif /* COMMENT */
 
 /* Structure for character-set information */
@@ -194,9 +190,9 @@ struct langinfo {
 #include "ckuxla.h"
 #endif /* OS-9 */
 
-#ifdef vms				/* VAX/VMS */
+#ifdef VMS				/* VAX/VMS */
 #include "ckuxla.h"
-#endif /* vms */
+#endif /* VMS */
 
 #ifdef GEMDOS				/* Atari ST */
 #include "ckuxla.h"
@@ -211,15 +207,21 @@ struct langinfo {
 #endif /* OS2 */
 
 #ifdef AMIGA				/* Commodore Amiga */
-#include "ckixla.h"
+#include "ckuxla.h"
 #endif /* AMIGA */
 
 #ifdef datageneral			/* Data General MV AOS/VS */
-#include "ckdxla.h"
+#include "ckuxla.h"
 #endif /* datageneral */
 
 #endif /* NOCSETS */
 
 #endif /* CKCXLA_H */
 
-/* end of ckcxla.c */
+#ifdef KANJI
+_PROTOTYP( int xkanjf, (void) );
+_PROTOTYP( int xkanjz, (int (*)(char)) );
+_PROTOTYP( int xkanji, (int, int (*)(char)) );
+#endif /* KANJI */
+
+/* End of ckcxla.h */

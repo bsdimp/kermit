@@ -1,4 +1,4 @@
-char *cknetv = "Network support, 5A(008) 8 Feb 91";
+char *cknetv = "Network support, 5A(015) 23 Nov 92";
 
 /*  C K C N E T  --  Network support  */
 /*
@@ -8,12 +8,15 @@ char *cknetv = "Network support, 5A(008) 8 Feb 91";
     Columbia University Center for Computing Activities.
   netopen() routine for TCP/IP originally by Ken Yap, Rochester University
     (ken@cs.rochester.edu) (no longer at that address).
-  SunLink X.25 support by Marcello Frutig, Catholic University,
-    Rio de Janeiro, Brazil (FRUTIG@BRLNCC.BITNET).
   Missing pieces for Excelan sockets library from William Bader, Moravian
     College <bader@moravian.edu>.
-  telnet protocol support by Frank da Cruz.
+  TELNET protocol by Frank da Cruz.
   TGV MultiNet code by Frank da Cruz.
+  MultiNet code adapted to WIN/TCP by Ray Hunter of TWG.
+  MultiNet code adapted to DEC TCP/IP by Lee Tibbert of DEC and Frank da Cruz.
+  SunLink X.25 support by Marcello Frutig, Catholic University,
+    Rio de Janeiro, Brazil (frutig@rnp.impa.br) with fixes from
+    Stefaan Eeckels, Eurokom, Luxembourg.
   Other contributions as indicated below.
 
   Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
@@ -25,21 +28,56 @@ char *cknetv = "Network support, 5A(008) 8 Feb 91";
 
 #include "ckcdeb.h"
 #include "ckcker.h"
+#ifdef I386IX				/* Has to come before ckcnet.h in */
+#include <errno.h>			/* this version, but after in others */
+#endif /* I386IX */
 #include "ckcnet.h"
 
 #ifdef NETCONN
 /* Don't need these if there is no network support. */
 
+#ifdef WINTCP
+
 #include <errno.h>
+#include <setjmp.h>
+#include <signal.h>
+/*
+ * The WIN/TCP code path is the same as that for Multinet.  Only the routine
+ * names have changed ...
+ */
+#define socket_errno 	errno
+#define socket_read 	netread
+#define socket_ioctl	ioctl
+#define socket_write 	netwrite
+#define socket_perror   win$perror
+#define socket_close 	netclose
+
+#else /* Not WINTCP */
+#ifndef I386IX
+#include <errno.h>
+#endif /* I386IX */
 #include <signal.h>
 #ifndef ZILOG
 #include <setjmp.h>
 #else
 #include <setret.h>
 #endif /* ZILOG */
+#endif /* WINTCP */
+
+#ifdef datageneral			/* Data General AOS/VS */
+#include <:usr:include:vs_tcp_errno.h>
+#include <:usr:include:sys:vs_tcp_types.h>
+#include <:usr:include:sys:socket.h>
+#include <:usr:include:netinet:in.h>
+#include <:usr:include:netdb.h>
+#endif /* datageneral */
 
 extern SIGTYP (*saval)();		/* For saving alarm handler */
-extern int duplex, debses, seslog, ttyfd, quiet; /* External variables */
+
+_PROTOTYP( VOID bgchk, (void) );
+
+extern int				/* External variables */
+  duplex, debses, seslog, ttyfd, quiet, msgflg;
 
 #ifdef SVR4
 /*
@@ -49,12 +87,12 @@ extern int duplex, debses, seslog, ttyfd, quiet; /* External variables */
   (Later corrected by Marc Boucher <mboucher@iro.umontreal.ca> because
   bzero/bcopy are not argument-compatible with memset/memcpy|memmove.)
 */
-#define bzero(s,n) memset(s,0,n) 
+#define bzero(s,n) memset(s,0,n)
 #define bcopy(h,a,l) memmove(a,h,l)
 #else
-#ifdef PTX				/* Sequent DYNYX PTX 1.3 */
-#define bzero(s,n) memset(s,0,n) 
-#define bcopy(h,a,l) memmove(a,h,l)
+#ifdef PTX				/* Sequent DYNIX PTX 1.3 */
+#define bzero(s,n) memset(s,0,n)
+#define bcopy(h,a,l) memcpy(a,h,l)
 #endif /* PTX */
 #endif /* SVR4 */
 
@@ -63,24 +101,30 @@ static char namecopy[NAMECPYL];
 
 char ipaddr[20] = { '\0' };		/* Global copy of IP address */
 
-#ifdef MULTINET
 /*
-  General global variables, but so far used only by MultiNet.
+  VMSTCPIP means "DEC_TCPIP or MULTINET or WINTCP" (defined in ckcnet.h).
+*/
+#ifdef VMSTCPIP
+/*
+  General global variables, but so far used only by MultiNet and WIN/TCP.
   Kept within #ifdef MULTINET..#endif to keep strict compilers (and lint)
   from complaining about unused variables.
 */
 static jmp_buf njbuf;			/* For timeout longjumps */
-#endif /* MULTINET */
+#endif /* VMSTCPIP */
 
 #endif /* NETCONN */
 
 int ttnet = NET_NONE;			/* Network type */
 int ttnproto = NP_NONE;			/* Network virtual terminal protocol */
 int tn_init = 0;			/* Telnet protocol initialized flag */
+int tn_duplex = 1;			/* Initial echo status */
+char *tn_term = NULL;			/* Terminal type override */
+int tn_nlm = 1;				/* Telnet CR -> CR LF mode */
 
 #ifndef NETCONN
 /*
-  Network support not defined.  
+  Network support not defined.
   Dummy functions here in case #ifdef's forgotten elsewhere.
 */
 int					/* Open network connection */
@@ -122,7 +166,7 @@ nettol(s,n) char *s; int n; {
 
 #else /* NETCONN is defined (rest of this module...) */
 
-#ifdef MULTINET
+#ifdef VMSTCPIP
 
 /* For buffered network reads... */
 /*
@@ -130,9 +174,9 @@ nettol(s,n) char *s; int n; {
   buffer is -- it could even be shorter than a Kermit packet.
 */
 #define TTIBUFL 8192			/* Maybe 8K?... */
-static CHAR ttibuf[TTIBUFL+1];
-static int ttibp = 0, ttibn = 0;
 
+CHAR 	ttibuf[TTIBUFL+1];
+int 	ttibp = 0, ttibn = 0;
 /*
   Read bytes from network into internal buffer ttibuf[].
   To be called when input buffer is empty, i.e. when ttibn == 0.
@@ -146,17 +190,30 @@ static int ttibp = 0, ttibn = 0;
 */
 int
 ttbufr() {				/* TT Buffer Read */
-    int x, count;
+    int count;
+
     if (ttnet != NET_TCPB) {		/* First make sure current net is */
-	/* Fill in support for DECnet, etc, here */
 	return(-1);			/* TCP/IP; if not, do nothing. */
     } else {
-	/* Read as much as there us, up to our buffer size. */
-	count = nettchk();
-	if (count < 0) return(-1);
-	if (count > TTIBUFL) count = TTIBUFL;
-	if (count == 0) count = 1;
-	debug(F101,"ttbufr count","",count);
+	if (ttibn > 0)			/* Out internal buffer is not empty, */
+	  return(ttibn);		/* so keep using it. */
+#ifdef WINTCP
+	count = 512;			/* This works for WIN/TCP */
+#else					/* Not WINTCP, i.e it's Multinet */
+#ifdef DEC_TCPIP
+	count = 512;			/* This works for WIN/TCP */
+#else					/* Not WINTCP, i.e it's Multinet */
+	count = nettchk();		/* Check network input buffer, */
+	if (ttibn > 0) return(ttibn);	/* which can put a char there! */
+	if (count < 0)			/* Read error */
+	  return(-1);
+	else if (count > TTIBUFL)	/* Too many to read */
+	  count = TTIBUFL;
+	else if (count == 0)		/* None, so force blocking read */
+	  count = 1;
+#endif /* DEC_TCPIP */
+#endif /* WINTCP */
+	debug(F101,"ttbufr count 1","",count);
 
 #ifdef COMMENT
 /*
@@ -183,12 +240,17 @@ ttbufr() {				/* TT Buffer Read */
 	    return(-1);
 	}
 #endif /* COMMENT */
-	debug(F101,"ttbufr","",count);	/* Got some bytes. */
 	ttibp = 0;			/* Reset buffer pointer. */
-	return(ttibn = count);		/* Set and return buffer count. */
+	ttibn = count;
+#ifdef DEBUG
+	debug(F101,"ttbufr count 2","",count); /* Got some bytes. */
+	if (count > 0) ttibuf[count] = '\0';
+	debug(F111,"ttbufr ttibuf",ttibuf,ttibp);
+#endif /* DEBUG */
+	return(ttibn);			/* Return buffer count. */
     }
 }
-#endif /* MULTINET */
+#endif /* VMSTCPIP */
 
 /*
   C-Kermit network open/close functions for BSD-sockets.
@@ -278,7 +340,10 @@ inet_ntoa(in) struct in_addr in; {
 int
 netopen(name, lcl, nett) char *name; int *lcl, nett; {
     char *p;
-    int on = 1, i, x;
+#ifdef SO_OOBINLINE
+    int on = 1;
+#endif /* SO_OOBINLINE */
+    int i, x;
     struct servent *service, servrec;
     struct hostent *host;
     struct sockaddr_in saddr;
@@ -288,7 +353,7 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
 
 #ifdef SUNX25				/* Code for SunLink X.25 support */
 #define X29PID 1			/* X.29 Protocol ID */
-    VOID x25oobh(); 
+    VOID x25oobh();
     CONN_DB x25host;
     FACILITY_DB x25facil;
     static int needh = 1;
@@ -301,7 +366,7 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
     debug(F101,"netopen nett","",nett);
     *ipaddr = '\0';			/* Initialize IP address string */
 
-#ifdef SUNX25 
+#ifdef SUNX25
     if (nett == NET_SX25) {		/* If network type is X.25 */
         netclos();			/* Close any previous net connection */
         ttnproto = NP_NONE;		/* No protocol selected yet */
@@ -334,7 +399,7 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
         if (ioctl(ttyfd,SIOCSPGRP,&pid)) {
             perror("Setting process group id");
             return(-1);
-        }    
+        }
         (VOID) signal(SIGURG,x25oobh);
 
         /* Set reverse charge call and closed user group if requested */
@@ -368,7 +433,7 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
             errno = i;
             return (-1);
         }
-        
+
         /* Get X.25 link identification used for the connection */
         if (ioctl(ttyfd,X25_GET_LINK,&linkid) < 0) {
             perror ("Getting X.25 link id");
@@ -437,9 +502,12 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
 /* inet_addr() is of type struct in_addr */
 	struct in_addr ina;
 	unsigned long uu;
+#ifdef datageneral
+        extern struct in_addr inet_addr();
+#endif /* datageneral */
 	ina = inet_addr(namecopy);
 	uu = *(unsigned long *)&ina;
-#else
+#else /* Not INADDRX */
 /* inet_addr() is unsigned long */
 	unsigned long uu;
 	uu = inet_addr(namecopy);
@@ -463,7 +531,7 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
     saddr.sin_port = service->s_port;
     sprintf(ipaddr,"%s", inet_ntoa(saddr.sin_addr));
     if (!quiet && *ipaddr) printf(" Trying %s...\n", ipaddr);
-    
+
 #ifdef EXCELAN
     send_socket.sin_family = AF_INET;
     send_socket.sin_addr.s_addr = 0;
@@ -509,16 +577,47 @@ netopen(name, lcl, nett) char *name; int *lcl, nett; {
 	if (errno) socket_perror("netopen connect");
 #else
 	debug(F101,"netopen connect errno","",errno);
+#ifdef	WINTCP
+	perror("netopen connect");
+#endif	/* WINTCP */
+#ifdef DEC_TCPIP
+	perror("netopen connect");
+#endif /* DEC_TCPIP */
 #endif /* MULTINET */
 #endif /* EXCELAN */
 	return(-1);
     }
 #ifdef SO_OOBINLINE
-    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE, &on, sizeof on); /* (void) */
-    /* the symbol SO_OOBINLINE is not known to Ultrix 2.0 */
-    /* it means "leave out of band data inline" */
-    /* normal value is 0x0100 */
-    /* better not to try this on systems where the symbol is undefined. */
+/*
+  The symbol SO_OOBINLINE is not known to Ultrix 2.0.
+  It means "leave out of band data inline".  The normal value is 0x0100,
+  but don't try this on systems where the symbol is undefined.
+*/
+#ifdef datageneral
+    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE,(char *) &on, sizeof on);
+#else
+#ifdef BSD43
+    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE,(char *) &on, sizeof on);
+#else
+#ifdef OSF1
+    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE,(char *) &on, sizeof on);
+#else
+#ifdef POSIX
+    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE,(char *) &on, sizeof on);
+#else
+#ifdef SOLARIS
+/*
+  Maybe this applies to all SVR4 versions, but the other (else) way has been
+  compiling and working fine on all the others, so best not to change it.
+*/
+    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE,(char *) &on, sizeof on);
+#else
+    setsockopt(ttyfd, SOL_SOCKET, SO_OOBINLINE, &on, sizeof on);
+#endif /* SOLARIS */
+#endif /* POSIX */
+#endif /* BSD43 */
+#endif /* OSF1 */
+#endif /* datageneral */
 #endif /* SO_OOBINLINE */
 
     /* See if the service is TELNET. */
@@ -539,11 +638,11 @@ netclos() {
     if (ttyfd < 0)			/* Was open? */
       return(0);			/* Wasn't. */
     if (ttyfd > -1)			/* Was. */
-#ifdef MULTINET
+#ifdef VMSTCPIP
       x = socket_close(ttyfd);		/* Close it. */
 #else
       x = close(ttyfd);
-#endif /* MULTINET */
+#endif /* VMSTCPIP */
     ttyfd = -1;				/* Mark it as closed. */
     tn_init = 0;			/* Remember about telnet protocol... */
     *ipaddr = '\0';			/* Zero the IP address string */
@@ -556,59 +655,85 @@ netclos() {
 */
 int					/* Check how many bytes are ready */
 nettchk() {				/* for reading from network */
-#ifdef MULTINET
+#ifdef VMSTCPIP
     unsigned int count;
     int x, y;
     char c;
 
+    debug(F101,"nettchk entry ttibn","",ttibn);
+    debug(F101,"nettchk entry ttibp","",ttibp);
     socket_errno = 0;
 /*
   Note: this socket_ioctl() call does NOT return an error if the
-  connection has been broken.
+  connection has been broken.  (At least not in Multinet.)
 */
     if (socket_ioctl(ttyfd,FIONREAD,&count) < 0) {
 	debug(F101,"nettchk socket_ioctl error","",socket_errno);
 	if (ttibn < 1) return(-1);
 	else return(ttibn);
-    } else {
-	if (count == 0) {
+    }
+    debug(F101,"nettchk count","",count);
+
+#ifndef DEC_TCPIP
+/*
+  Let's see if we can skip this for UCX, since it seems to cause trouble.
+*/
+    if (count == 0) {
 /*
   Here we need to tell the difference between a 0 count on an active
-  connection, and a 0 count because the remote end of the socket broke
-  the connection.  There is no mechanism in TGV MultiNet to query the
-  status of the connection, so we have to do a read.  -1 means there was
-  no data available (socket_errno == EWOULDBLOCK), 0 means the connection
-  is down.  But if, by chance, we actually get a character, we have to
-  put it where it won't be lost.
+  connection, and a 0 count because the remote end of the socket broke the
+  connection.  There is no mechanism in TGV MultiNet (or WIN/TCP?) to query
+  the status of the connection, so we have to do a read.  -1 means there was
+  no data available (socket_errno == EWOULDBLOCK), 0 means the connection is
+  down.  But if, by chance, we actually get a character, we have to put it
+  where it won't be lost.
 */
-	    y = 1;			/* Turn on nonblocking reads */
-	    socket_ioctl(ttyfd,FIONBIO,&y);
-	    x = socket_read(ttyfd,&c,1); /* Returns -1 if no data */
-	    y = 0;			/* Turn them back off */
-	    socket_ioctl(ttyfd,FIONBIO,&y);
-	    if (x == 0) return(-1);	/* Connection is broken. */
-	    if (x == 1) {		/* Oops, actually got a byte? */
-		ttibuf[ttibp+ttibn] = c;
-		ttibn++;		/* Add it to the buffer. */
-	    }
-	}
-	debug(F101,"nettchk count","",count);
-	return(count + ttibn);
-    }	
-#else
+	y = 1;				/* Turn on nonblocking reads */
+	debug(F101,"nettchk before FIONBIO","",x);
+	x = socket_ioctl(ttyfd,FIONBIO,&y);
+	debug(F101,"nettchk FIONBIO","",x);
+	x = socket_read(ttyfd,&c,1);	/* Returns -1 if no data */
+	debug(F101,"nettchk socket_read","",x);
+	y = 0;				/* Turn them back off */
+	socket_ioctl(ttyfd,FIONBIO,&y);
+	if (x == 0) return(-1);		/* Connection is broken. */
+	if (x == 1) {			/* Oops, actually got a byte? */
+	    debug(F101,"nettchk socket_read char","",c);
+	    debug(F101,"nettchk ttibp","",ttibp);
+	    debug(F101,"nettchk ttibn","",ttibn);
 /*
-  Note, for regular UNIX TCP/IP connections, might be able to use the
-  same technique as for MultiNet.  But as yet there is no need for it.
+  So put the byte we got into the buffer at the current position.
+  Increment the buffer count, but DON'T increment the buffer pointer.
+*/
+	    ttibuf[ttibp+ttibn] = c;
+	    ttibn++;
+#ifdef DEBUG
+	    ttibuf[ttibp+ttibn] = '\0';
+	    debug(F111,"nettchk ttibn",ttibuf,ttibn);
+#endif /* DEBUG */
+	}
+    }
+#endif /* DEC_TCPIP */
+    debug(F101,"nettchk returns","",count+ttibn);
+    return(count + ttibn);
+
+#else /* Not VMSTCPIP */
+/*
+  UNIX just uses ttchk(), in which the ioctl() calls on the file descriptor
+  seem to work OK.
 */
     return(0);
-#endif /* MULTINET */
+#endif /* VMSTCPIP */
+/*
+  But what about X.25?
+*/
 }
 
-/*  N E T T I N C --  Input character from network */
+/*  N E T I N C --  Input character from network */
 
 int			
 netinc(timo) int timo; {
-#ifdef MULTINET
+#ifdef VMSTCPIP
     int x; unsigned char c;		/* The locals. */
 
     if (ttibn > 0) {			/* Something in internal buffer? */
@@ -616,7 +741,11 @@ netinc(timo) int timo; {
 	x = 0;				/* Success. */
     } else {				/* Else must read from network. */
 	x = -1;				/* Assume failure. */
+#ifdef DEBUG
 	debug(F101,"netinc goes to net, timo","",timo);
+	ttibuf[ttibp+1] = '\0';
+	debug(F111,"netinc ttibuf",ttibuf,ttibp);
+#endif /* DEBUG */
 	if (timo <= 0) {		/* Untimed case. */
 	    while (1) {			/* Wait forever if necessary. */
 		if (ttbufr() < 0)	/* Refill buffer. */
@@ -653,20 +782,20 @@ netinc(timo) int timo; {
 	debug(F101,"netinc returning","",c);
 	return((c & 0xff));
     }
-#else /* Not MULTINET */
+#else /* Not MULTINET or WINTCP */
     return(-1);
-#endif /* MULTINET */
+#endif /* VMSTCPIP */
 }
 
 /*  N E T T O L  --  Output a string of bytes to the network  */
 /*
   Call with s = pointer to string, n = length.
-  Returns number of bytes actuall written on success, or
+  Returns number of bytes actually written on success, or
   -1 on i/o error, -2 if called improperly.
 */
 int
 nettol(s,n) char *s; int n; {
-#ifdef MULTINET
+#ifdef VMSTCPIP
     int count;
     if (ttnet == NET_TCPB) {
 	if ((count = socket_write(ttyfd,s,n)) < 1) {
@@ -677,8 +806,9 @@ nettol(s,n) char *s; int n; {
 	return(count);
     } else return(-2);
 #else
+    debug(F100,"nettol VMSTCPIP not defined","",0);
     return(-2);
-#endif /* MULTINET */
+#endif /* VMSTCPIP */
 }
 
 /*  N E T T O C  --   Output character to network */
@@ -694,7 +824,7 @@ nettoc(char c)
 nettoc(c) char c;
 #endif /* CK_ANSIC */
 /* nettoc */ {
-#ifdef MULTINET
+#ifdef VMSTCPIP
     unsigned char cc;
     cc = c;
     if (ttnet == NET_TCPB) {
@@ -716,16 +846,28 @@ nettoc(c) char c;
 int
 netflui() {
     int n;
-    if ((n = nettchk()) > 0) {
-#ifdef MULTINET
-	char c;
-	if (ttnet == NET_TCPB)
-	  while ((n--) && socket_read(ttyfd,&c,1) > 1) ;
-#endif /* MULTINET */
+#ifdef VMSTCPIP
+    ttibuf[ttibp+1] = '\0';
+    debug(F111,"netflui 1",ttibuf,ttibn);
+    ttibn = ttibp = 0;			/* Flush internal buffer *FIRST* */
+    if ((n = nettchk()) > 0) {		/* Now see what's waiting on the net */
+	if (n > TTIBUFL) n = TTIBUFL;	/* and sponge it up */
+	debug(F101,"netflui 2","",n);	/* ... */
+	n = socket_read(ttyfd,ttibuf,n) ; /* into our buffer */
+	if (n >= 0) ttibuf[n] = '\0';
+	debug(F111,"netflui 3",ttibuf,n);
+	ttibuf[0] = '\0';
     }
-#ifdef MULTINET
-    ttibn = ttibp = 0;			/* Also flush internal buffer. */
-#endif /* MULTINET */
+#else
+/*
+  It seems the UNIX ioctl()s don't do the trick, so we have to read the
+  stuff ourselves.  This should be pretty much portable, if not elegant.
+*/
+    if ((n = ttchk()) > 0) {
+	debug(F101,"netflui","",n);
+	while ((n--) && ttinc(0) > -1) ; /* Don't worry, it's buffered. */
+    }
+#endif /* VMSTCPIP */
     return(0);
 }
 
@@ -741,6 +883,7 @@ char *telcmds[] = {
     "SE", "NOP", "DMARK", "BRK",  "IP",   "AO", "AYT",  "EC",
     "EL", "GA",  "SB",    "WILL", "WONT", "DO", "DONT", "IAC",
 };
+int ntelcmds = sizeof(telcmds) / sizeof(char *);
 #endif /* TELCMDS */
 
 #ifndef TELOPTS
@@ -791,12 +934,13 @@ int ntelopts = sizeof(telopts) / sizeof(char *);
 */
 int
 netbreak() {
+    CHAR buf[3];
     if (ttnet == NET_TCPB) {
 	if (ttnproto == NP_TELNET) {
 #ifdef TNCODE
-	    if (ttoc(IAC) < 0) return(-1);
-	    if (ttoc(BREAK) < 0) return(-1);
-	    debug(F101,"telnet BREAK ok","",BREAK);    
+	    buf[0] = (CHAR) IAC; buf[1] = (CHAR) BREAK;
+	    if (ttol(buf,2) < 2) return(-1);
+	    debug(F101,"telnet BREAK ok","",BREAK);
 	    return(1);
 #else
 	    debug(F100,"netbreak no TNCODE","",0);
@@ -814,20 +958,23 @@ netbreak() {
 
 int
 tn_sopt(cmd,opt) int cmd, opt; {	/* TELNET SEND OPTION */
+    CHAR buf[4];
+    int n;
     if (ttnet != NET_TCPB) return(0);	/* Must be TCP/IP */
     if (ttnproto != NP_TELNET) return(0); /* Must be telnet protocol */
+    n = cmd - SE;
+    if (n < 0 || n > ntelcmds) return(0);
 #ifdef TNCODE
-    if (ttoc(IAC) < 0)			/* Send Interpret As Command (IAC) */
+    buf[0] = (CHAR) IAC;
+    buf[1] = (CHAR) cmd & 0xff;
+    buf[2] = (CHAR) opt & 0xff;
+    if (ttol(buf,3) < 3)
       return(-1);
-    if (ttoc(cmd) < 0)			/* Command (WILL, WONT, DO, DONT) */
-      return(-1);
-    if (ttoc(opt) < 0)			/* Option */
-      return(-1);
-    debug(F111,"telnet cmd >",telcmds[cmd - SE],cmd);
+    debug(F111,"telnet cmd >",telcmds[n],cmd);
     debug(F111,"telnet opt >",
 	  (opt < ntelopts) ? telopts[opt] : "UNKNOWN", opt );
     if (debses && cmd != SB)
-      printf("[%s %s]",telcmds[cmd - SE],
+      printf("[%s %s]",telcmds[n],
 	     (opt < ntelopts) ? telopts[opt] : "UNKNOWN");
     return(1);
 #else
@@ -852,7 +999,8 @@ tn_ini() {
       return(0);
     if (tn_init)			/* Have we done this already? */
       return(0);			/* Don't do it again. */
-    duplex = 1;				/* Assume local echo. */
+    debug(F101,"tn_ini tn_duplex","",tn_duplex);
+    duplex = tn_duplex;			/* Assume local echo. */
     sgaflg = 0;				/* Assume Go-Ahead suppressed. */
     wttflg = 0;				/* Did not send WILL TERM TYPE yet. */
     if (ttnproto == NP_NONE) {		/* If not talking to a telnet port, */
@@ -898,58 +1046,55 @@ char sb[TSBUFSIZ];			/* Buffer for subnegotiations */
 
 int
 #ifdef CK_ANSIC				/* TELNET DO OPTION */
-tn_doop(CHAR z, int echo)
+tn_doop( CHAR z, int echo, int (*fn)(int) )
 #else
-tn_doop(z, echo) CHAR z; int echo;
+tn_doop(z, echo, fn) CHAR z; int echo; int (*fn)();
 #endif /* CK_ANSIC */
 /* tn_doop */ {
-    int c, x, y, e, n, flag;
+    int c, x, y, n, m, flag;
 
 #ifndef TNCODE
     debug(F100,"tn_doop no TNCODE","",0);
     return(0);
 #else
-    if (z != IAC) {
+    if (z != (CHAR) IAC) {
 	debug(F101,"tn_doop bad call","",z);
 	return(-1);
     }
     if (ttnet != NET_TCPB) return(0);
     if (ttnproto != NP_TELNET) return(0); 	/* Check protocol */
-/*
-  This is a weakness.  Because this module uses ttinc(), it prevents any
-  code that uses this routine from using any kind of buffering strategy.
-  Also, there's no reason why this module should have to know anything about
-  the session log.  It would be better to pass a character input function as
-  an argument to this routine -- that function could worry about buffering,
-  logging, etc.
-*/
 
 /* Have IAC, read command character. */
 
-    c = ttinc(0) & 0xff;		/* Read command character */
-    if (seslog) {			/* Copy to session log, if any. */
-	if (zchout(ZSFILE,z) < 0) seslog = 0; /* Log the IAC. */
-	else if (zchout(ZSFILE,c) < 0) seslog = 0; /* Log the command. */
+    c = (*fn)(0) & 0xff;		/* Read command character */
+    m = c - SE;				/* Check validity */
+    if (m < 0 || m > ntelcmds) {
+	debug(F101,"tn_doop bad cmd","",c);
+	return(0);
     }
-    debug(F111,"telnet cmd <",telcmds[c - SE],c); /* Debug log. */
+    if (seslog) {			/* Copy to session log, if any. */
+	if (zchout(ZSFILE, (char) z) < 0) seslog = 0; /* Log IAC. */
+	else if (zchout(ZSFILE, (char) c) < 0) seslog = 0; /* Log command */
+    }
+    debug(F111,"telnet cmd <",telcmds[m],c); /* Debug log. */
 
-    if (c == IAC) return(3);		/* Quoted IAC */
+    if (c == (CHAR) IAC) return(3);	/* Quoted IAC */
     if (c < SB) return(0);		/* Other command with no arguments. */
 
 /* SB, WILL, WONT, DO, or DONT need more bytes... */
 
-    if ((x = ttinc(0)) < 0) return(-1); /* Get the option. */
+    if ((x = (*fn)(0)) < 0) return(-1);	/* Get the option. */
     x &= 0xff;				/* Trim to 8 bits. */
 
     debug(F111,"telnet opt <",
 	  (x < ntelopts) ? telopts[x] : "UNKNOWN", x );
     if (seslog)				/* Session log */
-      if (zchout(ZSFILE,x) < 0) seslog = 0;
+      if (zchout(ZSFILE, (char) x) < 0) seslog = 0;
 
     /* Now handle the command */
 
     if (debses && c != SB) 		/* Debug to screen. */
-      printf("<%s %s>",telcmds[c-SE],
+      printf("<%s %s>",telcmds[m],
 	     (x < ntelopts) ? telopts[x] : "UNKNOWN" );
     switch (x) {
       case TELOPT_ECHO:			/* ECHO negotiation. */
@@ -992,39 +1137,44 @@ tn_doop(z, echo) CHAR z; int echo;
 	switch (c) {
 	  case DO:			/* DO terminal type. */
 	    if (wttflg == 0) {		/* If I haven't said so before, */
-		if (tn_sopt(WILL,x) < 0) /* say I'll send it if asked. */
+		if (tn_sopt((CHAR)WILL,x) < 0) /* say I'll send it if asked. */
 		  return(-1);
 		wttflg++;
 	    }
 	    return(0);
 	  case SB:
-	    debug(F100,"telnet subnegotiation:","",0);
+	    debug(F100,"TELNET subnegotiation:","",0);
 	    n = flag = 0;		/* Flag for when done reading SB */
 	    while (n < TSBUFSIZ) {	/* Loop looking for IAC SE */
-		if ((y = ttinc(0)) < 0)
+		if ((y = (*fn)(0)) < 0)	/* Read a byte */
 		  return(-1);
 		y &= 0xff;		/* Make sure it's just 8 bits. */
-		sb[n++] = y;		/* Save what we got in buffer. */
-		if (seslog)		/* Log it if logging. */
-		  if (zchout(ZSFILE,y) < 0)
+		sb[n++] = y;		/* Deposit in buffer. */
+		if (seslog)		/* Take care of session log */
+		  if (zchout(ZSFILE, (char) y) < 0)
 		    seslog = 0;
 		if (y == IAC) {		/* If this is an IAC */
-		    flag = 1;		/* set the flag. */
-		} else {		/* Otherwise, */
-		    if (flag && y == SE) /* if this is SE which immediately */
-		      break;		/* follows IAC, we're done. */
-		    else flag = 0;	/* Otherwise turn off flag. */
+		    if (flag) {		/* If previous char was IAC */
+			n--;		/* it's quoted, keep one IAC */
+			flag = 0;	/* and turn off the flag. */
+		    } else flag = 1;	/* Otherwise set the flag. */
+		} else if (flag) { 	/* Something else following IAC */
+		    if (y != SE)	/* If not SE, it's a protocol error */
+		      flag = 0;
+		    break;
 		}
-		debug(F111,"telnet subopt <","",y);
-		}
-	    if (!flag) return(-1);	/* Make sure we got a valid SB */
+	    }
+	    if (!flag) {		/* Make sure we got a valid SB */
+		debug(F100, "TELNET Subnegotian prematurely broken", "",0);
+		return(-1);
+	    }
 	    if (debses) {		/* Debug to screen. */
 		int i;
 		printf("<SB %s ",telopts[TELOPT_TTYPE]);
 		for (i = 0; i < n-2; i++) printf("%02x",sb[i]);
 		printf(" IAC SE>");
-	    }	    
-	    debug(F101,"telnet suboption","",sb[0]);
+	    }
+	    debug(F101,"TELNET suboption<","",sb[0]);
 	    if (sb[0] == 1) {		/* SEND terminal type? */
 		if (tn_sttyp() < 0)	/* Yes, so send it. */
 		  return(-1);
@@ -1038,7 +1188,7 @@ tn_doop(z, echo) CHAR z; int echo;
 	switch(c) {
 	  case WILL:			/* You will? */
 	    if (tn_sopt(DONT,x) < 0)	/* Please don't. */
-	      return(-1);
+	      return(-1);		/* (Could this cause a loop?) */
 	    break;
 	  case DO:			/* You want me to? */
 	    if (tn_sopt(WONT,x) < 0)	/* I won't. */
@@ -1046,10 +1196,10 @@ tn_doop(z, echo) CHAR z; int echo;
 	    break;
 	  case DONT:			/* You don't want me to? */
 	    if (tn_sopt(WONT,x) < 0)	/* I won't. */
-	      return(-1);
+	      return(-1);		/* (Could this cause a loop?) */
 	  case WONT:			/* You won't? */
-	    break;			/* Good. */
-	  }
+	    break;			/* I didn't want you to. */
+	}				/* Anything else, treat as user data */
 	return(0);
     }
 #endif /* TNCODE */
@@ -1064,32 +1214,42 @@ tn_sttyp() {				/* Send telnet terminal type. */
     debug(F100,"tn_sttyp no TNCODE","",0);
     return(0);
 #else
-    char *ttn; int ttl;			/* Name & length of terminal type. */
+    char *ttn; int ttl, i;		/* Name & length of terminal type. */
 
     if (ttnet != NET_TCPB) return(0);
     if (ttnproto != NP_TELNET) return(0);
-    ttn = getenv("TERM");		/* Get it from the environment. */
+
+    ttn = NULL;
+
+    if (tn_term) {			/* Terminal type override? */
+	debug(F110,"tn_sttyp",tn_term,0);
+	if (*tn_term) ttn = tn_term;
+    } else debug(F100,"tn_sttyp no term override","",0);
+#ifndef datageneral
+    if (!ttn)				/* If no override, */
+      ttn = getenv("TERM");		/* get it from the environment. */
+#endif /* datageneral */
     if ((ttn == ((char *)0)) || ((ttl = (int)strlen(ttn)) >= TSBUFSIZ)) {
 	ttn = "UNKNOWN";
 	ttl = 7;
     }
-    strcpy(sb,ttn);			/* Copy to subnegotiation buffer */
+    sb[0] = IAC;			/* I Am a Command */
+    sb[1] = SB;				/* Subnegotiation */
+    sb[2] = TELOPT_TTYPE;		/* Terminal Type */
+    sb[3] = (CHAR) 0;			/* Is... */
+    for (i = 4; *ttn; ttn++,i++)	/* Copy and uppercase it */
+      sb[i] = (islower(*ttn)) ? toupper(*ttn) : *ttn;
     ttn = sb;				/* Point back to beginning */
-    if (tn_sopt(SB,TELOPT_TTYPE) < 0)	/* Send: Terminal Type */
+    sb[i++] = IAC;			/* End of Subnegotiation */
+    sb[i++] = SE;			/* marked by IAC SE */
+    if (ttol((CHAR *)sb,i) < 0)		/* Send it. */
       return(-1);
-    if (ttoc((char) 0))			/* IS... */
-      return(-1);
-    while (*ttn) {			/* name of terminal */
-	if (islower(*ttn)) *ttn = toupper(*ttn); /* converted to uppercase. */
-	ttoc(*ttn++);
-    }
-    if (ttoc(IAC) < 0)			/* Terminate the subnegotiation. */
-      return(-1);
-    if (ttoc(SE) < 0)
-      return(-1);
-    debug(F111,"telnet SB sent ttype",sb,ttl);
+#ifdef DEBUG
+    sb[i-2] = '\0';			/* For debugging */
+    debug(F111,"telnet SB sent ttype",sb+4,ttl);
+#endif /* DEBUG */
     if (debses)				/* Debug to screen. */
-      printf("[SB TERMINAL TYPE 00 %s IAC SE]",sb);
+      printf("[SB TERMINAL TYPE 00 %s IAC SE]",sb+4);
     return(1);
 #endif /* TNCODE */
 }
@@ -1156,7 +1316,7 @@ readpad(s,n,r) CHAR *s; int n; CHAR *r; {
     int i;
     CHAR *ps = s;
     CHAR *pr = r;
-    
+
     *pr++ = X29_PARAMETER_INDICATION;
     for (i = 0; i < n; i++, ps++) {
          if (*ps > MAXPADPARMS) {
@@ -1172,7 +1332,7 @@ int
 qbitpkt(s,n) CHAR *s; int n; {
     CHAR *ps = s;
     int x29cmd = *ps;
-    CHAR *psa = s+1; 
+    CHAR *psa = s+1;
     CHAR x29resp[(MAXPADPARMS*2)+1];
 
     switch (x29cmd) {
@@ -1182,7 +1342,7 @@ qbitpkt(s,n) CHAR *s; int n; {
             if ((int)strlen(x29err) > 2) {
                 ttol (x29err,(int)strlen(x29err));
                 x29err[2] = '\0';
-            } 
+            }
             return (-2);
         case X29_READ_PARMS:
             readpad (ps+1,n/2,x29resp);
@@ -1191,7 +1351,7 @@ qbitpkt(s,n) CHAR *s; int n; {
             if ((int)strlen(x29err) > 2) {
                 ttol (x29err,(int)strlen(x29err));
                 x29err[2] = '\0';
-            } 
+            }
             resetqbit();
             break;
         case X29_SET_AND_READ_PARMS:
@@ -1250,7 +1410,7 @@ breakact() {
                 break;
        case 2 : /* send reset packet with cause and diag = 0 */
 		cause = diag = 0;
-                x25reset (cause,diag); 
+                x25reset (cause,diag);
                 break;
        case 5 : /* send interrupt packet with interrupt user data field = 0 */
 		intudat = 0;
@@ -1269,7 +1429,7 @@ breakact() {
                 setpad (indbrk+1,2);	/* set pad to discard input */
                 setqbit ();
 		/* send indication of break with parameter field */
-                ttol (indbrk,sizeof(indbrk)); 
+                ttol (indbrk,sizeof(indbrk));
                 resetqbit ();
                 break;
      }
@@ -1297,7 +1457,7 @@ pkx121(str,bcd) char *str; CHAR *bcd; {
         if ( i & 1 )
 	  bcd [j++] |= c;
         else
-	  bcd [j] = c << 4;  
+	  bcd [j] = c << 4;
         i++;
     }
     return (i);
@@ -1312,7 +1472,7 @@ x25diag () {
     bzero ((char *)&diag,sizeof(diag));
     if (ioctl(ttyfd,X25_RD_CAUSE_DIAG,&diag)) {
         perror ("Reading X.25 diagnostic");
-        return(-1); 
+        return(-1);
     }
     if (diag.datalen > 0) {
         printf ("X.25 Diagnostic :");
@@ -1447,10 +1607,13 @@ x25xin(n,buf) int n; CHAR *buf; {
 	} else qpkt = 0;
     } while (qpkt);
     if (x > 0) buf[x] = '\0';
-    if (x < 0) x = -1;
+    if (x < 1) x = -1;
+    debug(F101,"x25xin x","",x);
+
     return(x);
 }
 
+#ifdef COMMENT /* NO LONGER NEEDED! */
 /* X.25 read a line */
 
 int
@@ -1471,9 +1634,9 @@ x25inl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
     CHAR *pdest;
     int pktype, goteol, rest, n;
     int i, flag = 0;
-    extern int ttprty;
+    extern int ttprty, ttpflg;
     int ttpmsk;
-        
+
     ttpmsk = (ttprty) ? 0177 : 0377;	/* Set parity stripping mask */
 
     debug(F101,"x25inl max","",max);
@@ -1482,7 +1645,7 @@ x25inl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
     rest   = max;
     goteol = 0;
     do {
-	n = read(ttyfd,pdest,rest); 
+	n = read(ttyfd,pdest,rest);
 	n--;
 	pktype = *pdest & 0x7f;
 	switch (pktype) {
@@ -1513,17 +1676,17 @@ x25inl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
 
     if (goteol) {
 	n = max - rest;
-	debug (F111,"ttinl X.25 got",(char *) dest,n);
+	debug (F111,"x25inl X.25 got",(char *) dest,n);
 	if (timo) ttimoff();
-	if (ttprty == 0) {
+	if (ttpflg++ == 0 && ttprty == 0) {
 	    if ((ttprty = parchk(dest,start,n)) > 0) {
 		int j;
-		debug(F101,"ttinl senses parity","",ttprty);
-		debug(F110,"ttinl packet before",(char *)dest,0);
+		debug(F101,"x25inl senses parity","",ttprty);
+		debug(F110,"x25inl packet before",(char *)dest,0);
 		ttpmsk = 0x7f;
 		for (j = 0; j < n; j++)
 		  dest[j] &= 0x7f; /* Strip parity from packet */
-		debug(F110,"ttinl packet after ",dest,0);
+		debug(F110,"x25inl packet after ",dest,0);
 	    } else {
 		debug(F101,"parchk","",ttprty);
 		if (ttprty < 0) { ttprty = 0; n = -1; }
@@ -1535,6 +1698,7 @@ x25inl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
     ttimoff();
     return(-1);
 }
+#endif /* COMMENT */
 #endif /* SUNX25 */
 
 #endif /* NETCONN */

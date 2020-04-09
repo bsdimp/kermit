@@ -1,4 +1,12 @@
-char *ckzv = "File support, 5A(060) 8 Feb 92";
+#ifdef OS2
+char *ckzv = "OS/2 File support, 5A(067) 11 Nov 92";
+#else
+#ifdef aegis
+char *ckzv = "Aegis File support, 5A(067) 11 Nov 92";
+#else
+char *ckzv = "UNIX File support, 5A(067) 11 Nov 92";
+#endif /* aegis */
+#endif /* OS2 */
 
 /* C K U F I O  --  Kermit file system support for UNIX, OS/2, and Aegis */
 
@@ -18,6 +26,7 @@ char *ckzv = "File support, 5A(060) 8 Feb 92";
 #include "ckcdeb.h"
 
 #include <signal.h>
+
 #ifdef MINIX
 #include <limits.h>
 #endif /* MINIX */
@@ -29,23 +38,19 @@ char *ckzv = "File support, 5A(060) 8 Feb 92";
 
 #ifdef OS2
 /*
-  C-Kermit's OS/2 support originally by Chris Adie <C.Adie@uk.ac.edinburgh>
-  for C-Kermit 4F, Copyright (C) 1988 Edinburgh University Computing Service,
-  Scotland.  Permission is granted to any individual or institution to use,
-  copy, or redistribute this software so long as it is not sold for profit,
-  provided this copyright notice is retained.
 
-  Adapted to C-Kermit 5A and integrated into the UNIX support module
-  by Kai Uwe Rommel <rommel@informatik.tu-muenchen.de>, Muenchen, Germany,
-  December 1991.
+  C-Kermit's OS/2 support originally by Chris Adie <C.Adie@uk.ac.edinburgh>
+  Edinburgh University Computing Service, Scotland, for C-Kermit 4F.  Adapted
+  to C-Kermit 5A and integrated into the UNIX support module by Kai Uwe Rommel
+  <rommel@informatik.tu-muenchen.de>, Muenchen, Germany, December 1991.
 */
 
 /*
   Directory Separator macros, to allow this module to work with both UNIX and
   OS/2: Because of ambiguity with the command line editor escape \ character,
   the directory separator is currently left as / for OS/2 too, because the
-  OS/2 kernel accepts / as directory separatore too. But this is subject to
-  change in future versions to conform with the normal OS/2 style.
+  OS/2 kernel also accepts / as directory separator.  But this is subject to
+  change in future versions to conform to the normal OS/2 style.
 */
 #define DIRSEP       '/'
 /* #define DIRSEP       '\\' */
@@ -73,7 +78,6 @@ char *ckzv = "File support, 5A(060) 8 Feb 92";
 #include <sys/dirent.h>
 #else
 #include <dirent.h>
-#define	d_ino		d_fileno	/* backward compatibility */
 #endif /* SDIRENT */
 #else
 #ifdef OS2
@@ -95,19 +99,45 @@ char *ckzv = "File support, 5A(060) 8 Feb 92";
 #include <stdlib.h>
 #include <process.h>
 extern int binary;			/* We need to know this for open() */
+#ifdef __IBMC__
+extern FILE *popen(char *, char *);
+extern int pclose(FILE *);
+#else
+#ifndef __EMX__
 #define popen    _popen
 #define pclose   _pclose
+#include <share.h>
+#define fopen(n, m)  _fsopen(n, m, SH_DENYWR)
+#endif /* __EMX__ */
+#endif /* __IBMC__ */
 #else
 #include <pwd.h>			/* Password file for shell name */
 #endif /* OS2 */
 
-#ifdef BSD4				/* BSD 4.x */
+#ifndef OS2
+#ifdef SYSUTIMEH			/* <sys/utime.h> if requested,  */
+#include <sys/utime.h>			/* for extra fields required by */
+#endif /* SYSUTIMEH */			/* 88Open spec. */
+#endif /* OS2 */
+
+#ifdef BSD44				/* BSD 4.4 */
+#define TIMESTAMP			/* Can do file dates */
+#include <sys/time.h>
+#include <sys/timeb.h>
+
+#else
+
+#ifdef BSD4				/* BSD 4.3 and below */
 #define TIMESTAMP			/* Can do file dates */
 #include <time.h>			/* Need this */
 #include <sys/timeb.h>			/* Need this if really BSD */
-#endif /* BSD4 */
+
+#else
 
 #ifdef ATTSV
+/*
+  4.4 BSD uses utimes() instead of utime() for this, which accepts a...
+*/
 #define TIMESTAMP
 #include <time.h>
 /* void tzset(); (the "void" type upsets some compilers) */
@@ -115,6 +145,8 @@ extern int binary;			/* We need to know this for open() */
 extern long timezone;
 #endif /* ultrix */
 #endif /* ATTSV */
+#endif /* BSD4 */
+#endif /* BSD44 */
 
 /* Is `y' a leap year? */
 #define leap(y) (((y) % 4 == 0 && (y) % 100 != 0) || (y) % 400 == 0)
@@ -188,9 +220,7 @@ char *ckzsys = HERALD;
 #endif /* POSIX */
 
 #ifdef BSD4
-#ifndef __386BSD__
 #define NAMEENV "USER"
-#endif /* __386BSD__ */
 #endif /* BSD4 */
 
 #ifdef ATTSV
@@ -215,10 +245,10 @@ char *TYPCMD = "type ";			/* For typing a file */
 char *DIRCMD = "dir ";			/* For directory listing */
 char *DIRCM2 = "dir ";			/* For directory listing, no args */
 char *WHOCMD = "";			/* Who's there? */
-char *SPACMD = "chkdsk ";		/* For space on disk */
-char *SPACM2 = "chkdsk ";		/* For space on disk */
+char *SPACMD = "dir | find \"bytes free\""; /* For space on disk */
+char *SPACM2 = "dir | find \"bytes free\""; /* For space on disk */
 
-#else /* Not OS2 */
+#else /* Not OS2, ergo UNIX */
 
 char *DELCMD = "rm -f ";		/* For file deletion */
 char *PWDCMD = "pwd ";			/* For saying where I am */
@@ -270,7 +300,7 @@ _PROTOTYP( char * tilde_expand, (char *) );
 /* More system-dependent includes, which depend on symbols defined */
 /* in the Kermit-specific includes.  Oh what a tangled web we weave... */
 
-#ifdef COHERENT
+#ifdef COHERENT				/* <sys/file.h> */
 #define NOFILEH
 #endif /* COHERENT */
 
@@ -278,7 +308,7 @@ _PROTOTYP( char * tilde_expand, (char *) );
 #define NOFILEH
 #endif /* MINIX */
 
-#ifdef aegis				/* <sys/file.h> */
+#ifdef aegis
 #define NOFILEH
 #endif /* aegis */
 
@@ -290,31 +320,31 @@ _PROTOTYP( char * tilde_expand, (char *) );
 #include <sys/file.h>
 #endif /* NOFILEH */
 
-
 #ifndef is68k				/* Whether to include <fcntl.h> */
 #ifndef BSD41				/* All but a couple UNIXes have it. */
 #ifndef FT18
-#ifndef COHERENT
 #include <fcntl.h>
-#endif /* COHERENT */
 #endif /* FT18  */
 #endif /* BSD41 */
 #endif /* not is68k */
 
-#ifdef COHERENT
-#include <sys/fcntl.h>
-#endif /* COHERENT */
-
+/*
+  Change argument to "(const char *)" if this causes trouble.
+  Or... if it causes trouble, then maybe it was already declared 
+  in a header file after all, so you can remove this prototype.
+*/
 #ifndef _POSIX_SOURCE
 #ifndef NEXT
 #ifndef SVR4
 /* POSIX <pwd.h> already gave prototypes for these. */
-#if defined (IRIX40) || defined (__386BSD__)
+#ifdef IRIX40
 _PROTOTYP( struct passwd * getpwnam, (const char *) );
 #else
 _PROTOTYP( struct passwd * getpwnam, (char *) );
 #endif /* IRIX40 */
+#ifndef SUNOS4
 _PROTOTYP( struct passwd * getpwuid, (PWID_T) );
+#endif /* SUNOS4 */
 _PROTOTYP( struct passwd * getpwent, (void) );
 #endif /* SVR4 */
 #endif /* NEXT */
@@ -331,10 +361,15 @@ _PROTOTYP( struct passwd * getpwent, (void) );
 #undef S_ISDIR
 #endif /* OXOS */
 
-#ifdef UTSV				/* Same deal for Amdah UTSV */
+#ifdef UTSV				/* Same deal for Amdahl UTSV */
 #undef S_ISREG
 #undef S_ISDIR
 #endif /* UTSV */
+
+#ifdef UNISYS52				/* And for UNISYS UTS V 5.2 */
+#undef S_ISREG
+#undef S_ISDIR
+#endif /* UNISYS52 */
 
 #ifndef S_ISREG
 #define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
@@ -423,8 +458,8 @@ struct path {
     char npart[MAXNAMLEN+4];		/* name part of path segment */
     struct path *fwd;			/* forward ptr */
 };
-_PROTOTYP( int shxpand, (char *, char **, int ) );
-_PROTOTYP( static int fgen, (char *, char **, int ) );
+_PROTOTYP( int shxpand, (char *, char *[], int ) );
+_PROTOTYP( static int fgen, (char *, char *[], int ) );
 _PROTOTYP( static VOID traverse, (struct path *, char *, char *) );
 _PROTOTYP( static VOID addresult, (char *) );
 _PROTOTYP( static int match, (char *, char *) );
@@ -475,7 +510,9 @@ static long iflen = -1L;		/* Input file length */
 static PID_T pid = 0;			/* pid of child fork */
 static int fcount;			/* Number of files in wild group */
 static char nambuf[MAXNAMLEN+4];	/* Buffer for a filename */
+#ifndef NOFRILLS
 static char zmbuf[200];			/* For mail, remote print strings */
+#endif /* NOFRILLS */
 
 /* static */				/* Not static, must be global now. */
 char *mtchs[MAXWLD],			/* Matches found for filename */
@@ -516,12 +553,16 @@ zkself() {				/* For "bye", but no guarantee! */
     return(kill(0,9));
 #else
 #ifdef COHERENT
-    return(kill(getpid(),1));
+    return(kill((PID_T)getpid(),1));
 #else
 #ifdef OS2
     exit(3);
 #else
+#ifdef PID_T
+    exit(kill((PID_T)getppid(),1));
+#else
     exit(kill(getppid(),1));
+#endif
 #endif
 #endif
 #endif
@@ -563,7 +604,7 @@ zopeni(n,name) int n; char *name; {
 	return(1);
     }
 #ifdef OS2
-    if (n == ZIFILE)
+    if (n == ZIFILE || n == ZRFILE)
       fp[n] = fopen(name,"rb");		/* Binary mode */
     else
 #endif /* OS2 */
@@ -580,11 +621,11 @@ zopeno(n,name,zz,fcb)
 /* zopeno */  int n; char *name; struct zattr *zz; struct filinfo *fcb; {
 
     char p[8];				/* (===OS2 change===) */
-/*  char *p; */				/* Local-use pointer */
 
 /* As of Version 5A, the attribute structure and the file information */
 /* structure are included in the arglist. */
 
+#ifdef DEBUG
     debug(F111,"zopeno",name,n);
     if (fcb) {
 	debug(F101,"zopeno fcb disp","",fcb->dsp);
@@ -595,11 +636,14 @@ zopeno(n,name,zz,fcb)
     }
     if (n != ZDFILE)
       debug(F111," zopeno",name,n);
+#endif /* DEBUG */
     if (chkfn(n) != 0) return(0);
     if ((n == ZCTERM) || (n == ZSTDIO)) {   /* Terminal or standard output */
 	fp[ZOFILE] = stdout;
+#ifdef DEBUG
 	if (n != ZDFILE)
 	  debug(F101," fp[]=stdout", "", fp[n]);
+#endif /* DEBUG */
 	zoutcnt = 0;
 	zoutptr = zoutbuffer;
 	return(1);
@@ -613,19 +657,24 @@ zopeno(n,name,zz,fcb)
 	  strcpy(p,"a");		/* Yes. */
     }
 #ifdef OS2
-    if (n == ZOFILE) strcat(p,"b");	/* Binary mode */
+    if (n == ZOFILE || n == ZSFILE)	/* OS/2 binary mode */
+      strcat(p,"b");
 #endif /* OS2 */
-    fp[n] = fopen(name,p);		/* Open the file */
+    fp[n] = fopen(name,p);		/* Try to open the file */
 
-    if (fp[n] == NULL) {
-        perror("zopeno can't open");
-    } else {
-        if (n == ZDFILE) setbuf(fp[n],NULL); /* Debugging file unbuffered */
+    if (fp[n] == NULL) {		/* Failed */
+	debug(F101,"zopeno failed errno","",errno);
+#ifdef COMMENT				/* Let upper levels print message. */
+        perror("Can't open output file");
+#endif /* COMMENT */
+    } else {				/* Succeeded */
+        if (n == ZDFILE)		/* If it's the debug log */
+	  setbuf(fp[n],NULL);		/* make it unbuffered */
+	else
+	  debug(F100, "zopeno ok", "", 0);
     }
-    zoutcnt = 0;		/* (PWP) reset output buffer */
+    zoutcnt = 0;			/* (PWP) reset output buffer */
     zoutptr = zoutbuffer;
-    if (n != ZDFILE)
-      debug(F101, " fp[n]", "", fp[n]);
     return((fp[n] != NULL) ? 1 : 0);
 }
 
@@ -652,11 +701,11 @@ zclose(n) int n; {
     }
     iflen = -1L;			/* Invalidate file length */
     if (x == EOF)			/* if we got a close error */
-	return (-1);
+      return(-1);
     else if (x2 < 0)		/* or an error flushing the last buffer */
-	return (-1);		/* then return an error */
+      return(-1);		/* then return an error */
     else
-	return (1);
+      return(1);
 }
 
 /*  Z C H I N  --  Get a character from the input file.  */
@@ -695,34 +744,41 @@ zchin(n,c) int n; int *c; {
 */
 int
 zsinl(n,s,x) int n, x; char *s; {
-    int a, z = 0;
+    int a, z = 0;			/* z is return code. */
 
     if (chkfn(n) < 1) {			/* Make sure file is open */
 	return(-1);
     }
-    a = -1;
-    while (x--) {
+    a = -1;				/* Current character, none yet. */
+    while (x--) {			/* Up to given length */
 #ifndef NLCHAR
 	int old;
 	old = a;			/* Previous character */
 #endif
 	if (zchin(n,&a) < 0) {		/* Read a character from the file */
-	    z = -1;
+	    debug(F101,"zsinl","",a);
+	    z = -1;			/* EOF or other error */
 	    break;
 	}
 #ifdef NLCHAR
 	if (a == (char) NLCHAR) break;	/* Single-character line terminator */
-#else
-	if (a == '\r') continue;	/* CRLF line terminator */
-	if (old == '\r') {
-	    if (a == '\n') break;
-	    else *s++ = '\r';
+#else					/* CRLF line terminator */
+	if (a == '\015') continue;	/* CR, get next character */
+	if (old == '\015') {		/* Previous character was CR */
+	    if (a == '\012') break;	/* This one is LF, so we have a line */
+	    else *s++ = '\015';		/* Not LF, deposit CR */
 	}
+#ifdef OS2
+/*
+  I'm not sure I understand this one, so let's keep it only for OS/2 for now.
+*/
+	if (a == '\012') break;		/* Break on single LF too */
+#endif /* OS2 */
 #endif /* NLCHAR */
-	*s = a;
+	*s = a;				/* Deposit character */
 	s++;
     }
-    *s = '\0';
+    *s = '\0';				/* Terminate the string */
     return(z);
 }
 
@@ -774,19 +830,12 @@ zinfill() {
 int
 zsout(n,s) int n; char *s; {
     if (chkfn(n) < 1) return(-1); /* Keep this here, prevents memory faults */
-#ifdef COMMENT
-    while (*s) {			/* (unbuffered for debugging) */
-	write(fileno(fp[n]),s,1); ++s;
-    }
-#endif
-#ifdef COMMENT
-    return(fputs(s,fp[n]) == EOF ? -1 : 0);
-#else
+#ifndef OS2
     if (n == ZSFILE)
 	return(write(fileno(fp[n]),s,(int)strlen(s)));
     else
+#endif /* OS2 */
         return(fputs(s,fp[n]) == EOF ? -1 : 0);
-#endif
 }
 
 /*  Z S O U T L  --  Write string to file, with line terminator, buffered  */
@@ -823,14 +872,18 @@ zchout(n,c) register int n; char c;
 #endif /* CK_ANSIC */
 /* zchout() */ {
     /* if (chkfn(n) < 1) return(-1); */
+#ifndef OS2
     if (n == ZSFILE) {			/* Use unbuffered for session log */
     	return(write(fileno(fp[n]),&c,1) == 1 ? 0 : -1);
     } else {				/* Buffered for everything else */
+#endif /* OS2 */
 	if (putc(c,fp[n]) == EOF)	/* If true, maybe there was an error */
 	  return(ferror(fp[n])?-1:0);	/* Check to make sure */
 	else				/* Otherwise... */
 	  return(0);			/* There was no error. */
+#ifndef OS2
     }
+#endif /* OS2 */
 }
 
 /* (PWP) buffered character output routine to speed up file IO */
@@ -875,6 +928,7 @@ zoutdump() {
 */
 int
 chkfn(n) int n; {
+#ifdef COMMENT				/* Save some stack space */
     switch (n) {
 	case ZCTERM:
 	case ZSTDIO:
@@ -893,6 +947,11 @@ chkfn(n) int n; {
 	    return(-1);
     }
     return( (fp[n] == NULL) ? 0 : 1 );
+#else
+    if (n < 0 || n >= ZNFILS)
+      return(-1);
+    else return( (fp[n] == NULL) ? 0 : 1 );
+#endif /* COMMENT */
 }
 
 /*  Z C H K I  --  Check if input file exists and is readable  */
@@ -913,6 +972,12 @@ zchki(name) char *name; {
     struct stat buf;
     int x;
 
+#ifdef UNIX
+    x = strlen(name);
+    if (x == 9 && !strcmp(name,"/dev/null"))
+      return(0);
+#endif /* UNIX */
+
     x = stat(name,&buf);
     if (x < 0) {
 	debug(F111,"zchki stat fails",name,errno);
@@ -924,7 +989,14 @@ zchki(name) char *name; {
     }
     debug(F111,"zchki stat ok:",name,x);
 
-    if ((x = access(name,R_OK)) < 0) { 	/* Is the file accessible? */
+#ifdef OXOS
+    priv_on();
+#endif /* OXOS */
+    x = access(name,R_OK);
+#ifdef OXOS
+    priv_chk();
+#endif /* OXOS */
+    if (x < 0) { 	/* Is the file accessible? */
 	debug(F111," access failed:",name,x); /* No */
     	return(-3);
     } else {
@@ -948,6 +1020,15 @@ zchko(name) char *name; {
     if (!name) return(-1);		/* Watch out for null pointer. */
     x = (int)strlen(name);		/* Get length of filename */
     debug(F101," length","",x);
+
+#ifdef UNIX
+/*
+  Writing to null device is OK.
+*/
+    if (x == 9 && !strcmp(name,"/dev/null"))
+      return(0);
+#endif /* UNIX */
+
     s = malloc(x+3);			/* Must copy because we can't */
     if (!s) {				/* write into our argument. */
 	fprintf(stderr,"Malloc error 46\n");
@@ -971,7 +1052,17 @@ zchko(name) char *name; {
     s[i] = '\0';
 #endif /* COMMENT */
 
+#ifdef OXOS
+    priv_on();
+#endif /* OXOS */
+#ifdef OS2				/* No unwritable directories in OS/2 */
+    x = 0;
+#else
     x = access(s,W_OK);			/* Check access of path. */
+#endif /* OS2 */
+#ifdef OXOS
+    priv_chk();
+#endif /* OXOS */
     if (x < 0)
       debug(F111,"zchko access failed:",s,errno);
     else
@@ -994,16 +1085,24 @@ zdelet(name) char *name; {
 
 VOID
 zrtol(name,name2) char *name, *name2; {
-    char *p;
+    char *p; int flag = 0;
     debug(F101,"zrtol name","",name);
     debug(F101,"zrtol name2","",name2);
     if (!name || !name2) return;
     debug(F101,"zrtol input","",name);
     p = name2;
     for ( ; *name != '\0'; name++) {
+	if (*name > ' ') flag = 1;	/* Strip leading blanks and controls */
+	if (flag == 0 && *name < '!') continue;
     	*p++ = isupper(*name) ? tolower(*name) : *name;
     }
-    *p = '\0';
+    *p-- = '\0';			/* Terminate */
+    while (*p < '!' && p > name2)	/* Strip trailing blanks & contronls */
+      *p-- = '\0';
+#ifdef OS2
+    if (!IsFileNameValid(name2))
+      ChangeNameForFAT(name2);
+#endif /* OS2 */
     debug(F110,"zrtol result",name2,0);
 }
 
@@ -1012,7 +1111,11 @@ zrtol(name,name2) char *name, *name2; {
 
 /*  Strip pathname from filename "name", return pointer to result in name2 */
 
-static char work[257];		/* buffer for use by zstrip and zltor */
+#ifdef pdp11
+static char work[100];		/* buffer for use by zstrip and zltor */
+#else
+static char work[257];
+#endif /* pdp11 */
 
 VOID
 zstrip(name,name2) char *name, **name2; {
@@ -1096,7 +1199,7 @@ zchdir(dirnam) char *dirnam; {
 
     debug(F110,"zchdir",dirnam,0);
     if (dirnam == NULL || dirnam == "" || *dirnam == '\0') /* If arg is null */
-      dirnam = getenv("HOME");		/* use user's home directory. */
+      dirnam = zhome();			/* use user's home directory. */
     sp = dirnam;
     debug(F110,"zchdir 2",dirnam,0);
 
@@ -1107,6 +1210,18 @@ zchdir(dirnam) char *dirnam; {
     hd = dirnam;
 #endif /* DTILDE */
     debug(F110,"zchdir 3",hd,0);
+#ifdef pdp11
+    /* Just to save some space */
+    return((chdir(hd) == 0) ? 1 : 0);
+#else
+#ifdef OS2
+    if (isalpha(hd[0]) && hd[1] == ':') {
+        if (zchdsk(hd[0]))
+	  return(0);
+	if (hd[2] == 0)
+	  return(1);			/* Handle drive-only case */
+    }
+#endif /* OS2 */
     if (chdir(hd) == 0) return(1);	/* Try to cd */ /* (===OS2===) */
     p = sp;				/* Failed, lowercase it. */
     while (*p) {
@@ -1119,35 +1234,47 @@ zchdir(dirnam) char *dirnam; {
     if (*hd == '\0') hd = sp;
 #else
     hd = sp;				/* Point to result */
-#endif
+#endif /* DTILDE */
     debug(F110,"zchdir 5",hd,0);
-/*  return((chdir(hd) > -1) ? 1 : 0); (===OS2===)  */
     return((chdir(hd) == 0) ? 1 : 0);
+#endif /* pdp11 */
 }
-
 
 /*  Z H O M E  --  Return pointer to user's home directory  */
 
 char *
 zhome() {
-    char *home = NULL;
-    home = getenv("HOME");
-    return(home ? home : ".");		/* (===OS2===) */
+    char *home = getenv("HOME");
+#ifdef OS2
+    extern char startupdir[];
+    return(home ? home : startupdir);
+#else
+    return(home ? home : ".");
+#endif
 }
 
 /*  Z G T D I R  --  Return pointer to user's current directory  */
 
+#ifdef pdp11
+#define CWDBL 80			/* Save every byte we can... */
+#else
 #ifdef MAXPATHLEN
 #define CWDBL MAXPATHLEN
 #else
 #define CWDBL 100
-#endif
+#endif /* MAXPATHLEN */
+#endif /* pdp11 */
 static char cwdbuf[CWDBL+1];
 
 char *
 zgtdir() {
     char *buf;
 
+#ifdef BSD44
+    extern char *getwd();
+    buf = cwdbuf;
+    return(getwd(buf));
+#else
 #ifdef SVORPOSIX
     extern char *getcwd();
     buf = cwdbuf;
@@ -1167,6 +1294,7 @@ zgtdir() {
 #endif /* BSD4 */
 #endif /* OS2 */
 #endif /* SYSVORPOSIX */
+#endif /* BSD44 */
 }
 
 /*  Z X C M D -- Run a system command so its output can be read like a file */
@@ -1280,7 +1408,7 @@ zxcmd(filnum,comand) int filnum; char *comand; {
 
 	execl(shpath,shname,"-c",comand,(char *)NULL); /* Execute the cmd */
 	exit(0);			/* just punt if it failed. */
-    } else if (pid == -1) {
+    } else if (pid == (PID_T) -1) {
 	debug(F100,"zxcmd fork failure","",0);
 	return(0);
     }
@@ -1330,7 +1458,7 @@ zclosf(filnum) int filnum; {
     fclose(fp[filnum]);
     fp[filnum] = NULL;
 #else
-    if (pid != 0) {
+    if (pid != (PID_T) 0) {
 	debug(F101,"zclosf killing pid","",pid);
 	kill(pid,9);
         while ((wstat = wait((WAIT_T *)0)) != pid && wstat != -1) ;
@@ -1418,8 +1546,22 @@ znext(fn) char *fn; {
  Returns -1 on error, 0 if not enough space, 1 if enough space.
 */
 int
-zchkspa(f,n) char *f; long n; {		/* Just dummy for now. */
+#ifdef CK_ANSIC
+zchkspa(char *f, long n)
+#else
+zchkspa(f,n) char *f; long n;
+#endif /* CK_ANSIC */
+/* zchkspa() */ {
+#ifdef OS2
+/* OS/2 gives us an easy way to do this. */
+    if (isalpha(f[0]) && f[1] == ':')
+      return(zdskspace(toupper(f[0]) - 'A' + 1) >= n);
+    else
+      return(zdskspace(0) >= n);
+#else
+/* In UNIX there is no good (and portable) way. */
     return(1);				/* Always say OK. */
+#endif /* OS2 */
 }
 
 
@@ -1439,46 +1581,19 @@ zchkspa(f,n) char *f; long n; {		/* Just dummy for now. */
 
 VOID
 znewn(fn,s) char *fn, **s; {
-#define ZNEWNBL 255			/* Name buffer length */
-#define ZNEWNMD 4			/* Max digits for version number */
+#ifdef pdp11
+#define ZNEWNBL 63			/* Name buffer length */
+#define ZNEWNMD 3			/* Max digits for version number */
+#else
+#define ZNEWNBL 255
+#define ZNEWNMD 4
+#endif /* pdp11 */
+
     static char buf[ZNEWNBL+1];
+    char *bp, *xp, *yp;
 #ifdef OS2
-/*
-  Well, OS/2 should be able to handle 8.3 FAT names still,
-  although HPFS is so much easier to live with ...
-  This code should be checked out with long names.
-*/
-    char *bp, *xp, *yp, *zp, ch, temp[14];
-    int d, i, n;
-    xp = bp = buf;
-    while (*fn) {			/* Copy name into buf */
-	ch = *bp++ = *fn++;
-	if (ISDIRSEP(ch) || (ch == ':')) xp=bp;
-    }
-    *bp = '\0';
-    yp = xp;
-    i = 1;
-    while (*yp && (*yp != '.')) {
-	yp++;
-	if (++i<=6) zp=yp;
-    }
-    /* zp points to 6th character in name, or yp, whichever occurs first. */
-    strcpy(temp,yp);			/* Copy extension, if any */
-    while (zp != xp+8) {
-    	if ( zp < xp+5 ) *zp++='0';
-    	else *zp++='?';			/* Pad out with wild cards */
-    }
-    strcpy(zp,temp);			/* Get the extension back */
-    n = zxpand(buf);			/* Expand the resulting wild name */
-    d = 0;				/* Index number */
-    while (znext(temp)) {
-    	i = atoi(temp+5);
-    	if (i > d) d = i;
-    }
-    sprintf(temp,"%03d",d+1);		/* get the number into a string */
-    memcpy(xp+5, temp, 3);
-#else /* Not OS2 */
-    char *bp, *xp;
+    char *zp, ch, temp[14];
+#endif /* OS2 */
     int len = 0, d = 0, n, t, i, j, k, power = 1;
 
     int max = MAXNAMLEN;		/* Maximum name length */
@@ -1486,10 +1601,12 @@ znewn(fn,s) char *fn, **s; {
     if (max < 14) max = 14;		/* Make it reasonable */
     if (max > ZNEWNBL) max = ZNEWNBL;
     bp = buf;				/* Buffer for building new name */
-    while (*fn) {			/* Copy old name into buffer */
-	*bp++ = *fn++;
+    yp = fn;
+    while (*yp) {			/* Copy old name into buffer */
+	*bp++ = *yp++;
 	if (len++ > ZNEWNBL) break;	/* ...up to buffer length */
     }
+    *s = NULL;
     for (i = 1; i < ZNEWNMD + 1; i++) {	/* Version numbers up to 10**i - 1 */
 	power *= 10;			/* Next power of 10 */
 	j = max - len;			/* Space left for version number */
@@ -1514,14 +1631,49 @@ znewn(fn,s) char *fn, **s; {
 	if (d < power-1) {		/* Less than maximum possible? */
 	    sprintf(bp,".~%d~",d+1);	/* Yes, make "name.~<d+1>~" */
 	    *s = buf;			/* Point to new name */
-	    return;			/* Done, return it */
+	    break;			/* Done, return it */
 	}
     }
-    sprintf(bp,".~xxxx~");		/* Too many, use xxxx. */
+    if (*s == NULL) {
+	sprintf(bp,".~xxxx~");		/* Too many, use xxxx. */
+	*s = buf;
+    }
+#ifdef OS2
+    if (IsFileNameValid(buf))
+        return; /* HPFS */
+    /* otherwise make FAT 8.3 name */
+    xp = bp = buf;
+    yp = fn;
+    while (*yp) {			/* Copy name into buf */
+	ch = *bp++ = *yp++;
+	if (ISDIRSEP(ch) || (ch == ':')) xp=bp;
+    }
+    *bp = '\0';
+    yp = xp;
+    i = 1;
+    while (*yp && (*yp != '.')) {
+	yp++;
+	if (++i<=6) zp=yp;
+    }
+    /* zp points to 6th character in name, or yp, whichever occurs first. */
+    strcpy(temp,yp);			/* Copy extension, if any */
+    while (zp != xp+8) {
+    	if ( zp < xp+5 ) *zp++='0';
+    	else *zp++='?';			/* Pad out with wild cards */
+    }
+    strcpy(zp,temp);			/* Get the extension back */
+    n = zxpand(buf);			/* Expand the resulting wild name */
+    d = 0;				/* Index number */
+    while (znext(temp)) {
+    	i = atoi(temp+5);
+    	if (i > d) d = i;
+    }
+    sprintf(temp,"%03d",d+1);		/* get the number into a string */
+    memcpy(xp+5, temp, 3);
 #endif /* OS2 */
-    *s = buf;
     return;
 }
+
 
 /*  Z R E N A M E  --  Rename a file  */
 
@@ -1536,11 +1688,11 @@ zrename(old,new) char *old, *new; {
    return rename(old, new);
 #else
    if (link(old,new) < 0) {		/* Make a link with the new name. */
-	debug(F110," link fails",old,0);
+	debug(F111,"zrename link fails, errno",old,errno);
 	return(-1);
     }
     if (unlink(old) < 0) {		/* Unlink the old name. */
-	debug(F110," link fails",old,0);
+	debug(F111,"zrename unlink fails, errno",old,errno);
 	return(-1);
     }
     return(0);
@@ -1598,14 +1750,6 @@ zsattr(xx) struct zattr *xx; {
     xx->length = iflen;			/* Length */
     return(0);
 }
-
-#ifdef COMMENT
-int
-zfree(f) char *f; {			/* Check free space */
-    /* How??? */
-    return(0);
-}
-#endif /* COMMENT */
 
 /* Z F C D A T  --  Get file creation date */
 /*
@@ -1670,7 +1814,7 @@ zfcdat(name) char *name; {
     return(datbuf);
 #else
     return("");
-#endif /* timestamp */
+#endif /* TIMESTAMP */
 }
 
 /* Z S T I M E  --  Set creation date for incoming file */
@@ -1699,7 +1843,12 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
   is more flexible, allowing [yy]yymmdd[ hh:mm[:ss]].
 */
 #ifndef OS2
-    extern int ftime(), stat(), utime();
+    extern int ftime(), stat();
+#ifdef BSD44
+    extern int utimes();
+#else
+    extern int utime();
+#endif /* BSD44 */
     /* at least, the declarations for int functions are not needed anyway */
     extern struct tm *localtime();
     /* and this should have been declared always through a header file */
@@ -1712,8 +1861,15 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
     int monthdays [13] = {  0,0,31,59,90,120,151,181,212,243,273,304,334 };
     char s[5];
     struct stat sb;
+#ifdef BSD44
+    struct timeval tp[2];
+#else
 #ifdef OS2
     struct utimbuf tp;
+#ifdef __EMX__
+    long timezone;
+    struct timeb tbp;
+#endif /* __EMX__ */
 #else
 #ifdef V7
     struct utimbuf {
@@ -1722,17 +1878,22 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
     char *tz;
     long timezone;		/* In case timezone not defined in .h file */
 #else
-   struct utimbuf {
+#ifdef SYSUTIMEH
+    struct utimbuf tp;
+#else
+    struct utimbuf {
       time_t atime;		/* New access time */
       time_t mtime;		/* New modification time */
     } tp;
+#endif /* SYSUTIMEH */
 #endif /* V7 */
 #endif /* OS2 */
+#endif /* BSD44 */
 
 #ifdef ANYBSD
     long timezone;
     static struct timeb tbp;
-#endif
+#endif /* ANYBSD */
 
     debug(F110,"zstime",f,0);
 
@@ -1763,14 +1924,19 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
     debug(F111,"zstime date check 3",yy->date.val,yy->date.len);
 
 #ifdef ANYBSD
-#ifndef __386BSD__
     debug(F100,"ztime BSD calling ftime","",0);
     ftime(&tbp);
     debug(F100,"ztime BSD back from ftime","",0);
     timezone = tbp.timezone * 60L;
     debug(F101,"ztime BSD timezone","",timezone);
-#endif /* __386BSD__ */
 #endif
+
+#ifdef OS2
+#ifdef __EMX__
+    ftime(&tbp);
+    timezone = tbp.timezone * 60L;
+#endif /* __EMX__ */
+#endif /* OS2 */
 
 #ifdef ATTSV
     tzset();				/* Set `timezone'. */
@@ -1796,8 +1962,8 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
 
     debug(F111,"zstime year",s,n);
 
-/* Previous year's leap days. This won't work after year 2100, */
-/* I don't care about that! */
+/* Previous year's leap days. This won't work after year 2100. */
+
     isleapyear = (( n % 4 == 0 && n % 100 !=0) || n % 400 == 0);
     days = (long) (n - 1970) * 365;
     days += (n - 1968 - 1) / 4 - (n - 1900 - 1) / 100 + (n - 1600 - 1) / 400;
@@ -1808,11 +1974,10 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
 	s[0] = yy->date.val[i];
 	s[1] = yy->date.val[i + 1];
 	n = atoi(s);
-    debug(F110,"zstime entering switch",s,0);
 	switch (i) {
 	  case 4:			/* MM: month */
 	    if ((n < 1 ) || ( n > 12)) {
-		debug(F111,"Bad creation date ",yy->date.val,yy->date.len);
+		debug(F111,"zstime 4 bad date ",yy->date.val,yy->date.len);
 		return(-1);
 	    }
 	    days += monthdays [n];
@@ -1822,7 +1987,7 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
 
 	  case 6:			/* DD: day */
 	    if ((n < 1 ) || ( n > 31)) {
-		debug(F111,"Bad creation date ",yy->date.val,yy->date.len);
+		debug(F111,"zstime 6 bad date ",yy->date.val,yy->date.len);
 		return(-1);
 	    }
 	    tm = (days + n - 1) * 24L * 60L * 60L;
@@ -1831,7 +1996,7 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
 
 	  case 9:			/* hh: hour */
 	    if ((n < 0 ) || ( n > 23)) {
-		debug(F111,"Bad creation date ",yy->date.val,yy->date.len);
+		debug(F111,"zstime 9 bad date ",yy->date.val,yy->date.len);
 		return(-1);
 	    }
 	    tm += n * 60L * 60L;
@@ -1840,17 +2005,19 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
 
 	  case 12:			/* mm: minute */
 	    if ((n < 0 ) || ( n > 59)) {
-		debug(F111,"Bad creation date ",yy->date.val,yy->date.len);
+		debug(F111,"zstime 12 bad date ",yy->date.val,yy->date.len);
 		return(-1);
 	    }
 #ifdef ANYBSD				/* Correct for time zone */
 	    tm += timezone;
 #else
+#ifndef BSD44				/* For now... */
 #ifdef ultrix
 	    tm += (long) timezone;
 #else
 	    tm += timezone;
 #endif /* ultrix */
+#endif /* BSD44 */
 #endif /* ANYBSD */
 	    tm += n * 60L;
 	    i++;			/* Skip the colon */
@@ -1858,17 +2025,15 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
 
 	  case 15:			/* ss: second */
 	    if ((n < 0 ) || ( n > 59)) {
-		debug(F111,"Bad creation date ",yy->date.val,yy->date.len);
+		debug(F111,"zstime 15 bad date ",yy->date.val,yy->date.len);
 		return(-1);
 	    }
 	    tm += n;
 	}
-
 	if (localtime(&tm)->tm_isdst)
 	  tm -= 60L * 60L;		/* Adjust for daylight savings time */
     }
-
-    debug(F111,"Attribute creation date ok ",yy->date.val,yy->date.len);
+    debug(F111,"A-pkt date ok ",yy->date.val,yy->date.len);
 
     if (stat(f,&sb)) {			/* Get the time for the file */
 	debug(F110,"Can't stat file:",f,0);
@@ -1878,18 +2043,34 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
     tp.modtime = tm;			/* Set modif. time to creation date */
     tp.actime = sb.st_atime;		/* Don't change the access time */
 #else
+#ifdef SYSUTIMEH
+    tp.modtime = tm;			/* Set modif. time to creation date */
+    tp.actime = sb.st_atime;		/* Don't change the access time */
+#else
 #ifdef V7
     tp.timep[0] = tm;			/* Set modif. time to creation date */
     tp.timep[1] = sb.st_atime;		/* Don't change the access time */
 #else
+#ifdef BSD44
+    tp[0].tv_sec = sb.st_atime;		/* Access time first */
+    tp[1].tv_sec = tm;			/* Update time second */
+#else
     tp.mtime = tm;			/* Set modif. time to creation date */
     tp.atime = sb.st_atime;		/* Don't change the access time */
+#endif /* BSD44 */
 #endif /* V7 */
+#endif /* SYSUTIMEH */
 #endif /* OS2 */
 
     switch (x) {			/* Execute desired function */
       case 0:				/* Set the creation date of the file */
-	if (utime(f,&tp)) {		/* Fix modification time */
+	if (
+#ifdef BSD44
+	    utimes(f,tp)
+#else
+	    utime(f,&tp)
+#endif /* BSD44 */
+	    ) {		/* Fix modification time */
 	    debug(F110,"Can't set modification time for file: ",f,0);
 	    r = -1;
 	} else  {
@@ -1900,7 +2081,7 @@ zstime(f,yy,x) char *f; struct zattr *yy; int x; {
       case 1:				/* Compare the dates */
 	debug(F111,"zstime compare",f,sb.st_atime);
 	debug(F111,"zstime compare","packet",tm);
-	if (sb.st_atime < tm) r = 0; else r = 1;
+	r = (sb.st_atime < tm) ? 0 : 1;
 	break;
       default:				/* Error */
 	r = -1;
@@ -1942,7 +2123,11 @@ zmail(p,f) char *p; char *f; {		/* Send file f as mail to address p */
 #ifdef OXOS
     sprintf(zmbuf,"mailx -s %c%s%c %s < %s", '"', f, '"', p, f);
 #else
+#ifdef DGUX540
+    sprintf(zmbuf,"mailx -s %c%s%c %s < %s", '"', f, '"', p, f);
+#else
     sprintf(zmbuf,"Mail -s %c%s%c %s < %s", '"', f, '"', p, f);
+#endif /* DGUX540 */
 #endif /* OXOS */
     zsyscmd(zmbuf);
 #else
@@ -1967,10 +2152,14 @@ zprint(p,f) char *p; char *f; {		/* Print file f with options p */
 #else
 #ifdef UNIX
 #ifdef ANYBSD				/* BSD uses lpr to spool */
-#ifndef OXOS				/* Except Olivetti... */
-#define SPOOLER "lpr"
-#else
+#ifdef OXOS				/* Except Olivetti... */
 #define SPOOLER "lp"
+#else
+#ifdef DGUX540				/* And DG/UX */
+#define SPOOLER "lp"
+#else
+#define SPOOLER "lpr"
+#endif /* DGUX540 */
 #endif /* OXOS */
 #else					/* Sys V uses lp */
 #ifdef TRS16				/* except for Tandy-16/6000... */
@@ -1996,13 +2185,12 @@ zprint(p,f) char *p; char *f; {		/* Print file f with options p */
 #endif /* NOFRILLS */
 
 /*
-  Wildcard expansion functions.  C-Kermit used to do this itself (see #else
-  part...).  New code (version 5A, 1990-91) just asks UNIX to do it.
+  Wildcard expansion functions.  C-Kermit used to insist on doing this itself
+  New code (version 5A, 1990-91) gives user option to ask UNIX to do it.
   This lets users use the wildcard expansion features of their favorite shell.
   Operation is slower because of the forking & piping, but flexibility is
   greater and program is smaller.  For OS/2, C-Kermit still does this itself.
 */
-
 static char scratch[MAXPATH+4];		/* Used by both methods */
 
 #ifndef OS2
@@ -2112,8 +2300,10 @@ splitpath(p) char *p; {
     while (*p != '\0') {
 	cur = (struct path *) malloc(sizeof (struct path));
 	debug(F101,"splitpath malloc","",cur);
-	if (cur == NULL)
-	  fatal("malloc fails in splitpath()");
+	if (cur == NULL) {
+	    debug(F100,"splitpath malloc failure","",0);
+	    return((struct path *)NULL);
+	}
 	cur -> fwd = NULL;
 	if (head == NULL)
 	  head = cur;
@@ -2177,7 +2367,7 @@ splitpath(p) char *p; {
  * Returns: the number of matches.  The array is filled with filenames
  *          that matched the pattern.  If there wasn't enough room in the
  *	    array, -1 is returned.
- * By: Jeff Damens, CUCCA, 1984.
+ * Originally by: Jeff Damens, CUCCA, 1984.  Many changes since then.
  */
 static int
 fgen(pat,resarry,len) char *pat,*resarry[]; int len; {
@@ -2209,10 +2399,10 @@ fgen(pat,resarry,len) char *pat,*resarry[]; int len; {
 	strcpy(scratch,"./");
 	sptr = scratch+2;
     }					/* init buffer correctly */
-    head = splitpath(pat);
+    if (!(head = splitpath(pat))) return(-1);
 #else /* not aegis */
     debug(F110,"fgen pat",pat,0);
-    head = splitpath(pat);
+    if (!(head = splitpath(pat))) return(-1);
     sptr = scratch;
     if (!ISDIRSEP(*pat))
 	*sptr++ = '.';                  /* init buffer correctly */
@@ -2220,7 +2410,7 @@ fgen(pat,resarry,len) char *pat,*resarry[]; int len; {
 #ifdef OS2
     if (isalpha(pat[0]) && pat[1] == ':')
         sptr = scratch;                 /* reset in case of leading drive: */
-#endif
+#endif /* OS2 */
 #endif /* aegis */
     numfnd = 0;				/* none found yet */
 #ifdef DYNAMIC
@@ -2232,7 +2422,7 @@ fgen(pat,resarry,len) char *pat,*resarry[]; int len; {
 	    }
 	    ssplen = (ssplen / 2) + (ssplen / 4); /* Didn't, reduce by 3/4 */
 	}
-	if (ssplen < 50) {		/* Did we get it? */
+	if (ssplen <= 50) {		/* Did we get it? */
 	    fprintf(stderr,"fgen can't malloc string space\n");
 	    return(-1);
 	}
@@ -2246,8 +2436,8 @@ fgen(pat,resarry,len) char *pat,*resarry[]; int len; {
 /*
   This code, circa 1984, has never worked right - it references the head
   pointer after it has already been freed.  Lord knows what might have been
-  happening because of this.  Thanks to Steve Walton for finding & fixing this
-  bug.
+  happening because of this.  Thanks to Steve Walton for finding & fixing
+  this bug.
 */
     for (; head != NULL; head = head -> fwd)
       free(head);			/* return the path segments */
@@ -2371,13 +2561,21 @@ traverse(pl,sofar,endcur) struct path *pl; char *sofar, *endcur; {
 #else
 /* #ifdef _POSIX_SOURCE */
 /*
-  This is not specified in POSIX.1.  In POSIX.2, there will be
-  some kind of filename matching facility, but it will not be done this way.
-  Therefore, we should not even be looking in the directory at all.
-  Maybe POSIX implementations should force "set wildcard shell"?
+  Directory reading is not specified in POSIX.1.  POSIX.2 gives us glob() and
+  fnmatch(), which are not yet supported by C-Kermit.  Meanwhile, maybe POSIX
+  implementations should force "set wildcard shell" and remove all of this
+  code.
 */
-
+#ifdef SOLARIS
+	  if (dirbuf->d_ino != 0 && match(pl -> npart,nambuf))
+#else
 #ifdef sun
+	  if (dirbuf->d_fileno != 0 && match(pl -> npart,nambuf))
+#else
+#ifdef bsdi
+	  if (dirbuf->d_fileno != 0 && match(pl -> npart,nambuf))
+#else
+#ifdef __386BSD__
 	  if (dirbuf->d_fileno != 0 && match(pl -> npart,nambuf))
 #else
 #ifdef ultrix
@@ -2385,7 +2583,10 @@ traverse(pl,sofar,endcur) struct path *pl; char *sofar, *endcur; {
 #else
 	  if (dirbuf->d_ino != 0 && match(pl -> npart,nambuf))
 #endif /* ultrix */
+#endif /* __386BSD__ */
+#endif /* bsdi */
 #endif /* sun */
+#endif /* SOLARIS */
 
 /* #else */ /* not _POSIX_SOURCE */
 /*	  if (dirbuf->d_ino != 0 && match(pl -> npart,nambuf)) */
@@ -2508,6 +2709,11 @@ match(pattern,string) char *pattern,*string; {
 static char *
 whoami () {
 #ifdef DTILDE
+#ifdef pdp11
+#define WHOLEN 100
+#else
+#define WHOLEN 257
+#endif /* pdp11 */
     static char realname[256];		/* user's name */
     static int ruid = -1;		/* user's real uid */
     char loginname[256], envname[256];	/* temp storage */
@@ -2560,8 +2766,12 @@ whoami () {
 
 char *
 tilde_expand(dirname) char *dirname; {
-#define BUFLEN 256
 #ifdef DTILDE
+#ifdef pdp11
+#define BUFLEN 100
+#else
+#define BUFLEN 257
+#endif /* pdp11 */
     struct passwd *user;
     static char olddir[BUFLEN];
     static char oldrealdir[BUFLEN];
@@ -2710,7 +2920,7 @@ zshcmd(s) char *s; {
     	int wstat;			/* ... must wait for child */
 	SIGTYP (*istat)(), (*qstat)();
 
-	if (pid == -1) return(0);	/* fork() failed? */
+	if (pid == (PID_T) -1) return(0); /* fork() failed? */
 
 	istat = signal(SIGINT,SIG_IGN);	/* Let the fork handle keyboard */
 	qstat = signal(SIGQUIT,SIG_IGN); /* interrupts itself... */
@@ -2754,6 +2964,7 @@ iswild(filespec) char *filespec; {
     char c; int x; char *p;
     if (wildxpand) {
 	if ((x = zxpand(filespec)) > 1) return(1);
+	if (x == 0) return(0);		/* File does not exist */
 	p = malloc(MAXNAMLEN + 20);
 	znext(p);
 	x = (strcmp(filespec,p) != 0);
@@ -2772,9 +2983,9 @@ iswild(filespec) char *filespec; {
 
 /* Returns -1 if error, otherwise 0 */
 
-zchdsk(c) char c; {
+zchdsk(c) int c; {
     int i = toupper(c) - 64;
-    return( _chdrive(i) ? 0 : -1 );
+    return( _chdrive(i));
 }
 
 #undef stat

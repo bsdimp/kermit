@@ -30,6 +30,10 @@
 #ifndef CKCDEB_H			/* Don't include me more than once. */
 #define CKCDEB_H
 
+#ifdef OS2				/* For OS/2 debugging */
+#include "ckoker.h"
+#endif /* OS2 */
+
 #include <stdio.h>			/* Begin by including this. */
 #include <ctype.h>			/* and this. */
 
@@ -84,6 +88,21 @@
 #define SVR3
 #endif /* SVR3 */
 #endif /* MIPS */
+
+/*
+  4.4BSD is a mixture of System V R4, POSIX, and 4.3BSD.
+*/
+#ifdef BSD44				/* 4.4 BSD */
+#ifndef SVR4				/* BSD44 implies SVR4 */
+#define SVR4
+#endif /* SVR4 */
+#ifndef NOSETBUF			/* NOSETBUF is safe */
+#define NOSETBUF
+#endif /* NOSETBUF */
+#ifndef DIRENT				/* Uses <dirent.h> */
+#define DIRENT
+#endif /* DIRENT */
+#endif /* BSD44 */
 
 #ifdef SVR3				/* SVR3 implies ATTSV */
 #ifndef ATTSV
@@ -255,6 +274,23 @@
 #endif /* SVR4ORPOSIX */
 #endif /* SVR4 */
 
+/*
+  The symbol BSD44ORPOSIX is defined for both 4.4BSD and POSIX compilations
+  to make it easier to select items that 4.4BSD and POSIX have in common,
+  but which System V, BSD, V7, etc, do not have.
+*/
+#ifdef BSD44
+#ifndef BSD44ORPOSIX
+#define BSD44ORPOSIX
+#endif /* BSD44ORPOSIX */
+#endif /* BSD44 */
+
+#ifdef POSIX
+#ifndef BSD44ORPOSIX
+#define BSD44ORPOSIX
+#endif /* BSD44ORPOSIX */
+#endif /* POSIX */
+
 #ifdef apollo				/* May be ANSI-C, check further */
 #ifdef __STDCPP__
 #define CK_ANSIC			/* Yes, this is real ANSI-C */
@@ -330,6 +366,9 @@
 
 #ifndef SIG_V				/* signal() type, if not def'd yet */
 #ifndef SIG_I
+#ifdef OS2
+#define SIG_V
+#else
 #ifdef POSIX
 #define SIG_V
 #else
@@ -356,6 +395,7 @@
 #endif /* SUNOS4 */
 #endif /* SVR3 */
 #endif /* POSIX */
+#endif /* OS2 */
 #endif /* SIG_I */
 #endif /* SIG_V */
 
@@ -402,10 +442,14 @@ typedef char CHAR;
 typedef char CHAR;
 /* typedef long LONG; */
 #else
+#ifdef datageneral
+#define CHAR unsigned char			/* 3.22 compiler */	
+#else
 #ifdef CHAR
 #undef CHAR
 #endif /* CHAR */
 typedef unsigned char CHAR;
+#endif /* datageneral */
 #endif /* BSD29 */
 #endif /* C70 */
 #endif /* V7 */
@@ -423,6 +467,10 @@ typedef unsigned char CHAR;
 #ifndef DEBUG
 #define DEBUG
 #endif /* DEBUG */
+#else
+#ifdef DEBUG
+#undef DEBUG
+#endif /* DEBUG */
 #endif /* NODEBUG */
 
 #ifndef NOTLOG
@@ -438,6 +486,12 @@ typedef unsigned char CHAR;
 #define IFDEBUG
 #endif /* IFDEBUG */
 #endif /* MAC */
+
+#ifdef OS2
+#ifndef IFDEBUG
+#define IFDEBUG
+#endif /* IFDEBUG */
+#endif /* OS2 */
 
 #ifndef DEBUG
 /* Compile all the debug() statements away.  Saves a lot of space and time. */
@@ -493,9 +547,40 @@ _PROTOTYP(VOID tlog,(int, char *, char *, long));
 #endif /* NOPARSEN */
 #endif /* VMS */
 
+#ifdef MAC				/* and Macintosh */
+#ifndef NOPARSEN
+#define PARSENSE
+#endif /* NOPARSEN */
+#endif /* MAC */
+
 #ifdef VMS				/* Use dynamic memory allocation */
+#ifndef DYNAMIC
 #define DYNAMIC				/* in VMS version. */
+#endif /* DYNAMIC */
 #endif /* VMS */
+
+#ifndef CK_LBRK				/* Can send Long BREAK */
+
+#ifdef UNIX				/* (everybody but OS-9) */
+#define CK_LBRK
+#endif /* UNIX */
+#ifdef VMS
+#define CK_LBRK
+#endif /* VMS */
+#ifdef datageneral
+#define CK_LBRK
+#endif /* datageneral */
+#ifdef GEMDOS
+#define CK_LBRK
+#endif /* GEMDOS */
+#ifdef OS2
+#define CK_LBRK
+#endif /* OS2 */
+#ifdef AMIGA
+#define CK_LBRK
+#endif /* AMIGA */
+
+#endif /* CK_LBRK */
 
 /* Carrier treatment */
 /* These are defined here because they are shared by the system dependent */
@@ -505,6 +590,53 @@ _PROTOTYP(VOID tlog,(int, char *, char *, long));
 #define  CAR_ON  1      /* Off: ignore carrier always. */
 #define  CAR_AUT 2      /* Auto: heed carrier, but only if line is declared */
 			/* to be a modem line, and only during CONNECT. */
+
+/* Hangup by modem command supported by default */
+
+#ifndef NODIAL
+#ifndef NOMDMHUP
+#ifndef MDMHUP
+#define MDMHUP 
+#endif /* MDMHUP */
+#endif /* NOMDMHUP */
+#endif /* NODIAL */
+
+/* Types of flow control available */
+
+#define CK_XONXOFF			/* Everybody can do this, right? */
+
+#ifdef AMIGA				/* Commodore Amiga */
+#define CK_RTSCTS			/* has RTS/CTS */
+#endif /* AMIGA */
+
+#ifdef SUN4S5				/* SunOS in System V environment */
+#define CK_RTSCTS
+#else					/* SunOS 4.0/4.1 in BSD environment */
+#ifdef SUNOS4				/* SunOS 4.0+later supports RTS/CTS */
+#ifdef SUNOS41				/* Easy in 4.1 and later */
+#define CK_RTSCTS
+#else					/* Harder in 4.0 */
+#ifndef __GNUC__			/* (see tthflow() in ckutio.c) */
+#ifndef GNUC
+#define CK_RTSCTS			/* Only if not using GNU gcc */
+#endif /* __GNUC__ */
+#endif /* GNUC */
+#endif /* SUNOS41 */
+#endif /* SUNOS4 */
+#endif /* SUN4S5 */
+
+#ifdef BSD44				/* And in 4.4 BSD */
+#define CK_RTSCTS
+#endif /* BSD44 */
+
+#ifdef TERMIOX				/* Sys V R4 <termiox.h> */
+#define CK_RTSCTS			/* has RTS/CTS */
+#define CK_DTRCD			/* and DTR/CD */
+#endif /* TERMIOX */
+#ifdef STERMIOX				/* Sys V R4 <sys/termiox.h> */
+#define CK_RTSCTS			/* Ditto. */
+#define CK_DTRCD
+#endif /* STERMIOX */
 
 /*
  Systems where we can expand tilde at the beginning of file or directory names
@@ -650,12 +782,12 @@ extern int errno;			/* Needed by most modules. */
 #define FWRITE 0x10
 #endif /* FT18 */
 
-/* special hack for os9/68k */
+/* Special hack for OS-9/68k */
 #ifdef OSK
-#define SIGARB	31			/* Only signals smaller than 32 */
-#define SIGALRM 30			/* may always cancel i/o */
+#define SIGALRM 30			/* May always cancel I/O */
+#define SIGARB	1234			/* Arbitrary for I/O */
 SIGTYP (*signal())();
-#endif
+#endif /* OSK */
 
 #ifdef OS2
 #ifdef putchar                  /* MSC 5.1 simply uses a macro which causes */
@@ -701,10 +833,13 @@ SIGTYP (*signal())();
 #define FLO_NONE 0			/* None */
 #define FLO_XONX 1			/* Xon/Xoff (soft) */
 #define FLO_RTSC 2			/* RTS/CTS (hard) */
-#define FLO_HARD FLO_RTSC		/* (synonym) */
 #define FLO_DTRC 3			/* DTR/CD (hard) */
 #define FLO_ETXA 4			/* ETX/ACK (soft) */
 #define FLO_STRG 5			/* String-based (soft) */
+#define FLO_DIAL 6			/* DIALing kludge */
+#define FLO_DIAX 7			/* Cancel dialing kludge */
+#define FLO_DTRT 8			/* DTR/CTS (hard) */
+#define FLO_KEEP 9			/* Keep, i.e. don't touch or change */
 
 /* And finally... */
 
@@ -795,7 +930,11 @@ struct filinfo {
 #ifdef COHERENT				/* Except for COHERENT */
 #include <sys/types.h>
 #else
+#ifdef datageneral
+#include <sys/types.h>			/* Compiler didn't like other */
+#else
 #include CKTYP_H
+#endif /* datageneral */
 #endif /* COHERENT */
 #endif /* CKTYP_H */
 
@@ -871,11 +1010,7 @@ typedef union wait WAIT_T;
 #else
 #ifdef POSIX
 #include <sys/wait.h>
-#ifdef __386BSD__
-typedef int WAIT_T;
-#else
 #define WAIT_T pid_t
-#endif /* __386BSD__ */
 #else
 typedef int WAIT_T;
 #endif /* POSIX */
@@ -956,7 +1091,15 @@ _PROTOTYP( int ttgmdm, (void) );
 _PROTOTYP( int ttsndb, (void) );
 _PROTOTYP( int ttsndlb, (void) );
 #ifdef PARSENSE
+#ifdef UNIX
 _PROTOTYP( int ttinl, (CHAR *, int, int, CHAR, CHAR, int) );
+#else
+#ifdef VMS
+_PROTOTYP( int ttinl, (CHAR *, int, int, CHAR, CHAR, int) );
+#else
+_PROTOTYP( int ttinl, (CHAR *, int, int, CHAR, CHAR) );
+#endif /* VMS */
+#endif /* UNIX */
 #else
 _PROTOTYP( int ttinl, (CHAR *, int, int, CHAR) );
 #endif /* PARSENSE */
@@ -976,7 +1119,7 @@ _PROTOTYP( int conres, (void) );
 _PROTOTYP( int conoc, (char) );
 _PROTOTYP( int conxo, (int, char *) );
 _PROTOTYP( int conol, (char *) );
-_PROTOTYP( int conola, (char **) );
+_PROTOTYP( int conola, (char *[]) );
 _PROTOTYP( int conoll, (char *) );
 _PROTOTYP( int conchk, (void) );
 _PROTOTYP( int coninc, (int) );
@@ -1015,6 +1158,7 @@ _PROTOTYP( int congks, (int) );
 typedef int KEY;
 typedef CHAR *MACRO;
 extern int wideresult;
+_PROTOTYP( VOID keymapinit, (void) );
 #else /* Not OS2 */
 /*
   Catch-all for systems where we don't know how to read keyboard scan
@@ -1047,16 +1191,40 @@ typedef CHAR * MACRO;
 #endif /* SVR4 */
 
 #ifdef OS2
+#define KANJI
 #define CK_ANSILIBS
-#include <direct.h>
+#define MYCURSES
+#define CK_RTSCTS
+#ifdef __IBMC__
+#define S_IFMT 0xF000
+#define timezone _timezone
+#endif /* __IBMC__ */
 #include <io.h>
-_PROTOTYP( int sleep, (int) );
-_PROTOTYP( unsigned alarm, (unsigned) );
-_PROTOTYP( int zchdsk, (char) );
-_PROTOTYP( int conincraw, (int) );
-_PROTOTYP( ttiscom, (int f) );
+#ifdef __EMX__
+#ifndef __32BIT__
+#define __32BIT__
+#endif /* __32BIT__ */
+#include <sys/timeb.h>
+#else
+#include <direct.h>
 #define SIGALRM SIGUSR1
+_PROTOTYP( unsigned alarm, (unsigned) );
+_PROTOTYP( unsigned sleep, (unsigned) );
+#endif /* __EMX__ */
+_PROTOTYP( long zdskspace, (int) );
+_PROTOTYP( int zchdsk, (int) );
+_PROTOTYP( int conincraw, (int) );
+_PROTOTYP( int ttiscom, (int f) );
+_PROTOTYP( int IsFileNameValid, (char *) );
+_PROTOTYP( void ChangeNameForFAT, (char *) );
+_PROTOTYP( char *GetLoadPath, (void) );
 #endif /* OS2 */
+
+#ifdef MYCURSES				/* MYCURSES implies CK_CURSES */
+#ifndef CK_CURSES
+#define CK_CURSES
+#endif /* CK_CURSES */
+#endif /* MYCURSES */
 
 #ifdef CK_ANSILIBS
 /*
@@ -1071,17 +1239,21 @@ _PROTOTYP( ttiscom, (int f) );
   malloc, free, getenv, atol, atoi, and exit.  Otherwise, no prototypes.
 */
 #include <stdlib.h>
-#ifdef DIAB /* DIAB DS90 splits <stdlib.h> into two separate files... */
-#include <commonC.h>
+#ifdef DIAB /* DIAB DS90 */
+/* #include <commonC.h>  */
 #include <sys/wait.h>
+#ifdef COMMENT
 extern void exit(int status);
 extern void _exit(int status);
 extern int uname(struct utsname *name);
+#endif /* COMMENT */
 extern int chmod(char *path, int mode);
 extern int ioctl(int fildes, int request, ...);
 extern int rdchk(int ttyfd);
 extern int nap(int m);
+#ifdef COMMENT
 extern int getppid(void);
+#endif /* COMMENT */
 extern int _filbuf(FILE *stream);
 extern int _flsbuf(char c,FILE *stream);
 #endif /* DIAB */

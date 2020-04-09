@@ -165,6 +165,12 @@ struct mtab {				/* Macro table, like keyword table */
 #define XXPTA  85	/* _putargs (invisible internal) */
 #define XXGOK  86       /* GETOK - Ask for YES/NO */
 #define XXTEL  87	/* TELNET */
+#define XXASX  88	/* _ASSIGN (evaluates var name) */
+#define XXDFX  89	/* _DEFINE (evaluates var name) */
+#define XXPNG  90	/* PING (for TCP/IP) */
+#define XXINT  91       /* INTRODUCTION */
+#define XXCHK  92	/* CHECK (a feature) */
+#define XXMSL  93       /* MSLEEP, MPAUSE (millisecond sleep) */
 
 /* IF conditions */
 
@@ -184,6 +190,7 @@ struct mtab {				/* Macro table, like keyword table */
 #define  XXIFEO 13      /* IF EOF (READ file) */
 #define  XXIFBG 14      /* IF BACKGROUND */
 #define  XXIFNU 15	/* IF NUMERIC */
+#define  XXIFFG 16      /* IF FOREGROUND */
 
 /* SET parameters */
  
@@ -194,7 +201,7 @@ struct mtab {				/* Macro table, like keyword table */
 #define XYDUPL  4	/* Duplex */
 #define XYEOL   5	/* End-Of-Line (packet terminator) */
 #define XYESC   6	/* Escape character */
-#define XYFILE  7	/* File Parameters (see ckufio.h) */
+#define XYFILE  7	/* File Parameters */
 			/* (this space available) */
 #define XYFLOW  9	/* Flow Control */
 #define XYHAND 10	/* Handshake */
@@ -221,12 +228,25 @@ struct mtab {				/* Macro table, like keyword table */
 #define XYSEND 31	/* SEND parameters, used with some of the above */
 #define XYRECV 32   	/* RECEIVE parameters, ditto */
 #define XYTERM 33	/* Terminal parameters */
-#define  XYTBYT 0       /*  Terminal Bytesize (7 or 8) */
-#define  XYTTYP 1       /*  Terminal Type */
-#define  XYTCS  2       /*  Terminal Character Set */
-#define  XYTSO  3	/*  Terminal Shift-In/Shift-Out */
-#define  XYTNL  4       /*  Terminal newline mode */
-#define  XYTCOL 5       /*  Terminal colors */
+#define   XYTBYT 0      /*  Terminal Bytesize (7 or 8) */
+#define   XYTTYP 1      /*  Terminal Type */
+#define     TT_NONE  0	/*    NONE */
+#define     TT_VT52  1	/*    DEC VT-52  */
+#define     TT_VT100 2	/*    DEC VT-100 */
+#define     TT_VT102 3	/*    DEC VT-102 */
+#define     TT_VT220 4	/*    DEC VT-220 */
+#define     TT_VT320 5	/*    DEC VT-320 */
+#define     TT_TEK40 6	/*    Tektronix 401x */
+#define   XYTCS  2      /*  Terminal Character Set */
+#define   XYTSO  3	/*  Terminal Shift-In/Shift-Out */
+#define   XYTNL  4      /*  Terminal newline mode */
+#define   XYTCOL 5      /*  Terminal colors */
+#define   XYTEC  6	/*  Terminal echo = duplex = local-echo */
+#define   XYTCUR 7	/*  Terminal cursor */
+#define   XYTARR 8	/*  Terminal arrow-key mode */
+#define   XYTKPD 9      /*  Terminal keypad mode */
+#define   XYTWRP 10     /*  Terminal wrap */
+#define   XYTCRD 11	/*  Terminal CR-display */
 #define XYATTR 34       /* Attribute packets */
 #define XYSERV 35	/* Server parameters */
 #define   XYSERT 0      /*  Server timeout   */
@@ -254,6 +274,10 @@ struct mtab {				/* Macro table, like keyword table */
 #define  XYDV32  7	/*   Dial V.32 mode enabled */
 #define  XYDV42  8	/*   Dial V.42 mode enabled */
 #define  XYDV42B 9	/*   Dial V.42bis mode enabled */
+#define  XYDDIR 10	/*   Dial directory */
+#define  XYDDIA 11	/*   Dial dial-command */
+#define  XYDMHU 12	/*   Dial modem-hangup */
+#define  XYDNPR 13      /*   Dial number-prefix */
 #define XYSESS 49       /* SET SESSION options */
 #define XYBUF  50       /* Buffer length */
 #define XYBACK 51	/* Background */
@@ -271,6 +295,11 @@ struct mtab {				/* Macro table, like keyword table */
 #define XYQUIE 63	/* Quiet */
 #define XYLCLE 64	/* Local-echo */
 #define XYSCRI 65	/* SCRIPT command paramaters */
+#define XYMSGS 66       /* MESSAGEs ON/OFF */
+#define XYTEL  67       /* TELNET parameters */
+#define  CK_TN_EC 0	/*  TELNET ECHO */
+#define  CK_TN_TT 1	/*  TELNET TERMINAL-TYPE */
+#define  CK_TN_NL 2     /*  TELNET NEWLINE-MODE */
 
 /* #ifdef SUNX25 */
 /* PAD command parameters */
@@ -317,6 +346,8 @@ struct mtab {				/* Macro table, like keyword table */
 #define SHNET 26			/* Show network parameters */
 #define SHLBL 27			/* Show VMS labeled file parameters */
 #define SHSTK 28			/* Show stack, MAC debugging */
+#define SHCSE 29			/* Show character sets */
+#define SHFEA 30			/* Show features */
 
 /* REMOTE command symbols */
  
@@ -346,6 +377,7 @@ struct mtab {				/* Macro table, like keyword table */
 #define IN_TIM  1			/* Timeout action */
 #define IN_CAS  2			/* Case (matching) */
 #define IN_ECH  3			/* Echo */
+#define IN_SIL  4			/* Silence */
 
 /* ENABLE/DISABLE command parameters */
 
@@ -374,6 +406,7 @@ struct mtab {				/* Macro table, like keyword table */
 #define LOGX 4          /* Screen */
 #define LOGR 5		/* The "OPEN read file */
 #define LOGW 6          /* The "OPEN" write/append file */
+#define LOGE 7		/* Error (e.g. stderr) */
 
 /* Symbols for builtin variables */
 
@@ -402,6 +435,16 @@ struct mtab {				/* Macro table, like keyword table */
 #define VN_FFC  22			/* Characters in last file xferred */
 #define VN_TFC  23			/* Chars in last file group xferred */
 #define VN_CPU  24			/* CPU type */
+#define VN_CMDL 25			/* Command level */
+#define VN_DAY  26                      /* Day of week, string */
+#define VN_NDAY 27                      /* Day of week, numeric */
+#define VN_LCL  28			/* Local (vs) remote mode */
+#define VN_CMDS 29			/* Command source */
+#define VN_CMDF 30			/* Command file name */
+#define VN_MAC  31			/* Macro name */
+#define VN_EXIT 32			/* Exit status */
+#define VN_ICHR 33			/* INPUT character */
+#define VN_ICNT 34			/* INPUT count */
 
 /* Symbols for builtin functions */
 
@@ -428,6 +471,8 @@ struct mtab {				/* Macro table, like keyword table */
 #define FN_FIL 18                       /* File list */
 #define FN_FC  19			/* File count */
 #define FN_CHR 20			/* Character (like BASIC CHR$()) */
+#define FN_RIG 21			/* Right (like BASIC RIGHT$()) */
+#define FN_COD 22			/* Code value of character */
 
 /* ANSI-style prototypes for user interface functions */
 
@@ -436,6 +481,8 @@ _PROTOTYP( int xxstring, (char *, char **, int *) );
 _PROTOTYP( int yystring, (char *, char **) );
 _PROTOTYP( int xxstrcmp, (char *, char *, int) );
 _PROTOTYP( int xxout, (char) );
+_PROTOTYP( int getncm, (char *, int) );
+_PROTOTYP( int getnct, (char *, int) );
 _PROTOTYP( VOID bgchk, (void) );
 _PROTOTYP( char * fneval, (char *, char * [], int ) );
 _PROTOTYP( char * nvlook, (char *) );
@@ -449,7 +496,7 @@ _PROTOTYP( int macini, (void) );
 _PROTOTYP( VOID initmac, (void) );
 _PROTOTYP( int delmac, (char *) );
 _PROTOTYP( int addmac, (char *, char *) );
-_PROTOTYP( int addmmac, (char *, char **) );
+_PROTOTYP( int addmmac, (char *, char *[]) );
 _PROTOTYP( int dobug, (void) );
 _PROTOTYP( int docd, (void) );
 _PROTOTYP( int doclslog, (int) );
@@ -482,10 +529,11 @@ _PROTOTYP( int litcmd, (char **, char **) );
 _PROTOTYP( int incvar, (char *, int, int, int *) );
 _PROTOTYP( int ckdial, (char *) );
 _PROTOTYP( char * getdws, (int) );
+_PROTOTYP( char * getdcs, (int) );
 _PROTOTYP( int hmsg, (char *) );
 _PROTOTYP( int hmsga, (char * []) );
-_PROTOTYP( int mlook, (struct mtab *, char *, int) );
-_PROTOTYP( int mxlook, (struct mtab *, char *, int) );
+_PROTOTYP( int mlook, (struct mtab [], char *, int) );
+_PROTOTYP( int mxlook, (struct mtab [], char *, int) );
 _PROTOTYP( VOID prtopt, (char *) );
 _PROTOTYP( CHAR rfilop, (char *, char) );
 _PROTOTYP( int setcc, (int *, int, int) );
@@ -524,6 +572,11 @@ _PROTOTYP( int settrm, (void) );
 _PROTOTYP( int setsr, (int, int) );
 _PROTOTYP( int setxmit, (void) );
 _PROTOTYP( int set_key, (void) );
+_PROTOTYP( int dochk, (void) );
+_PROTOTYP( char *ludial, (char *, FILE *) );
+_PROTOTYP( VOID xwords, (char *, int, char *[]) );
+_PROTOTYP( VOID shotcs, (int, int) );
+_PROTOTYP( char *hhmmss, (long x) );
 #endif /* CKUUSR_H */
 
 /* End of ckuusr.h */

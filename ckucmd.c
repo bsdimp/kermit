@@ -5,7 +5,7 @@ _PROTOTYP( int unhex, (char) );
 
 #ifndef NOICP     /* The rest only if interactive command parsing selected */
 
-char *cmdv = "Command package 5A(048), 8 Feb 92";
+char *cmdv = "Command package 5A(053), 21 Nov 92";
  
 /*  C K U C M D  --  Interactive command package for Unix  */
 
@@ -21,7 +21,7 @@ char *cmdv = "Command package 5A(048), 8 Feb 92";
 */
 
 /*
-Modelled after the DECSYSTEM-20 command parser (the COMND JSYS), RIP.
+Modeled after the DECSYSTEM-20 command parser (the COMND JSYS), RIP.
 Features:
 . parses and verifies keywords, filenames, text strings, numbers, other data
 . displays appropriate menu or help message when user types "?"
@@ -96,10 +96,13 @@ modules would have to be changed...
 
 /* Local variables */
  
+static
 int psetf = 0,                          /* Flag that prompt has been set */
     cc = 0,                             /* Character count */
-    dpx = 0;                            /* Duplex (0 = full) */
+    dpx = 0,                            /* Duplex (0 = full) */
+    inword = 0;				/* In the middle of getting a word */
  
+static
 int hw = HLPLW,                         /* Help line width */
     hc = HLPCW,                         /* Help line column width */
     hh,                                 /* Current help column number */
@@ -132,7 +135,7 @@ char atxbuf[CMDBL+4];                   /* For expanding the atom buffer */
 int atxn;	                        /* Length of expansion buffer */    
 char atybuf[ATMBL+4];                   /* For copying atom buffer */       
 char savbuf[CMDBL+4];                   /* Buffer to save copy of command */
-#endif /* COMMENT */
+#endif /* DCMDBUF */
  
 /* Command buffer pointers */
  
@@ -179,7 +182,7 @@ cmsetup() {
     if (!(filbuf = malloc(ATMBL + 4))) return(-1);
     return(0);
 }
-#endif /* COMMENT */ 
+#endif /* DCMDBUF */ 
 
 /*  C M S E T P  --  Set the program prompt.  */
  
@@ -195,7 +198,7 @@ VOID
 #ifdef CK_ANSIC
 cmsavp(char s[], int n)
 #else
-cmsavp(s,n) int n; char s[];
+cmsavp(s,n) char s[]; int n;
 #endif /* CK_ANSIC */
 /* cmsavp */ {
     strncpy(s,cmprxx,n-1);
@@ -254,7 +257,7 @@ popcmd() {
  
 VOID
 cmres() {  
-    cc = 0;                             /* Reset character counter. */
+    inword = cc = 0;			/* Reset character counter. */
     pp = np = bp = cmdbuf;              /* Point to command buffer. */
     cmflgs = -5;                        /* Parse not yet started. */
     ungw = 0;				/* Don't need to unget a word. */
@@ -299,7 +302,9 @@ int
 cmpush() {				/* Save the command environment */
     char *cp;				/* Character pointer */
 
-    if (++cmddep > CMDDEP) return(-1);	/* Enter a new command depth */
+    if (cmddep >= CMDDEP)		/* Enter a new command depth */
+      return(-1);
+    cmddep++;
     debug(F101,"&cmpush","",cmddep);
 
 #ifdef DCMDBUF
@@ -566,11 +571,13 @@ cmnum(xhlp,xdef,radix,n,f) char *xhlp, *xdef; int radix, *n; xx_strp f; {
 	debug(F101,"cmnum 1st chknum ok","",*n);
         return(0);
     } else if ((x = xxesc(&zp)) > -1) {	/* Check for backslash escape */
-#ifdef OS2
-	*n = wideresult;
+
+#ifndef OS2
+	*n = x;
 #else
-  	*n = x;
+	*n = wideresult;
 #endif /* OS2 */
+
 	debug(F101,"cmnum xxesc ok","",*n);
 	return(*zp ? -2 : 0);
     } else if (f) {			/* If conversion function given */
@@ -666,19 +673,18 @@ cmifi(xhlp,xdef,xp,wild,f) char *xhlp, *xdef, **xp; int *wild; xx_strp f; {
     int i, x, xc; long y; char *sp, *zq, *sv;
 #ifdef DTILDE
     char *tilde_expand(), *dirp;
-#endif
-
+#endif /* DTILDE */
 
 #ifndef NOPARTIAL
     extern char *mtchs[];
-#endif 
+#endif /* NOPARTIAL */
 
-    cc = xc = 0;                        /* Initialize counts & pointers */
+    inword = cc = xc = 0;		/* Initialize counts & pointers */
     *xp = "";
     if ((x = cmflgs) != 1) {            /* Already confirmed? */
         x = gtword();                   /* No, get a word */
     } else {
-        cc = setatm(xdef);              /* If so, use default, if any. */
+        setatm(xdef);			/* If so, use default, if any. */
     }
 
     *xp = atmbuf;                       /* Point to result. */
@@ -767,8 +773,9 @@ cmifi(xhlp,xdef,xp,wild,f) char *xhlp, *xdef, **xp; int *wild; xx_strp f; {
 #ifdef GEMDOS
 			fflush(stdout);
 #endif /* GEMDOS */
+			inword = cmflgs = 0;
                         addbuf(xdef);   /* supply default. */
-                        cc = setatm(xdef);
+                        setatm(xdef);
                     } else {            /* No default */
                         putchar(BEL);
                     }
@@ -861,9 +868,9 @@ cmifi(xhlp,xdef,xp,wild,f) char *xhlp, *xdef, **xp; int *wild; xx_strp f; {
 #endif /* GEMDOS */
                     addbuf(sp);         /* Add the characters to cmdbuf. */
                     setatm(filbuf);	/* And to atmbuf. */
+		    inword = cmflgs = 0;
                     *xp = atmbuf;       /* Return pointer to atmbuf. */
-
-                    return(cmflgs = 0);
+                    return(0);
                 }
                 break;
  
@@ -958,12 +965,12 @@ cmdir(xhlp,xdef,xp,f) char *xhlp, *xdef, **xp; xx_strp f; {
     char *tilde_expand(), *dirp;
 #endif /* DTILDE */
 
-    cc = xc = 0;                        /* Initialize counts & pointers */
+    inword = cc = xc = 0;		/* Initialize counts & pointers */
     *xp = "";
     if ((x = cmflgs) != 1) {            /* Already confirmed? */
         x = gtword();                   /* No, get a word */
     } else {
-        cc = setatm(xdef);              /* If so, use default, if any. */
+        setatm(xdef);			/* If so, use default, if any. */
     }
     *xp = atmbuf;                       /* Point to result. */
     while (1) {
@@ -1042,12 +1049,12 @@ cmfld(xhlp,xdef,xp,f) char *xhlp, *xdef, **xp; xx_strp f; {
     int x, xc;
     char *zq;
 
-    cc = xc = 0;                        /* Initialize counts & pointers */
+    inword = cc = xc = 0;		/* Initialize counts & pointers */
     *xp = "";
     if ((x = cmflgs) != 1) {            /* Already confirmed? */
         x = gtword();                   /* No, get a word */
     } else {
-        cc = setatm(xdef);              /* If so, use default, if any. */
+        setatm(xdef);			/* If so, use default, if any. */
     }
     *xp = atmbuf;                       /* Point to result. */
  
@@ -1063,17 +1070,17 @@ cmfld(xhlp,xdef,xp,f) char *xhlp, *xdef, **xp; xx_strp f; {
             case 0:                     /* SP or NL */
             case 1:
                 if (xc == 0) 		/* If no input, return default. */
-		  cc = setatm(xdef);
+		  setatm(xdef);
 		*xp = atmbuf;
 		if (f) {		/* If a conversion function is given */
 		    zq = atxbuf;	/* ... */
 		    atxn = CMDBL;
 		    if ((*f)(*xp,&zq,&atxn) < 0) return(-2);
-		    cc = setatm(atxbuf);
+		    setatm(atxbuf);
 		    *xp = atmbuf;
 		}
                 if (**xp == NUL) {	/* If variable evaluates to null */
-		    cc = setatm(xdef);	/* Stick in the default again. */
+		    setatm(xdef);	/* Stick in the default again. */
 		    if (**xp == NUL) x = -3; /* If still empty, return -3. */
 		}
 #ifdef COMMENT
@@ -1097,7 +1104,8 @@ cmfld(xhlp,xdef,xp,f) char *xhlp, *xdef, **xp; xx_strp f; {
 		    fflush(stdout);
 #endif /* GEMDOS */
                     addbuf(xdef);       /* supply default. */
-                    cc = setatm(xdef);  /* Return as if whole field */
+		    inword = cmflgs = 0;
+                    setatm(xdef);	/* Return as if whole field */
                     return(0);          /* typed, followed by space. */
                 } else {
                     putchar(BEL);       /* Beep if already into field. */
@@ -1137,7 +1145,7 @@ cmtxt(xhlp,xdef,xp,f) char *xhlp; char *xdef; char **xp; xx_strp f; {
     static int xc;
  
     debug(F101,"cmtxt, cmflgs","",cmflgs);
-    cc = 0;                             /* Start atmbuf counter off at 0 */
+    inword = cc = 0;			/* Start atmbuf counter off at 0 */
     if (cmflgs == -1) {                 /* If reparsing, */
         xc = (int)strlen(*xp);		/* get back the total text length, */
     } else {                            /* otherwise, */
@@ -1187,6 +1195,7 @@ cmtxt(xhlp,xdef,xp,f) char *xhlp; char *xdef; char **xp; xx_strp f; {
 	  case 2:			/* ESC */
 	    if (xc == 0) {
 		printf("%s ",xdef);
+		inword = cmflgs = 0;
 #ifdef GEMDOS
 		fflush(stdout);
 #endif /* GEMDOS */
@@ -1227,7 +1236,7 @@ cmtxt(xhlp,xdef,xp,f) char *xhlp; char *xdef; char **xp; xx_strp f; {
    -1       --  user deleted too much, command reparse required
     n >= 0  --  value associated with keyword
 */
-int 
+int
 cmkey(table,n,xhlp,xdef,f)
 /* cmkey */  struct keytab table[]; int n; char *xhlp, *xdef; xx_strp f; {
     return(cmkey2(table,n,xhlp,xdef,"",f));
@@ -1240,7 +1249,7 @@ cmkey2(table,n,xhlp,xdef,tok,f)
     char *xp, *zq;
  
     tl = (int)strlen(tok);
-    xc = cc = 0;                        /* Clear character counters. */
+    inword = xc = cc = 0;		/* Clear character counters. */
  
     if ((zz = cmflgs) == 1)             /* Command already entered? */
       setatm(xdef);			/* Yes, copy default into atom buf */
@@ -1260,7 +1269,7 @@ while (1) {
 #endif /* MAC */
         case -2:                        /* Buffer overflow */
         case -1:                        /* Or user did some deleting. */
-            return(zz);
+            return(cmflgs = zz);
  
         case 0:                         /* User terminated word with space */
         case 1:                         /* or newline */
@@ -1270,7 +1279,7 @@ while (1) {
 		atxn = CMDBL;
 		if ((*f)(atmbuf,&zq,&atxn) < 0) return(-2);
 		debug(F110,"cmkey atxbuf after *f",atxbuf,0);
-		cc = setatm(atxbuf);
+		setatm(atxbuf);
 	    }
             y = lookup(table,atmbuf,n,&z); /* Look up the word in the table */
             switch (y) {
@@ -1310,7 +1319,8 @@ while (1) {
 		    fflush(stdout);
 #endif /* GEMDOS */
                     addbuf(xdef);
-                    cc = setatm(xdef);
+                    setatm(xdef);
+		    inword = cmflgs = 0;
                     debug(F111,"cmkey: default",atmbuf,cc);
                 } else {
                     putchar(BEL);       /* No default, just beep */
@@ -1321,59 +1331,80 @@ while (1) {
 		zq = atxbuf;		/* apply it */
 		atxn = CMDBL;
 		if ((*f)(atmbuf,&zq,&atxn) < 0) return(-2);
-		cc = setatm(atxbuf);
+		setatm(atxbuf);
 	    }
             y = lookup(table,atmbuf,n,&z); /* Something in atmbuf */
             debug(F111,"cmkey: esc",atmbuf,y);
-            if (y == -2) {
+            if (y == -2) {		/* Ambiguous */
                 putchar(BEL);
                 break;
             }
-            if (y == -1) {
+            if (y == -1) {		/* Not found */
                 /* if (tl == 0) */ printf("?No keywords match - %s\n",atmbuf);
 		cmflgs = -2;
                 return(-9);
             }
+/*
+  See if the keyword just found has the CM_ABR bit set in its flgs field, and
+  if so, search forwards in the table for a keyword that has the same kwval
+  but does not have CM_ABR (or CM_INV?) set, and then expand using the full
+  keyword.  WARNING: This assumes that (a) keywords are in alphabetical order,
+  and (b) the CM_ABR bit is set only if the the abbreviated keyword is a true
+  abbreviation (left substring) of the full keyword.
+*/
+	    if (test(table[z].flgs,CM_ABR)) {
+		int zz;
+		for (zz = z+1; zz < n; zz++)
+		  if ((table[zz].kwval == table[z].kwval) &&
+		      (!test(table[zz].flgs,CM_ABR))) {
+		      z = zz;
+		      break;
+		  }
+            } 
             xp = table[z].kwd + cc;
             printf("%s ",xp);
 #ifdef GEMDOS
 	    fflush(stdout);
 #endif /* GEMDOS */
             addbuf(xp);
+	    inword = cmflgs = 0;
             debug(F110,"cmkey: addbuf",cmdbuf,0);
             return(y);
  
-        case 3:                         /* User terminated word with "?" */
+        case 3:                         /* User typed "?" */
 	    if (f) {			/* If a conversion function is given */
-		zq = atxbuf;
+		zq = atxbuf;		/* do the conversion now. */
 		atxn = CMDBL;
 		if ((*f)(atmbuf,&zq,&atxn) < 0) return(-2);
-		cc = setatm(atxbuf);
+		setatm(atxbuf);
 	    }
-            y = lookup(table,atmbuf,n,&z);
+            y = lookup(table,atmbuf,n,&z); /* Look up what we have so far. */
 
 	    if (y == -1) {
                 /* if (tl == 0) */ printf(" No keywords match\n");
 		cmflgs = -2;
                 return(-9);
-            } else if (y > -1 && !test(table[z].flgs,CM_ABR)) {
-                printf(" %s\n%s%s",table[z].kwd,cmprom,cmdbuf);
-		fflush(stdout);
-                break;
-            } 
+            }
             if (*xhlp == NUL)
                 printf(" One of the following:\n");
             else
                 printf(" %s, one of the following:\n",xhlp);
  
-            clrhlp();
-            for (i = 0; i < n; i++) {   
-                if (!strncmp(table[i].kwd,atmbuf,cc)
-		    && !test(table[i].flgs,CM_INV)
-		    )
-                    addhlp(table[i].kwd);
-            }
-            dmphlp();
+	    if ((y > -1) &&
+		!test(table[z].flgs,CM_ABR) &&
+		((z >= n-1) || strncmp(table[z].kwd,table[z+1].kwd,cc))
+		 ) {
+		printf(" %s\n",table[z].kwd);
+	    } else {
+		clrhlp();
+		for (i = 0; i < n; i++) {   
+		    if (!strncmp(table[i].kwd,atmbuf,cc)
+			&& !test(table[i].flgs,CM_INV)
+			)
+		      addhlp(table[i].kwd);
+		}
+		dmphlp();
+	    }
 	    if (*atmbuf == NUL) {
 		if (tl == 1)
 		  printf("or the token '%c'\n",*tok);
@@ -1406,19 +1437,20 @@ chktok(tlist) char *tlist; {
    -1: Reparse needed
     0: Confirmation was received
 */
-int 
+int
 cmcfm() {
     int x, xc;
  
     debug(F101,"cmcfm: cmflgs","",cmflgs);
- 
-    xc = cc = 0;
+    debug(F110,"cmcfm: atmbuf",atmbuf,0);
+    inword = xc = cc = 0;
     if (cmflgs == 1) return(0);
+
+    setatm("");				/* (Probably unnecessary) */
  
     while (1) {
         x = gtword();
         xc += cc;
-        debug(F111,"cmcfm: gtword",atmbuf,xc);
         switch (x) {
             case -4:                    /* EOF */
             case -2:
@@ -1436,7 +1468,7 @@ cmcfm() {
 		    continue;		/* or fall thru. */
 		}
             case 0:                     /* Space */
-		if (xc == 0)		/* If no chars type, continue, */
+		if (xc == 0)		/* If no chars typed, continue, */
 		  continue;		/* else fall thru. */
             case 3:			/* Question mark */
                 if (xc > 0) {
@@ -1533,7 +1565,6 @@ ungword() {				/* unget a word */
 int
 gtword() {
     int c;                              /* Current char */
-    static int inword = 0;              /* Flag for start of word found */
     int quote = 0;                      /* Flag for quote character */
     int echof = 0;                      /* Flag for whether to echo */
     int chsrc = 0;			/* Source of character, 1 = tty */
@@ -1561,11 +1592,9 @@ gtword() {
     }
     pp = np;                            /* Start of current field */
 
-#ifdef COMMENT
-    debug(F111,"gtword: cmdbuf",cmdbuf,(int) cmdbuf);
-    debug(F111," bp",bp,(int) bp);
-    debug(F111," pp",pp,(int) pp);
-#endif /* COMMENT */
+    debug(F111,"gtword: cmdbuf",cmdbuf,cmdbuf);
+    debug(F111," bp",bp,bp);
+    debug(F111," pp",pp,pp);
  
     while (bp < cmdbuf+CMDBL) {         /* Big get-a-character loop */
 	echof = 0;			/* Assume we don't echo because */
@@ -1603,7 +1632,7 @@ gtword() {
 #ifdef COMMENT
 /* No more screen clearing... */
 		cmdclrscn();		/* Clear the screen */
-#endif
+#endif /* COMMENT */
             }
 	    if (c == HT) {		/* Tab */
 		if (comment)		/* If in comment, */
@@ -1626,15 +1655,22 @@ gtword() {
                 } else {                /* If terminating, return. */
                     np = bp;
                     setatm(pp);
-                    inword = 0;
-		    return(cmflgs = 0);
+                    inword = cmflgs = 0;
+		    return(0);
                 }
             }
             if (c == NL || c == CR) {   /* CR or LF. */
 		if (echof) cmdnewl((char)c); /* Echo it. */
+		while (bp > pp && (*(bp-1) == SP || *(bp-1) == HT)) /* Trim */
+		  bp--;			/* trailing */
+		*bp = NUL;		/* whitespace */
 		if (*(bp-1) == '-') {	/* Is this line continued? */
 		    if (chsrc) {	/* If reading from tty, */
-			bp--;		/* back up the buffer pointer, */
+#ifdef COMMENT
+			bp--, pp--;	/* back up the buffer pointer, */
+#else
+			bp--;
+#endif /* COMMENT */
 			*bp = NUL;	/* erase the dash, */
 			continue;	/* and go back for next char now. */
 		    }
@@ -1675,6 +1711,7 @@ gtword() {
                 } else {                /* Otherwise, */
                     putchar(BEL);       /* beep, */
                     cmres();            /* and start parsing a new command. */
+		    *bp = *atmbuf = NUL;
                 }
                 if (pp < bp) continue;
                 else return(cmflgs = -1);
@@ -1685,6 +1722,7 @@ gtword() {
                     *bp = NUL;
                 }
                 cmres();                /* Restart the command. */
+		*bp = *atmbuf = NUL;
                 inword = 0;
                 return(cmflgs = -1);
             }
@@ -1692,6 +1730,7 @@ gtword() {
                 if (bp <= cmdbuf) {     /* Beep if nothing to delete */
                     putchar(BEL);
                     cmres();
+		    *bp = *atmbuf = NUL;
                     return(cmflgs = -1);
                 }
                 bp--;
@@ -1708,30 +1747,50 @@ gtword() {
                 return(cmflgs = -1);
             }
             if (c == RDIS) {            /* ^R, redisplay */
+#ifdef COMMENT
                 *bp = NUL;
                 printf("\n%s%s",cmprom,cmdbuf);
+#else
+		char *cpx; char cx;
+                *bp = NUL;
+                printf("\n%s",cmprom);
+		cpx = cmdbuf;
+		while (cx = *cpx++) {
+#ifdef isprint
+		    putchar(isprint(cx) ? cx : '^');
+#else
+		    putchar((cx >= SP && cx < DEL) ? cx : '^');
+#endif /* isprint */
+		}
+#endif /* COMMENT */
 		fflush(stdout);
                 continue;
             }
-	    if (c < SP && quote == 0) {	/* Any other unquoted ctrl char */
+	    if (c < SP && quote == 0) {	/* Any other unquoted control char */
 		if (!chsrc) bp++;	/* If cmd file, point past it */
 		else putchar(BEL);	/* otherwise just beep and */
 		continue;		/* continue, don't put in buffer */
 	    }
+	    if (echof) cmdecho((char) c, 0); /* Echo what was typed. */
         } else {			/* This character was quoted. */
+	    int qf = 1;
 	    quote = 0;			/* Unset the quote flag. */
 	    /* Quote character at this level is only for SP, ?, and controls */
             /* If anything else was quoted, leave quote in, and let */
 	    /* the command-specific parsing routines handle it, e.g. \007 */
-	    if (c > 32 && c != '?' && c != RUB && chsrc != 0)
-	      *bp++ = CMDQ;		/* Deposit \ if it came from tty */
-	    debug(F110,"gtword quote",cmdbuf,0);
+	    if (c > 32 && c != '?' && c != RUB && chsrc != 0) {
+		*bp++ = CMDQ;		/* Deposit \ if it came from tty */
+		qf = 0;			/* and don't erase it from screen */
+	    }
+	    if (echof) cmdecho((char) c, qf); /* Now echo quoted character */
+	    debug(F000,"gtword quote",cmdbuf,c);
 	}
+#ifdef COMMENT
         if (echof) cmdecho((char) c,quote); /* Echo what was typed. */
+#endif /* COMMENT */
         if (!comment) inword = 1;	/* Flag we're in a word. */
 	if (quote) continue;		/* Don't deposit quote character. */
         if (c != NL) *bp++ = c;		/* Deposit command character. */
-        /*** debug(F110,"gtword deposit",cmdbuf,0); ***/
     }                                   /* End of big while */
     putchar(BEL);                       /* Get here if... */
     printf("?Command too long, maximum length: %d.\n",CMDBL);
@@ -1878,6 +1937,9 @@ cmdnewl(c) char c;
 #endif /* CK_ANSIC */
 /* cmdnewl */ {
     putchar(c);				/* c is the terminating character */
+#ifdef WINTCP
+    if (c == CR) putchar(NL);
+#endif /* WINTCP */
 #ifdef OS2
     if (c == CR) putchar(NL);
 #endif /* OS2 */
@@ -1897,6 +1959,7 @@ cmdnewl(c) char c;
 
 VOID
 cmdchardel() {				/* Erase a character from the screen */
+    if (!dpx) return;
 #ifdef datageneral
     /* DG '\b' is EM (^y or \031) */
     if (termtype == 1)
@@ -1917,8 +1980,16 @@ cmdecho(char c, int quote)
 cmdecho(c,quote) char c; int quote;
 #endif /* CK_ANSIC */
 { /* cmdecho */
+    if (!dpx) return;
     /* Echo tty input character c */
-    putchar(c);
+    if (quote) {
+	putchar(BS); putchar(SP); putchar(BS); 
+#ifdef isprint
+	putchar( isprint(c) ? c : '^' );
+#else
+	putchar((c >= SP && c < DEL) ? c : '^');
+#endif /* isprint */
+    } else putchar(c);
 #ifdef OS2
     if (quote==1 && c==CR) putchar(NL);
 #endif /* OS2 */

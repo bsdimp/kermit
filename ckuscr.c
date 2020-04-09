@@ -1,35 +1,39 @@
 #ifndef NOICP
 #ifndef NOSCRIPT
-char *loginv = "Script Command, 5A(012) 25 Dec 91";
+char *loginv = "Script Command, 5A(015) 2 Nov 92";
 
 /*  C K U S C R  --  Login script for logging onto remote system */
 
 /*
- This module should work under all versions of Unix.  It calls externally
- defined system-depended functions for i/o.
-
- The module expects a login string of the expect send [expect send] ...
- format.  It is intended to operate similarly to the way the common
- uucp "L.sys" login entries work.  Conditional responses are supported
- expect[-send-expect[...]] as with uucp.  The send keyword EOT sends a
- control-d, and the keyword BREAK sends a break.  Letters prefixed
- by '~' are '~b' backspace, '~s' space, '~n' linefeed, '~r' return, '~x' xon,
- '~t' tab, '~q' ? (not allowed on kermit command lines), '~' ~, '~'', 
- '~"', '~c' don't append return, '~o[o[o]]' octal character.  As with
- some uucp systems, sent strings are followed by ~r (not ~n) unless they
- end with ~c. Null expect strings (e.g., ~0 or --) cause a short
- delay, and are useful for sending sequences requiring slight pauses.
-
-  Author: Herm Fischer (HFISCHER@USC-ECLB)
-  Contributed to Columbia University for inclusion in C-Kermit.
-  Copyright (C) 1985, Herman Fischer, 16400 Ventura Blvd, Encino CA 91436, and
   Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
   York.  Permission is granted to any individual or institution to use this
   software as long as it is not sold for profit.  This copyright notice must be
   retained.  This software may not be included in commercial products without
   written permission of Columbia University.
 
-  Modifications added 1985-1992, F. da Cruz, Columbia University, and others.
+  Original (version 1, 1985) author: Herm Fischer, Encino, CA.
+  Contributed to Columbia University in 1985 for inclusion in C-Kermit 4.0.
+  Author and maintainer since 1985: Frank da Cruz, Columbia University,
+  fdc@columbia.edu.
+*/
+
+/*
+  The module expects a login string of the expect send [expect send] ...
+  format.  It is intended to operate similarly to the way the common
+  uucp "L.sys" login entries work.  Conditional responses are supported
+  expect[-send-expect[...]] as with uucp.  The send keyword EOT sends a
+  control-d, and the keyword BREAK sends a break.  Letters prefixed
+  by '~' are '~b' backspace, '~s' space, '~n' linefeed, '~r' return, '~x' xon,
+  '~t' tab, '~q' ? (not allowed on kermit command lines), '~' ~, '~'',
+  '~"', '~c' don't append return, '~o[o[o]]' octal character.  As with
+  some uucp systems, sent strings are followed by ~r (not ~n) unless they
+  end with ~c. Null expect strings (e.g., ~0 or --) cause a short
+  delay, and are useful for sending sequences requiring slight pauses.
+
+  This module calls externally defined system-dependent functions for
+  communications i/o, as defined in CKCPLM.DOC, the C-Kermit Program Logic
+  Manual, and thus should be portable to all systems that implement those
+  functions, and where alarm() and signal() work as they do in UNIX.
 */
 
 #include "ckcdeb.h"
@@ -48,7 +52,7 @@ _PROTOTYP( VOID flushi, (void) );
 #define SIGTYP void
 #endif /* MAC */
 
-extern int local, flow, seslog, mdmtyp, quiet, duplex, backgrd, secho;
+extern int local, flow, seslog, mdmtyp, msgflg, duplex, backgrd, secho, quiet;
 #ifdef NETCONN
 extern int network, ttnproto;
 #endif /* NETCONN */
@@ -193,16 +197,18 @@ recvseq()  {
 		debug(F101,"recvseq","",x);
 		if (x < 0) goto rcvx;	/* Check for error */
 #ifdef NETCONN
+#ifdef TNCODE
 /* Check for telnet protocol negotiation */
 		if (network &&
 		    (ttnproto == NP_TELNET) &&
 		    ( (x & 0xff) == IAC) ) {
-		    switch (tn_doop((CHAR)(x & 0xff),duplex)) {
+		    switch (tn_doop((CHAR)(x & 0xff),duplex,ttinc)) {
 		      case 2: duplex = 0; continue;
 		      case 1: duplex = 1;
 		      default: continue;
 		    }
 		}
+#endif /* TNCODE */
 #endif /* NETCONN */
 		got[l-1] = x & 0x7f;	/* Got a character */
 		if (scr_echo) conoc(got[l-1]); /* Echo it */
@@ -226,13 +232,16 @@ rcvx:
  return 0 if okay,
  1 if failed to read (modem hangup or whatever)
 */
+static int oseqret = 0;			/* Return code for outseq */
+					/* Out here to prevent clobbering */
+					/* by longjmp. */
 static int
 outseq() {
     char *sb;
     int l;
     int delay;
-    int retcode = 0;
 
+    oseqret = 0;			/* Initialize return code */
     while(1) {
 	delay = sequenc();  
 	l = (int)strlen(seq_buf);
@@ -268,10 +277,10 @@ outseq() {
 			seslog = 0;
 		}
 	    }
-	} else retcode |= -1;		/* else -- alarm rang */
+	} else oseqret |= -1;		/* else -- alarm rang */
 	alarm(0);
 	signal(SIGALRM,SIG_IGN);
-	if (!delay) return(retcode);
+	if (!delay) return(oseqret);
 #ifndef MAC
 	msleep(DEL_MSEC);		/* delay, loop to next send */
 #endif /* MAC */

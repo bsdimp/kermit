@@ -66,6 +66,10 @@
 #define HERALD " Apple Macintosh AUX"
 #endif /* AUX */
 
+#ifdef BSD44
+#define HERALD " 4.4 BSD"
+#endif /* BSD44 */
+
 #ifdef ENCORE
 #ifdef BSD43
 #define HERALD " Encore Multimax UMAX 4.3"
@@ -91,12 +95,38 @@
 #endif /* CIE */
 
 #ifdef COHERENT
-#define HERALD " PC/AT MWC Coherent 3.0"
+#ifdef _I386
+#define HERALD " MWC Coherent 386 4.x"
+#else
+#define HERALD " PC/AT MWC Coherent 286 3.x"
+#endif /* _I386 */
 #endif /* COHERENT */
 
+#ifdef CONVEX9
+#define HERALD " Convex/OS"
+#endif /* CONVEX9 */
+
+#ifdef DGUX430
+#define HERALD " Data General DG/UX 4.30"
+#endif /* DGUX430 */
+
 #ifdef DGUX540
-#define HERALD " Data General UX 5.40"
+#define HERALD " Data General DG/UX 5.4"
 #endif /* DGUX540 */
+
+#ifdef datageneral
+#ifndef HERALD
+#define HERALD " Data General AOS/VS"
+#endif /* HERALD */
+#endif /* datageneral */
+
+#ifdef DELL_SVR4
+#define HERALD " Dell System V R4"
+#endif /* DELL_SVR4 */
+
+#ifdef ICL_SVR4
+#define HERALD " ICL System V R4 DRS N/X"
+#endif /* ICL_SVR4 */
 
 #ifdef FT18
 #ifdef FT21
@@ -109,6 +139,14 @@
 #ifdef GEMDOS
 #define HERALD " Atari ST GEM 1.0"
 #endif /* GEMDOS */
+
+#ifdef I386IX
+#ifdef SVR3JC
+#define HERALD " Interactive UNIX System V/386 R3.2"
+#else
+#define HERALD " Interactive Systems Corp 386/ix"
+#endif /* SVR3JC */
+#endif /* I386IX */
 
 #ifdef IRIX40
 #define HERALD " Silicon Graphics IRIX 4.0"
@@ -138,6 +176,10 @@
 #define HERALD " NeXT"
 #endif /* NEXT */
 
+#ifdef OSF
+#define HERALD " DEC OSF/1 1.0"
+#endif /* OSF */
+
 #ifdef PTX
 #define HERALD " DYNIX/PTX 1.3"
 #endif /* PTX */
@@ -166,21 +208,35 @@
 #define HERALD " SONY NEWS"
 #endif /* sony_news */
 
+#ifdef SVR4
+#ifdef sun
+#define HERALD "SUN Solaris 2.1"
+#endif /* sun */
+#endif /* SVR4 */
+
+#ifdef SOLARIS
+#ifdef sun
+#define HERALD " SUN Solaris 2.0"
+#else
+#define HERALD " Solaris 2.0"
+#endif /* SUN */
+#endif /* SOLARIS */
+
 #ifdef SUNOS4
 #ifdef BSD4
 #ifdef SUNOS41
-#define HERALD " SUNOS 4.1 (BSD)"
+#define HERALD " SunOS 4.1 (BSD)"
 #else
-#define HERALD " SUNOS 4.0 (BSD)"
+#define HERALD " SunOS 4.0 (BSD)"
 #endif /* SUNOS41 */
 #endif /* BSD4 */
 #endif /* SUNOS4 */
 
 #ifdef SUN4S5
 #ifdef HDBUUCP
-#define HERALD " SUNOS 4.1 (SVR3)"
+#define HERALD " SunOS 4.1 (SVR3)"
 #else
-#define HERALD " SUNOS 4.0 (SVR3)"
+#define HERALD " SunOS 4.0 (SVR3)"
 #endif /* HDBUUCP */
 #endif /* SUN4S5 */
 
@@ -204,12 +260,12 @@
 
 #ifdef ultrix
 #ifdef vax
-#define HERALD " VAX/Ultrix"
+#define HERALD " VAX/ULTRIX"
 #else
 #ifdef mips
-#define HERALD " DECstation/Ultrix"
+#define HERALD " DECstation/ULTRIX"
 #else
-#define HERALD " Ultrix"
+#define HERALD " ULTRIX"
 #endif /* mips */
 #endif /* vax */
 #endif /* ultrix */
@@ -217,6 +273,10 @@
 #ifdef OXOS
 #define HERALD " Olivetti X/OS"
 #endif /* OXOS */
+
+#ifdef _386BSD
+#define HERALD " 386BSD"
+#endif /* _386BSD */
 
 #ifdef POSIX
 #ifdef HERALD
@@ -271,7 +331,11 @@
 #ifdef i386
 #define HERALD " AT&T System V/386 R4"
 #else
+#ifdef AMIX
+#define HERALD " Commodore Amiga System V/m68k R4"
+#else
 #define HERALD " AT&T System V R4"
+#endif /* AMIX */
 #endif /* i386 */
 #else
 #ifdef SVR3
@@ -309,9 +373,10 @@
 #endif /* HERALD */
 
 #ifdef OS2
-#ifndef HERALD
-#define HERALD " OS/2"
+#ifdef HERALD
+#undef HERALD
 #endif /* HERALD */
+#define HERALD " OS/2"
 #endif /* OS/2 */
 
 #ifndef HERALD
@@ -330,6 +395,13 @@
 #define CKCPU "pdp11"
 #endif /* CKCPU */
 #endif /* pdp11 */
+
+#ifdef __ALPHA
+#ifndef CKCPU
+#define CKCPU "Alpha"
+#endif /* CKCPU */
+#endif /* __ALPHA */
+
 #ifdef __hp9000s800			/* HP 9000 */
 #define CKCPU "hp9000s800"
 #endif /* __hp9000s800 */
@@ -423,6 +495,26 @@
 #define CKCPU "i186"
 #endif /* CKCPU */
 #endif /* i186 */
+#ifdef M_I386				/* Intel 80386 */
+#ifndef CKCPU
+#define CKCPU "i386"
+#endif /* CKCPU */
+#endif /* M_I386 */
+#ifdef _M_I386				/* Intel 80386 */
+#ifndef CKCPU
+#define CKCPU "i386"
+#endif /* CKCPU */
+#endif /* _M_I386 */
+#ifdef M_I286				/* Intel 80286 */
+#ifndef CKCPU
+#define CKCPU "i286"
+#endif /* CKCPU */
+#endif /* M_I286 */
+#ifdef M_I86				/* Intel 80x86 */
+#ifndef CKCPU
+#define CKCPU "ix86"
+#endif /* CKCPU */
+#endif /* M_I86 */
 #ifdef sparc				/* SUN SPARC */
 #ifndef CKCPU
 #define CKCPU "sparc"

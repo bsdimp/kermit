@@ -20,6 +20,8 @@
   if memdebug == -1, then the user is asked (works well with gdb).
 */
 int memdebug = -1;
+int disabled = 0;
+int inited = 0;
 /*
   To use this package, compile your program with:
   -Dmalloc=dmalloc -Dfree=dfree =Dcalloc=dcalloc ... -DMDEBUG
@@ -41,7 +43,9 @@ int memdebug = -1;
 #endif /* free */
 
 char *malloc(), *realloc();
-char *set_range_check(), *check_range();
+char *set_range_check();
+char *check_range();
+char *maybe_check_range();
 
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define RANGE "ABCDEFGHIJKLMNOP"
@@ -95,8 +99,16 @@ dfree(cp) char *cp; {
     if (cp == NULL)
 	maybe_quit("Freeing NULL pointer");
     else {
-	m_delete(cp);
-	cp = check_range(cp);
+	switch(m_delete(cp)) {
+	case 0:
+	    cp = maybe_check_range(cp);
+	    break;
+	case 1:
+	    cp = check_range(cp);
+	    break;
+	case 2:
+	    break;
+	}
     }
     return(free(cp));
 }
@@ -147,7 +159,7 @@ check_range(cp) char *cp; {
 	}
     bp += RFRONT;			/* skip front range check */
 
-    for(i = 0; i < RBACK; i++)		/* check back rnage check */
+    for(i = 0; i < RBACK; i++)		/* check back range check */
 	if (bp[i+size] != RANGE[i+RFRONT]) {
 	    maybe_quit("rightside malloc buffer overrun");
 	    break;
@@ -155,18 +167,65 @@ check_range(cp) char *cp; {
     return(xp);
 }
 
+static char *
+maybe_check_range(cp) char *cp; {
+    register char *bp = cp - RFRONT - INTSIZE;
+    char *xp = bp;
+    register int i;
+    int size = 0;
+
+    for(i = 0 ; i < INTSIZE; i++) {	/* get the size out of the string */
+	size <<= 8;
+	size |= bp[INTSIZE-i-1] & 0xff;
+    }
+    bp += INTSIZE;
+
+    for(i = 0; i < RFRONT; i++)		/* check front range check */
+	if (bp[i] != RANGE[i]) {
+	    return(cp);
+	}
+    bp += RFRONT;			/* skip front range check */
+
+    for(i = 0; i < RBACK; i++)		/* check back range check */
+	if (bp[i+size] != RANGE[i+RFRONT]) {
+	    fprintf(stderr,"rightside malloc buffer overrun\n");
+	    abort();
+	    break;
+	}
+    return(xp);
+}
+
 #define BUCKETS 10000
 char *m_used[BUCKETS];
+char *m_used2[BUCKETS];
 
 VOID
 m_insert(cp) register char *cp; {
     register int i;
+
+    if (disabled)
+	return;
 
     for(i = 0; i < BUCKETS; i++)
 	if (m_used[i] == 0) {
 	    m_used[i] = cp;
 	    return;
 	}
+    disabled ++;
+}
+
+static
+m_insert2(cp) register char *cp; {
+    register int i;
+
+    if (disabled)
+	return;
+    for(i = 0; i < BUCKETS; i++)
+	if (m_used2[i] == 0) {
+	    m_used2[i] = cp;
+	    return;
+	}
+    disabled ++;
 }
 
 VOID
@@ -176,27 +235,52 @@ m_delete(cp) register char *cp; {
     for(i = 0; i < BUCKETS; i++)
 	if (m_used[i] == cp) {
 	    m_used[i] = 0;
-	    return;
+	    return(1);
 	}
+    for(i = 0; i < BUCKETS; i++)
+	if (m_used2[i] == cp) {
+	    m_used2[i] = 0;
+	    return(2);
+	}
+    if (disabled) 
+	return(0);
+
     maybe_quit("Freeing unmalloc'ed pointer");
+    return(0);
 }
 
 VOID
 m_init() {
     register int i;
+
+    inited = 1;
+    disabled = 0;
     for(i = 0; i < BUCKETS; i++)
       m_used[i] = 0;
 }
 
 VOID
 m_done() {
-    register int i,j;
+    register int i,j=0;
 
+    if (disabled) 
+	return;
     for(i = 0; i < BUCKETS; i++)
 	if (m_used[i] != 0) {
 	    if (memdebug) {
 		if (j == 0)
 		    fprintf(stderr,"unfree'ed buffers, indices: ");
+		fprintf(stderr,"%d, ", i);
+		j++;
+	    }
+	}
+    if (j)
+	fprintf(stderr,"\n");
+    for(i = 0; i < BUCKETS; i++)
+	if (m_used2[i] != 0) {
+	    if (memdebug) {
+		if (j == 0)
+		    fprintf(stderr,"unfree'ed registered buffers, indices: ");
 		fprintf(stderr,"%d, ", i);
 		j++;
 	    }

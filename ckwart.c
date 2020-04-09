@@ -50,7 +50,7 @@ char *wartv = "Wart Version 2A(009) 14 Jan 92";
 /*
  The following "char" should be changed to "short", "int", or "long" if your
  wart program will generate more than 127 states.  Since wart is used mainly
- with C-Kermit, which has about 50 states, "short" is adequate.  This 
+ with C-Kermit, which has about 50 states, "char" is adequate.  This 
  keeps the program about 3K-4K smaller.
 */
 
@@ -105,7 +105,7 @@ _PROTOTYP( int faction, (trans, int, int) );
 _PROTOTYP( VOID emptytbl, (void) );
 _PROTOTYP( VOID addaction, (int, int, int) );
 _PROTOTYP( VOID writetbl, (FILE *) );
-_PROTOTYP( VOID warray, (FILE *, char *, int *, int, char *) );
+_PROTOTYP( VOID warray, (FILE *, char *, int [], int, char *) );
 _PROTOTYP( VOID fatal, (char *) );
 _PROTOTYP( VOID prolog, (FILE *) );
 _PROTOTYP( VOID epilogue, (FILE *) );
@@ -119,6 +119,17 @@ _PROTOTYP( int lkup, (char *) );
 _PROTOTYP( static char* copy, (char *s) );
 
 /* Variables and tables */
+
+/* lt 1992-10-08 Begin
+ * provide definition for deblog variable
+ * ckcdeb.h declares as extern. DECC AXP is strict about ref/def model
+ * Variable is unused herein, to the best of my knowledge.
+ */
+#ifdef VMS
+int deblog;
+#endif /* VMS */
+/* lt 1992-10-08 End
+ */
 
 static int lines, nstates, nacts;
 
@@ -658,3 +669,5 @@ lkup(name) char *name; {
       if (strcmp(cur->name,name) == 0) return(cur->val);
     return(-1);
 }
+
+

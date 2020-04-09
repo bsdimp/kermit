@@ -21,7 +21,8 @@
 
 /* Codes for local file character sets */
 
-#define FC_TRANSP  254 /* Transparent (magic number) */
+/* ISO 646 and other ISO-646-like 7-bit sets */
+
 #define FC_USASCII 0   /* US ASCII */
 #define FC_UKASCII 1   /* United Kingdom ASCII */
 #define FC_DUASCII 2   /* Dutch ISO 646 NRC */
@@ -37,49 +38,32 @@
 #define FC_SWASCII 12  /* Swedish ISO 646 NRC */
 #define FC_CHASCII 13  /* Swiss ISO 646 NRC */
 
-/* 8-bit character sets for Unix */
-#define FC_1LATIN  14  /* ISO 8859-1 Latin Alphabet 1 */
-#define FC_DECMCS  15  /* DEC Multinational Character Set */
-#define FC_NEXT    16  /* NeXT workstation character set */
-#define FC_CP437   17  /* IBM PC Code Page 437 */
-#define FC_CP850   18  /* IBM PC Code Page 850 */
-#define FC_APPQD   19  /* Apple Quickdraw */
-#define FC_DGMCS   20  /* Data General Multinational Character Set */
-#ifndef CYRILLIC
-#ifndef KANJI
-#define MAXFCSETS  20
-#endif /* KANJI */
-#endif /* CYRILLIC */
+/* 8-bit Roman character sets */
 
-#ifdef CYRILLIC
-#define FC_CYRILL  21  /* ISO 8859-5 Latin/Cyrillic */
-#define FC_CP866   22  /* Microsoft CP866 Cyrillic */
-#define FC_KOI7    23  /* KOI-7 = Short KOI */
-#define FC_KOI8    24  /* KOI-8 */
-#ifndef KANJI
-#define MAXFCSETS 24
-#endif /* KANJI */
-#endif /* CYRILLIC */
-/*
-  This is truly ugly, and will only get uglier as the number of
-  conditionally compiled character set groups increases.  But the
-  C preprocessor does not allow recursion, nor is it portable to
-  do any kind of arithmetic on the symbol definitions.
-*/
-#ifdef KANJI
-#ifndef CYRILLIC
-#define FC_JIS7    22  /* JIS-7 */
-#define FC_SHJIS   22  /* Shifted JIS = CP932 */
-#define FC_JEUC    23  /* Japanese EUC (JAE) */
-#define FC_JDEC    24  /* Japanese DEC Kanji */
-#define MAXFCSETS  24
-#else /* No CYRILLIC */
-#define FC_JIS7    25  /* JIS-7 */
-#define FC_SHJIS   26  /* Shifted JIS = CP932 */
-#define FC_JEUC    27  /* Japanese EUC (JAE) */
-#define FC_JDEC    28  /* Japanese DEC Kanji */
-#define MAXFCSETS  28
-#endif /* CYRILLIC */
-#endif /* KANJI */
+#define FC_1LATIN  14  /* ISO 8859-1 Latin Alphabet 1 */
+#define FC_2LATIN  15  /* ISO 8859-2 Latin Alphabet 2 */
+#define FC_DECMCS  16  /* DEC Multinational Character Set */
+#define FC_NEXT    17  /* NeXT workstation character set */
+#define FC_CP437   18  /* IBM PC Code Page 437 */
+#define FC_CP850   19  /* IBM PC Code Page 850 */
+#define FC_CP852   20  /* IBM PC Code Page 852 */
+#define FC_APPQD   22  /* Apple Quickdraw */
+#define FC_DGMCS   22  /* Data General International Character Set */
+
+/* Cyrillic sets */
+
+#define FC_CYRILL  23  /* ISO 8859-5 Latin/Cyrillic */
+#define FC_CP866   24  /* Microsoft CP866 Cyrillic */
+#define FC_KOI7    25  /* KOI-7 = Short KOI */
+#define FC_KOI8    26  /* KOI-8 */
+
+/* Japanese sets */
+
+#define FC_JIS7    27  /* JIS-7 */
+#define FC_SHJIS   28  /* Shifted JIS = CP932 */
+#define FC_JEUC    29  /* Japanese EUC (JAE) */
+#define FC_JDEC    30  /* Japanese DEC Kanji */
+
+#define MAXFCSETS  30  /* Highest file character set number */
 
 #endif /* CKUXLA_H */

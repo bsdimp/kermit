@@ -34,7 +34,7 @@ extern char *ckxsys, *ckzsys, *cmarg, *cmarg2, **xargv, **cmlist, *clcmds;
 extern int action, cflg, xargc, stdouf, stdinf, displa, cnflg, nfils,
   local, quiet, escape, network, mdmtyp, maxrps, rpsiz, bgset, xargs,
   urpsiz, wslotr, swcapr, binary, warn, parity, turn, turnch, duplex, flow,
-  fncact, clfils, xitsta, noinit, stayflg;
+  fncact, clfils, noinit, stayflg, nettype;
 extern long speed, ttgspd(), zchki();
 extern char ttname[];
 
@@ -80,10 +80,10 @@ cmdlin() {
 #endif /* VMS */
     	else if (**xargv == '-') {	/* Got an option (begins with dash) */
 	    x = *(*xargv+1);		/* Get the option letter */
-	    if (doarg(x) < 0) doexit(BAD_EXIT,xitsta); /* Go handle option */
+	    if (doarg(x) < 0) doexit(BAD_EXIT,1); /* Go handle option */
     	} else {			/* No dash where expected */
 	    usage();
-	    doexit(BAD_EXIT,xitsta);
+	    doexit(BAD_EXIT,1);
 	}
     }
     debug(F101,"action","",action);
@@ -107,20 +107,6 @@ cmdlin() {
     }
  
     if (quiet) displa = 0;		/* No display if quiet requested */
-#ifdef COMMENT 
-/*
-  moved to ckcmai.c...
-*/
-    if (cflg) {
-	conect();			/* Connect if requested */
-	if (action == 0) {
-	    if (cnflg) conect();	/* And again if requested */
-	    if (!stayflg)		/* and, if -S not given on cmd line, */
-	      doexit(GOOD_EXIT,xitsta); /* Then exit with return code */
-	}
-    }
-    if (displa) concb((char)escape);	/* (for console "interrupts") */
-#endif /* COMMENT */
     return(action);			/* Then do any requested protocol */
 }
 
@@ -148,9 +134,11 @@ case 'C':				/* Commands for parser */
     break;
 #endif /* NOSPL */
 
+#ifndef NOICP
 case 'S':				/* "Stay" - enter interactive */
     stayflg = 1;			/* command parser after executing */
     break;				/* command-line actions. */
+#endif /* NOICP */
 
 #ifndef NOSERVER
 case 'x':				/* server */
@@ -186,14 +174,22 @@ case 's': 				/* send */
 	    if (strcmp(*xargv,"-") != 0) /* Watch out for next option. */
 	      break;
 	    z++;			/* "-" alone means send from stdin. */
-        } else
-#ifdef UNIX				/* Perhaps the ifdef can be removed? */
-	if (zchki(*xargv) > -1)		/* Check if file exists */
+        } else if (zchki(*xargv) > -1	/* Check if file exists */
+#ifndef UNIX
+		   /* or contains wildcard characters matching real files */
+		   || (iswild(*xargv) && zxpand(*xargv) > 0)
 #endif /* UNIX */
-	  nfils++;			/* Bump file counter */
+		   ) {
+	    nfils++;			/* Bump file counter */
+	}
     }
     xargc++, xargv--;			/* Adjust argv/argc */
-    if (nfils < 1 && z == 0) fatal("No files for -s");
+    if (nfils < 1 && z == 0)
+#ifdef VMS
+      fatal("%CKERMIT-E-SEARCHFAIL, no files for -s");
+#else
+      fatal("No files for -s");
+#endif /* VMS */
     if (z > 1) fatal("-s: too many -'s");
     if (z == 1 && nfils > 0)
       fatal("invalid mixture of filenames and '-' in -s");
@@ -297,7 +293,7 @@ case 'j':				/* set host (TCP/IP socket) */
 #ifdef NETCONN
     } else {
 	if (x == 'j') {			/* IP network host name */
-	    mdmtyp = 0 - NET_TCPB;
+	    mdmtyp = -nettype;          /* perhaps alread set in init file */
 	    telnetfd = 1;		/* Or maybe an open file descriptor */
 #ifdef SUNX25
 	} else if (x == 'X') {		/* X.25 address */
@@ -432,20 +428,6 @@ case 't':
     flow = 0;				/* No flow control */
     break;
  
-#ifdef OS2
-case 'u':
-    /* get numeric argument */
-    if (*(xp+1)) fatal("invalid argument bundling");
-    *xargv++, xargc--;
-    if ((xargc < 1) || (**xargv == '-'))
-    	fatal("missing handle");
-    z = atoi(*xargv);			/* Convert to number */
-    ttclos(0);
-    if (!ttiscom(z)) fatal("invalid handle");
-    speed = ttgspd();
-    break;
-#endif /* OS2 */
-
 case 'z':				/* Not background */
     bgset = 0;
     break;

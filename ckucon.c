@@ -1,4 +1,4 @@
-char *connv = "CONNECT Command for UNIX, 5A(036) 8 Feb 92";
+char *connv = "CONNECT Command for UNIX, 5A(047) 23 Nov 92";
 
 /*  C K U C O N  --  Dumb terminal connection to remote system, for UNIX  */
 /*
@@ -43,6 +43,7 @@ char *connv = "CONNECT Command for UNIX, 5A(036) 8 Feb 92";
 _PROTOTYP( VOID doesc, (char) );
 _PROTOTYP( VOID logchar, (char) );
 _PROTOTYP( int hconne, (void) );
+_PROTOTYP( VOID shomdm, (void) );
 
 #ifndef SIGUSR1				/* User-defined signals */
 #define SIGUSR1 30
@@ -56,12 +57,9 @@ _PROTOTYP( int hconne, (void) );
 
 extern int local, escape, duplex, parity, flow, seslog, sessft, debses,
  mdmtyp, ttnproto, cmask, cmdmsk, network, nettype, deblog, sosi, tnlm,
- xitsta, what, ttyfd, quiet, backgrd;
+ xitsta, what, ttyfd, quiet, backgrd, pflag, tt_crd, tn_nlm;
 extern long speed;
-extern char ttname[], sesfil[], myhost[];
-#ifdef NETCONN
-extern int tn_init;
-#endif /* NETCONN */
+extern char ttname[], sesfil[], myhost[], *ccntab[];
 
 #ifndef NOSETKEY			/* Keyboard mapping */
 extern KEY *keymap;			/* Single-character key map */
@@ -75,19 +73,32 @@ static int quitnow = 0,			/* <esc-char>Q was typed */
   dohangup = 0,				/* <esc-char>H was typed */
   sjval = 0,				/* Setjump return value */
   goterr = 0,				/* I/O error flag */
+#ifndef SUNX25
   active = 0,				/* Lower fork active flag */
-  shift = 0;				/* SO/SI shift state */
+#endif /* SUNX25 */
+  inshift = 0,				/* SO/SI shift states */
+  outshift = 0;
 
 static char kbuf[10], *kbp;		/* Keyboard buffer & pointer */
 static PID_T parent_id = (PID_T)0;	/* Process id of keyboard fork */
-static char *lbp;			/* Line buffer pointer */
-static int lbc = 0;			/* Line buffer count */
-#define LBUFL 200			/* Line buffer length */
-#define TMPLEN 50			/* Temp buffer length */
-#ifdef DYNAMIC
-static char *lbuf, *temp;		/* Line and temp buffers */
+
+static char *ibp;			/* Input buffer pointer */
+static int ibc = 0;			/* Input buffer count */
+#ifdef pdp11
+#define IBUFL 1536			/* Input buffer length */
 #else
-static char lbuf[LBUFL], temp[TMPLEN];
+#define IBUFL 4096
+#endif /* pdp11 */
+
+static char *obp;			/* Output buffer pointer */
+static int obc = 0;			/* Output buffer count */
+#define OBUFL 1024			/* Output buffer length */
+
+#define TMPLEN 200			/* Temporary message buffer length */
+#ifdef DYNAMIC
+static char *ibuf = NULL, *obuf = NULL, *temp = NULL; /* Buffers */
+#else
+static char ibuf[IBUFL], obuf[OBUFL], temp[TMPLEN];
 #endif /* DYNAMIC */
 
 /* SunLink X.25 items */
@@ -96,6 +107,7 @@ static char lbuf[LBUFL], temp[TMPLEN];
 static char *p;				/* General purpose pointer */
 char x25ibuf[MAXIX25];			/* Input buffer */
 char x25obuf[MAXOX25];			/* Output buffer */
+int active = 0;				/* Lower fork active flag */
 int ibufl;				/* Length of input buffer */
 int obufl;				/* Length of output buffer */
 unsigned char tosend = 0;
@@ -287,33 +299,107 @@ static jmp_buf con_env;		 /* Environment pointer for connect errors */
 static
 SIGTYP
 conn_int(foo) int foo; {		/* Modem read failure handler, */
-    sjval = 1;				/* Set global variable */
     signal(SIGUSR1,SIG_IGN);		/* Disarm the interrupt */
-    longjmp(con_env,1);			/* Notifies parent process to stop */
+    sjval = 1;				/* Set global variable */
+    longjmp(con_env,sjval);		/* Notifies parent process to stop */
 }
 
 static
 SIGTYP
 mode_chg(foo) int foo; {
-/*
-  I think we could just put "pad(padpipe);" after the read() call below,
-  and skip the longjmp and fork-restarting business at "newfork:", but I
-  have no way to test this.
-*/
+    signal(SIGUSR2,mode_chg);		/* Re-arm the signal immediately. */
+
 #ifdef SUNX25				/* X.25 read new params from pipe */
     if (nettype == NET_SX25) {
         read(padpipe[0],padparms,MAXPADPARMS);
         debug(F100,"pad_chg","",0);
+/*
+  NOTE: we can probably skip this longjmp, just as we do in the "else" case.
+  But I don't (yet) have any way to test this.
+*/
+	sjval = 2;			/* Set global variable. */
+	longjmp(con_env,sjval);
+	debug(F100,"mode_chg X.25","",0);
     } else {
 #endif /* SUNX25 */
 	duplex = 1 - duplex;		/* Toggle duplex mode. */
-	signal(SIGUSR2,mode_chg);	/* Re-arm the signal. */
 	debug(F101,"mode_chg duplex","",duplex);
 #ifdef SUNX25
     }
-    sjval = 2;				/* Set global variable. */
-    longjmp(con_env,2);
 #endif /* SUNX25 */
+}
+
+/*  C K C P U T C  --  C-Kermit CONNECT Put Character to Screen  */
+/*
+  Output is buffered to avoid slow screen writes on fast connections.
+*/
+int
+ckcputf() {				/* Dump the output buffer */
+    int x = 0;
+    if (obc > 0)			/* If we have any characters, */
+      x = conxo(obc,obuf);		/* dump them, */
+    obp = obuf;				/* reset the pointer */
+    obc = 0;				/* and the counter. */
+    return(x);				/* Return conxo's return code */
+}
+
+int
+ckcputc(c) int c; {
+    int x;
+
+    *obp++ = c & 0xff;			/* Deposit the character */
+    obc++;				/* Count it */
+    if (ibc == 0 ||			/* If input buffer about empty */
+	obc == OBUFL) {			/* or output buffer full */
+	debug(F101,"CKCPUTC obc","",obc);
+	x = conxo(obc,obuf);		/* dump the buffer, */
+	obp = obuf;			/* reset the pointer */
+	obc = 0;			/* and the counter. */
+	return(x);			/* Return conxo's return code */
+    } else return(0);
+}
+
+/*  C K C G E T C  --  C-Kermit CONNECT Get Character  */
+/*
+  Buffered read from communication device.
+  Returns the next character, refilling the buffer if necessary.
+  On error, returns ttinc's return code (see ttinc() description).
+  Dummy argument for compatible calling conventions with ttinc().
+*/
+int
+ckcgetc(dummy) int dummy; {
+    int c, n;
+
+    debug(F101,"CKCGETC 1 ibc","",ibc); /* Log */
+    if (ibc < 1) {			/* Need to refill buffer? */
+	ibc = 0;			/* Yes, reset count */
+	ibp = ibuf;			/* and buffer pointer */
+	debug(F100,"CKCGETC 1 calling ttinc(0)","",0); /* Log */
+	c = ttinc(0);			/* Read one character, blocking */
+	debug(F101,"CKCGETC 1 ttinc(0)","",c); /* Log */
+	if (c < 0) {			/* If error, return error code */
+	    return(c);
+	} else {			/* Otherwise, got one character */
+	    *ibp++ = c;			/* Advance buffer pointer */
+	    ibc++;			/* and count. */
+	}
+
+	/* Now quickly read any more that might have arrived */
+
+	if ((n = ttchk()) > 0) {	/* Any more waiting? */
+	    if (n > (IBUFL - ibc))	/* Get them all at once. */
+	      n = IBUFL - ibc;		/* Don't overflow buffer */
+	    if ((n = ttxin(n,(CHAR *)ibp)) > 0) {
+		ibp += n;		/* Advance pointer */
+		ibc += n;		/* and counter */
+	    } else return(-1);
+	}
+	debug(F101,"CKCGETC 2 ibc","",ibc); /* Log how many */
+	ibp = ibuf;
+    }
+    c = *ibp++ & 0xff;			/* Get next character from buffer */
+    ibc--;				/* Reduce buffer count */
+    return(c);				/* Return the character */
 }
 
 /*  C O N E C T  --  Perform terminal connection  */
@@ -335,13 +421,18 @@ conect() {
 #endif /* SUNX25 */
 
 #ifdef DYNAMIC
-    if (!(lbuf = malloc(LBUFL+1))) {    /* Allocate input line buffer */
+    if (!(ibuf = malloc(IBUFL+1))) {    /* Allocate input line buffer */
 	printf("Sorry, CONNECT input buffer can't be allocated\n");
+	return(0);
+    }
+    if (!(obuf = malloc(OBUFL+1))) {    /* Allocate input line buffer */
+	printf("Sorry, CONNECT output buffer can't be allocated\n");
+	free(ibuf);
 	return(0);
     }
     if (!(temp = malloc(TMPLEN+1))) {    /* Allocate temporary buffer */
 	printf("Sorry, CONNECT temporary buffer can't be allocated\n");
-	free(lbuf);
+	free(obuf);
 	return(0);
     }
 #endif /* DYNAMIC */
@@ -352,11 +443,6 @@ conect() {
 #else
 	printf("Sorry, you must SET LINE first\n");
 #endif /* NETCONN */
-	return(0);
-    }
-    if (backgrd) {
-	printf(
-"\r\nSorry, Kermit's CONNECT command can be used only in the foreground\r\n");
 	return(0);
     }
     if (speed < 0L && network == 0) {
@@ -376,7 +462,11 @@ conect() {
 
     if (ttyfd < 0) {			/* If communication device not open */
 	debug(F111,"ckucon opening",ttname,0); /* Open it now */
-	if (ttopen(ttname,&local,mdmtyp,0) < 0) {
+	if (ttopen(ttname,
+		   &local,
+		   network ? -nettype : mdmtyp,
+		   0
+		   ) < 0) {
 	    sprintf(temp,"Sorry, can't open %s",ttname);
 	    perror(temp);
 	    debug(F110,"ckucon open failure",temp,0);
@@ -403,8 +493,8 @@ conect() {
 #ifdef NETCONN
 	}
 #endif /* NETCONN */
-	printf(".\r\nThe escape character is %s (ASCII %d).\r\n",
-	       dbchr(escape),escape);
+	printf(".\r\nThe escape character is Ctrl-%c (ASCII %d, %s)\r\n",
+	       ctl(escape), escape, (escape == 127 ? "DEL" : ccntab[escape]));
 	printf("Type the escape character followed by C to get back,\r\n");
 	printf("or followed by ? to see other options.\r\n");
 	if (seslog) {
@@ -412,11 +502,12 @@ conect() {
 	    printf("%s)\r\n", sessft ? "binary" : "text");
 	}
 	if (debses) printf("Debugging Display...)\r\n");
+	fflush(stdout);
     }
 
 /* Condition console terminal and communication line */	    
 
-    if (conbin(escape) < 0) {
+    if (conbin((char)escape) < 0) {
 	printf("Sorry, can't condition console terminal\n");
 	return(0);
     }
@@ -428,7 +519,11 @@ conect() {
 	goterr = 1;			/* Error recovery... */
 	tthang();			/* Hang up and close the device. */
 	ttclos(0);
-	if (ttopen(ttname,&local,mdmtyp,0) < 0) { /* Open it again... */
+	if (ttopen(ttname,		/* Open it again... */
+		   &local,
+		   network ? -nettype : mdmtyp,
+		   0
+		   ) < 0) {
 	    sprintf(temp,"Sorry, can't reopen %s",ttname);
 	    perror(temp);
 	    return(0);
@@ -448,19 +543,7 @@ conect() {
 #ifndef NOCSETS
 /* Set up character set translations */
 
-#ifdef KANJI
-/* Kanji not supported yet */
-    if (fcsinfo[tcsr].alphabet == AL_JAPAN ||
-	fcsinfo[tcsl].alphabet == AL_JAPAN ) {
-	tcs = TC_TRANSP;
-    } else
-#endif /* KANJI */
-#ifdef CYRILLIC
-      if (fcsinfo[tcsl].alphabet == AL_CYRIL) {
-	  tcs = TC_CYRILL;
-      } else
-#endif /* CYRILLIC */
-	tcs = TC_1LATIN;
+    tcs = gettcs(tcsr,tcsl);		/* Get intermediate set. */
 
     if (tcsr == tcsl) {			/* Remote and local sets the same? */
 	sxo = rxo = NULL;		/* If so, no translation. */
@@ -486,11 +569,11 @@ conect() {
 /*
   We need to activate the "skip escape sequence" feature when:
   (a) translation is elected, and
-  (b) the local and/or remote set is 7-bit set other than US ASCII.
+  (b) the local and/or remote set is a 7-bit set other than US ASCII.
 */
     skipesc = (tcs != TC_TRANSP) &&	/* Not transparent */
       (fcsinfo[tcsl].size == 128 || fcsinfo[tcsr].size == 128) && /* 7 bits */
-	(fcsinfo[tcsl].code != FC_USASCII);
+	(fcsinfo[tcsl].code != FC_USASCII); /* But not ASCII */
     inesc = ES_NORMAL;			/* Initial state of recognizer */
 #ifdef COMMENT
     debug(F101,"tcs","",tcs);
@@ -516,22 +599,19 @@ newfork:
 #ifdef SUNX25
     pipe(padpipe);                      /* Create pipe to pass PAD parms */
 #endif /* SUNX25 */
-#ifdef OXOS
-/*
-  Because of the "extended security controls" in Olivetti X/OS,
-  the killing and killed process must have the same REAL uid.  
-  Otherwise kill() gets ESRCH.
-*/
-    priv_on();
-#endif /* OXOS */
     pid = fork();			/* All ok, make a fork */
-    if (pid == -1) {			/* Can't create it. */
+    if (pid == (PID_T) -1) {		/* Can't create it. */
 	conres();			/* Reset the console. */
 	perror("Can't create keyboard fork");
 	if (!quiet) {
 	printf("\r\nCommunications disconnect (Back at %s)\r\n",
 	       *myhost ?
 	       myhost :
+#ifdef COHERENT
+		"Local COHERENT system"
+#else
+#endif /* COHERENT */
+
 #ifdef UNIX
 	       "local UNIX system"
 #else
@@ -546,12 +626,13 @@ newfork:
 #endif /* NOCSETS */
 	parent_id = (PID_T) 0;		/* Clean up */
 #ifdef DYNAMIC
-	if (temp) free(temp);
-	if (lbuf) free(lbuf);		/* Free allocated memory */
+	if (temp) free(temp);		/* Free allocated memory */
+	if (ibuf) free(ibuf);
+	if (obuf) free(obuf);
 #endif /* DYNAMIC */
 	return(1);
     }
-    if (pid) {				/* This fork reads, sends keystrokes */
+    if (pid) {				/* Top fork reads, sends keystrokes */
 	what = W_CONNECT;		/* Keep track of what we're doing */
 	active = 1;
 	debug(F101,"CONNECT keyboard fork duplex","",duplex);
@@ -581,10 +662,13 @@ newfork:
 	    while (active) {
 #ifndef NOSETKEY
 		if (kmptr) {		/* Have current macro? */
+		    debug(F100,"kmptr non NULL","",0);
 		    if ((c = (CHAR) *kmptr++) == NUL) { /* Get char from it */
 			kmptr = NULL;	/* If no more chars,  */
+			debug(F100,"macro empty, continuing","",0);
 			continue;	/* reset pointer and continue */
 		    }
+		    debug(F000,"char from macro","",c);
 		} else			/* No macro... */
 #endif /* NOSETKEY */
 		  c = congks(0);	/* Read from keyboard */
@@ -629,7 +713,6 @@ newfork:
 		} else c = keymap[c];	     /* else use single-char keymap */
 #endif /* NOSETKEY */
 		if (
-
 #ifndef NOSETKEY
 		    !kmptr &&
 #endif /* NOSETKEY */
@@ -637,7 +720,7 @@ newfork:
 		    debug(F000,"connect got escape","",c);
 		    c = congks(0) & 0177; /* Got esc, get its arg */
 		    /* No key mapping here */
-		    doesc(c);		/* Now process it */
+		    doesc((char) c);	/* Now process it */
 
 		} else {		/* It's not the escape character */
 		    csave = c;		/* Save it before translation */
@@ -650,10 +733,10 @@ newfork:
 #else
 		    if (inesc == ES_NORMAL) { /* If not inside escape seq.. */
 			/* Translate character sets */
-			if (sxo) c = (*sxo)(c); /* Local to intermediate. */
-			if (rxo) c = (*rxo)(c); /* Intermediate to remote. */
+			if (sxo) c = (*sxo)((char)c); /* Local-intermediate */
+			if (rxo) c = (*rxo)((char)c); /* Intermediate-remote */
 		    }
-		    if (skipesc) chkaes(c); /* Check escape sequence status */
+		    if (skipesc) chkaes((char)c); /* Check escape seq status */
 #endif /* SKIPESC */
 #endif /* NOCSETS */
 /*
@@ -663,22 +746,21 @@ newfork:
 		    if (sosi) {		     /* Shift-In/Out selected? */
 			if (cmask == 0177) { /* In 7-bit environment? */
 			    if (c & 0200) {          /* 8-bit character? */
-				if (shift == 0) {    /* If not shifted, */
+				if (outshift == 0) { /* If not shifted, */
 				    ttoc(dopar(SO)); /* shift. */
-				    shift = 1;
+				    outshift = 1;
 				}
 			    } else {
-				if (shift == 1) {    /* 7-bit character */
+				if (outshift == 1) { /* 7-bit character */
 				    ttoc(dopar(SI)); /* If shifted, */
-				    shift = 0;       /* unshift. */
+				    outshift = 0;    /* unshift. */
 				}
 			    }
 			}
-			if (c == SO) shift = 1;	/* User typed SO */
-			if (c == SI) shift = 0;	/* User typed SI */
+			if (c == SO) outshift = 1;   /* User typed SO */
+			if (c == SI) outshift = 0;   /* User typed SI */
 		    }
 		    c &= cmask;		/* Apply Kermit-to-host mask now. */
-#ifdef NETCONN
 #ifdef SUNX25
                     if (network && nettype == NET_SX25) {
                         if (padparms[PAD_ECHO]) {
@@ -690,6 +772,14 @@ newfork:
 				  (c != padparms[PAD_BUFFER_DISPLAY_CHAR]))
                                 conoc(c) ;
                             if (seslog) logchar(c);
+                        }
+			if (c == CR && (padparms[PAD_LF_AFTER_CR] == 4 ||
+					padparms[PAD_LF_AFTER_CR] == 5)) {
+                            if (debses)
+			      conol(dbchr(LF)) ;
+                            else
+			      conoc(LF) ;
+                            if (seslog) logchar(LF);
                         }
                         if (c == padparms[PAD_BREAK_CHARACTER])
 			  breakact();
@@ -730,41 +820,47 @@ newfork:
                     } else {
 #endif /* SUNX25 */ 
 
-/*
-  This is for telnetting to IBM mainframes in linemode.
-  Blank lines (when you hit two CRs in a row) are normally ignored.
-  According to the telnet RFC, we must send both CR and LF.
-  Also, if the user types the 0xff character, which happens to be the
-  telnet IAC character, then it must be doubled.
-*/
-                    if (network && ttnproto == NP_TELNET) {
-			if (c == '\015' && duplex != 0) {
-			    ttoc(dopar('\015'));
-			    conoc('\015');
-			    csave = c = '\012';
-			} else if (c == IAC && parity == 0)
-			  ttoc(IAC);
-		    } else
-#endif /* NETCONN */
-		    if (c == '\015' && tnlm) { /* TERMINAL NEWLINE ON ? */
-			ttoc(dopar('\015'));   /* Send CR as CRLF */
-			if (debses) conol(dbchr('\015'));
-			csave = c = '\012';
+/* If we have a CR, handle CR/CRLF mapping... */
+
+		    if (c == '\015') {
+			if (tnlm	/* TERMINAL NEWLINE ON */
+#ifdef TNCODE				/* And for TELNET... */
+			|| (network && ttnproto == NP_TELNET)
+#endif /* TNCODE */
+			) {
+			    ttoc(dopar('\015'));	/* Send CR */
+			    if (duplex) conoc('\015');	/* Maybe echo CR */
+#ifdef TNCODE
+			    if (network && !tn_nlm && ttnproto == NP_TELNET)
+			      c = '\0';		/* Stuff NUL */
+			    else
+#endif /* TNCODE */
+			      c = '\012';	/* Stuff LF */
+			    csave = c;
+			}
+		    }			/* Now process the LF or NUL... */
+#ifdef TNCODE
+/* If user types the 0xff character (TELNET IAC), it must be doubled. */
+		    else
+		      if (c == IAC && network && ttnproto == NP_TELNET) {
+					/* Send one copy now */
+			ttoc((char)IAC); /* and the other one just below. */
 		    }
+#endif /* TNCODE */
 
 		    /* Send the character */
 
-		    if (ttoc(dopar(c)) > -1) {
+		    if (ttoc((char)dopar((CHAR) c)) > -1) {
 		    	if (duplex) {	/* If half duplex, must echo */
 			    if (debses)
 			      conol(dbchr(csave)); /* the original char */
 			    else	           /* not the translated one */
-			      conoc(csave);
+			      conoc((char)csave);
 			    if (seslog) { /* And maybe log it too */
 				c2 = csave;
 				if (sessft == 0 && csave == '\r')
 				  c2 = '\n';
-				logchar(c2);
+				logchar((char)c2);
 			    }
 			}
     	    	    } else {
@@ -778,11 +874,7 @@ newfork:
 	    }
 	}				/* Come here on death of child */
 	debug(F100,"CONNECT killing port fork","",0);
-	kill((int)pid,9);		/* Done, kill inferior fork. */
-#ifdef OXOS
-/* See comments above about Olivetti X/OS. */
-	priv_off();
-#endif /* OXOS */
+	kill(pid,9);			/* Done, kill inferior fork. */
 	wait((WAIT_T *)0);		/* Wait till gone. */
 	if (sjval == 1) {		/* Read error on comm device */
 	    dohangup = 1;
@@ -799,8 +891,12 @@ newfork:
 	  goto newfork;			/* and coordinate with other fork. */
 	conres();			/* Reset the console. */
 	if (quitnow) doexit(GOOD_EXIT,xitsta); /* Exit now if requested. */
-	if (dohangup) {			/* If hangup requested, do that. */
-	    tthang();			/* And make sure we don't hang up */
+	if (dohangup > 0) {		/* If hangup requested, do that. */
+#ifndef NODIAL
+	    if (dohangup > 1)		/* User asked for it */
+	      if (mdmhup() < 1)		/* Maybe hang up via modem */
+#endif /* NODIAL */
+	      tthang();			/* And make sure we don't hang up */
 	    dohangup = 0;		/* again unless requested again. */
 	}
 #ifdef SUNX25
@@ -811,7 +907,11 @@ newfork:
 	}
 #endif /* SUNX25 */
 	if (!quiet)
+#ifdef COHERENT
+	  printf("(Back at %s)", *myhost ? myhost : "local COHERENT system");
+#else
 	  printf("(Back at %s)", *myhost ? myhost : "local UNIX system");
+#endif /* COHERENT */
 	printf("\n");
 	what = W_NOTHING;		/* So console modes set right. */
 #ifndef NOCSETS
@@ -819,24 +919,29 @@ newfork:
 #endif /* NOCSETS */
 	parent_id = (PID_T) 0;
 #ifdef DYNAMIC
-	if (temp) free(temp);
-	if (lbuf) free(lbuf);		/* Free allocated memory */
+	if (temp) free(temp);		/* Free allocated memory */
+	if (ibuf) free(ibuf);
+	if (obuf) free(obuf);
 #endif /* DYNAMIC */
 	return(1);
 
     } else {				/* Inferior reads, prints port input */
 
+#ifndef OXOS
 	if (priv_can()) {		/* Cancel all privs */
 	    printf("?setuid error - fatal\n");
 	    doexit(BAD_EXIT,-1);
 	}
+#endif /* OXOS */
 	signal(SIGINT, SIG_IGN);	/* In case these haven't been */
 	signal(SIGQUIT, SIG_IGN);	/* inherited from above... */
 
-	shift = 0;			/* Initial shift state. */
+	inshift = outshift = 0;		/* Initial SO/SI shift state. */
 	sleep(1);			/* Wait for parent's handler setup.  */
-	lbp = lbuf;			/* Initialize input buffering */
-	lbc = 0;
+	ibp = ibuf;			/* Initialize input buffering */
+	ibc = 0;			/* And output buffering. */
+	obp = obuf;
+	obc = 0;
 	debug(F100,"CONNECT starting port fork","",0);
 	while (1) {			/* Fresh read, wait for a character. */
 #ifdef SUNX25
@@ -866,13 +971,13 @@ newfork:
 			    c = x25ibuf[i] & cmask;
 			    if (sosi) { /* Handle SI/SO */
 				if (c == SO) {
-				    shift = 1;
+				    inshift = 1;
 				    continue;
 				} else if (c == SI) {
-				    shift = 0;
+				    inshift = 0;
 				    continue;
 				}
-				if (shift)
+				if (inshift)
 				  c |= 0200;
 			    }
 #ifndef NOCSETS
@@ -910,95 +1015,29 @@ newfork:
   Get the next communication line character from our internal buffer.
   If the buffer is empty, refill it.
 */
-		if (lbc < 1) {		/* Nothing left in input buffer. */
-		    lbc = 0;		/* Must refresh it. */
-		    lbp = lbuf;
-		    debug(F100,"CONNECT refill buf","",0);
-		    if ((c = ttinc(0)) < 0) { /* Get char from comm line */
-			if (!quiet) { /* Failed... */
-			    printf("\r\nCommunications disconnect ");
-			    if ( c == -3
+		c = ckcgetc(0);		/* Get next character */
+		/* debug(F101,"CONNECT c","",c); */
+		if (c < 0) {
+		    if (!quiet) {	/* Failed... */
+			printf("\r\nCommunications disconnect ");
+			if ( c == -3
 #ifdef UTEK
 /* This happens on UTEK if there's no carrier */
-				&& errno != EWOULDBLOCK
+			    && errno != EWOULDBLOCK
 #endif /* UTEK */
-				)
-			      perror("\r\nCan't read character");
-			}
-			tthang();	/* Hang up our side. */
-#ifdef NETCONN
-			if (network && ttnproto == NP_TELNET)
-			  tn_init = 0;
-#endif /* NETCONN */
-			kill(parent_id,SIGUSR1); /* Notify parent */
-			for (;;) pause(); /* and wait to be killed */
-		    } else {		/* Otherwise, got one character */
-			*lbp++ = c;	/* Advance buffer pointer */
-			lbc++;		/* and count. */
+			    )
+			  perror("\r\nCan't read character");
 		    }
-#ifdef TNCODE
-/*
-  The following buffering code makes CONNECT mode a lot more efficient,
-  especially on slow workstations.  But we can't use it if we're doing TELNET
-  protocol because we won't notice any in-band TELNET commands (tn_doop()
-  wants to read the characters following the IAC itself).  So this code will
-  always be used on non-network systems and it will be used on network systems
-  except during a TELNET session.
-*/
-		    if (!network || ttnproto != NP_TELNET) {
-#endif /* TNCODE */
-			/* Now quickly read any more that might have arrived */
-			while ((n = ttchk()) > 0) { /* Any more waiting? */
-			    if (n > (LBUFL - lbc))  /* Get them all at once. */
-			      n = LBUFL - lbc;      /* Don't overflow buffer */
-			    if ((n = ttxin(n,(CHAR *)lbp)) > 0) {
-				lbp += n;	    /* Advance pointer */
-				lbc += n;	    /* and counter */
-			    } else break;           /* Break on error */
-			}
-			debug(F101,"connect lbc","",lbc); /* Log how many */
-/*
-  The following outputs to the console as much as possible in one write to
-  maximize throughput.  We can use this only if not doing any character-based
-  operations like TELNET negotiations, Shift-In/Shift/Out, or session
-  debugging.  Character-set translation MUST BE ONE-TO-ONE.
-*/
-			if (!sosi && !debses) {	/* No SO/SI or debugging... */
-			    for (n = 0; n < lbc; n++) {
-				c = lbuf[n] & cmask; /* Apply terminal mask */
-#ifndef NOCSETS
-#ifndef SKIPESC
-				if (sxi) c = (*sxi)(c);	/* Xlate char sets */
-				if (rxi) c = (*rxi)(c);
-#else
-				if (inesc == ES_NORMAL) {
-				    if (sxi) c = (*sxi)(c);
-				    if (rxi) c = (*rxi)(c);
-				}
-				if (skipesc) chkaes(c); /* Esc seq status */
-#endif /* SKIPESC */
-#endif /* NOCSETS */
-				lbuf[n] = c & cmdmsk;   /* Replace in buffer */
-				if (seslog) logchar(c);	/* Log it */
-			    }
-			    conxo(lbc,lbuf);	/* Write out whole buffer */
-			    lbc = 0;		/* Reset buffer count */
-			    continue;		/* ...the big while(1) loop */
-			}
-
-#ifdef TNCODE
-		    } /* Closing bracket for Not-TELNET section */
-#endif /* TNCODE */
-		    lbp = lbuf;		/* Reset buffer pointer to beginning */
+		    tthang();		/* Hang up the connection */
+		    kill(parent_id,SIGUSR1); /* Notify parent */
+		    for (;;) pause();	/* and wait to be killed */
 		}
-		c = *lbp++;		/* Get a character from the buffer. */
-		lbc--;			/* Count it. */
 		debug(F111,"** PORT",dbchr(c),c);
 #ifdef TNCODE
 		/* Handle TELNET negotiations here */	
-		if (network && ttnproto == NP_TELNET
-		    && ((c & 0xff) == IAC)) {
-		    if ((tx = tn_doop((c & 0xff),duplex)) == 0) {
+		if (c == IAC && network && ttnproto == NP_TELNET) {
+		    ckcputf();		/* Dump output buffer */
+		    if ((tx = tn_doop((CHAR)(c & 0xff),duplex,ckcgetc)) == 0) {
 			continue;
 		    } else if (tx == -1) { /* I/O error */
 			if (!quiet)
@@ -1009,44 +1048,53 @@ newfork:
 			kill(parent_id,SIGUSR2); /* Tell the parent fork */
 			duplex = 1;
 		    } else if ((tx == 2) && (duplex)) { /* ECHO change */
-			kill(parent_id,SIGUSR2);
+			kill(parent_id,SIGUSR2); 
 			duplex = 0;
 		    } else if (tx == 3) { /* Quoted IAC */
 			c = 255;
-		    } else continue; /* Negotiation OK, get next char. */
+		    } else continue;	/* Negotiation OK, get next char. */
 		}
 #endif /* TNCODE */
 		if (debses) {		/* Output character to screen */
-		    conol(dbchr(c));	/* debugging display */
-		} else {		/* or regular display ... */
+		    char *s;		/* Debugging display... */
+		    s = dbchr(c);
+		    while (*s)
+		      ckcputc(*s++);
+		} else {		/* Regular display ... */
 		    c &= cmask;		/* Apply Kermit-to-remote mask */
 		    if (sosi) {		/* Handle SI/SO */
 			if (c == SO) {	/* Shift Out */
-			    shift = 1;
+			    inshift = 1;
 			    continue;
 			} else if (c == SI) { /* Shift In */
-			    shift = 0;
+			    inshift = 0;
 			    continue;
 			}
-			if (shift) c |= 0200; 
+			if (inshift) c |= 0200; 
 		    }
 #ifndef NOCSETS
 #ifndef SKIPESC
 		    /* Translate character sets */
-		    if (sxi) c = (*sxi)(c);
-		    if (rxi) c = (*rxi)(c);
+		    if (sxi) c = (*sxi)((CHAR)c);
+		    if (rxi) c = (*rxi)((CHAR)c);
 #else
 		    if (inesc == ES_NORMAL) {
 			/* Translate character sets */
-			if (sxi) c = (*sxi)(c);
-			if (rxi) c = (*rxi)(c);
+			if (sxi) c = (*sxi)((CHAR)c);
+			if (rxi) c = (*rxi)((CHAR)c);
 		    }
-		    if (skipesc) chkaes(c); /* Adjust escape sequence status */
+		    /* Adjust escape sequence status */
+		    if (skipesc) chkaes((char)c);
 #endif /* SKIPESC */
 #endif /* NOCSETS */
 		    c &= cmdmsk;	/* Apply command mask. */
-		    conoc(c);		/* Output to screen */
-		    if (seslog) logchar(c); /* Take care of session log */
+		    if (c == CR && tt_crd) { /* SET TERM CR-DISPLAY CRLF ? */
+			ckcputc(c);	     /* Yes, output CR */
+			if (seslog) logchar((char)c);
+			c = LF;		     /* and insert a linefeed */
+		    }
+		    ckcputc(c);		/* Output character to screen */
+		    if (seslog) logchar((char)c); /* Do session log */
 		}
 #ifdef SUNX25
 	    }   
@@ -1062,30 +1110,33 @@ int
 hconne() {
     int c;
     static char *hlpmsg[] = {
+"\r\n  ? for this message",
 "\r\n  0 (zero) to send a null",
 "\r\n  B to send a BREAK",
-#ifdef UNIX
+#ifdef CK_LBRK
 "\r\n  L to send a Long BREAK",
-#endif /* UNIX */
+#endif /* CK_LBRK */
+#ifdef NETCONN
+"\r\n  I to send a network interrupt packet",
+#ifdef TCPSOCKET
+"\r\n  A to send Are You There?",
+#endif /* TCPSOCKET */
 #ifdef SUNX25
-"\r\n  I to send X.25 interrupt packet",
-"\r\n  R to reset the virtual circuit",
-"\r\n  H to hangup the connection (clear virtual circuit)",
-#else
-"\r\n  H to hangup and close the connection",
+"\r\n  R to reset X.25 virtual circuit",
 #endif /* SUNX25 */
+#endif /* NETCONN */
+"\r\n  H to hangup and close the connection",
 "\r\n  Q to hangup and quit Kermit",
 "\r\n  S for status",
 "\r\n  ! to push to local shell",
 "\r\n  Z to suspend",
-"\r\n  \\ backslash escape:",
-"\r\n    \\nnn decimal character code",
+"\r\n  \\ backslash code:",
+"\r\n    \\nnn  decimal character code",
 "\r\n    \\Onnn octal character code",
 "\r\n    \\Xhh  hexadecimal character code",
 "\r\n    terminate with carriage return.",
-"\r\n  ? for help",
-"\r\n escape character twice to send the escape character",
-"\r\n space-bar to resume the CONNECT command\r\n\r\n",
+"\r\n Type the escape character again to send the escape character, or",
+"\r\n press the space-bar to resume the CONNECT command.\r\n\r\n",
 "" };
     conol("\r\nPress C to return to ");
     conol(*myhost ? myhost : "the C-Kermit prompt");
@@ -1113,13 +1164,13 @@ doesc(c) char c;
   
     while (1) {
 	if (c == escape) {		/* Send escape character */
-	    d = dopar(c); ttoc(d); return;
+	    d = dopar((CHAR) c); ttoc((char) d); return;
     	} else				/* Or else look it up below. */
 	    if (isupper(c)) c = tolower(c);
 
 	switch(c) {
 
-	case 'c':			/* Close connection */
+	case 'c':			/* Escape back to prompt */
 	case '\03':
 	    active = 0; conol("\r\n"); return;
 
@@ -1127,10 +1178,49 @@ doesc(c) char c;
 	case '\02':
 	    ttsndb(); return;
 
-#ifdef UNIX
+#ifdef NETCONN
+	case 'i':			/* Send Interrupt */
+	case '\011':
+#ifdef TCPSOCKET
+#ifndef IP
+#define IP 244
+#endif /* IP */
+	    if (network && ttnproto == NP_TELNET) { /* TELNET */
+		temp[0] = IAC;		/* I Am a Command */
+		temp[1] = IP;		/* Interrupt Process */
+		temp[2] = NUL;
+		ttol((CHAR *)temp,2);
+	    } else 
+#endif /* TCPSOCKET */
+#ifdef SUNX25
+            if (network && (nettype == NET_SX25)) { /* X.25 */
+		(VOID) x25intr(0);	            /* X.25 interrupt packet */
+		conol("\r\n");
+	    } else
+#endif /* SUNX25 */
+	      conoc(BEL);
+	    return;
+
+#ifdef TCPSOCKET
+	case 'a':			/* "Are You There?" */
+	case '\01':
+#ifndef AYT
+#define AYT 246
+#endif /* AYT */
+	    if (network && ttnproto == NP_TELNET) {
+		temp[0] = IAC;		/* I Am a Command */
+		temp[1] = AYT;		/* Are You There? */
+		temp[2] = NUL;
+		ttol((CHAR *)temp,2);
+	    } else conoc(BEL);
+	    return;
+#endif /* TCPSOCKET */
+#endif /* NETCONN */
+
+#ifdef CK_LBRK
 	case 'l':			/* Send a Long BREAK signal */
 	    ttsndlb(); return;
-#endif /* UNIX */
+#endif /* CK_LBRK */
 
 	case 'h':			/* Hangup */
 	case '\010':
@@ -1138,55 +1228,57 @@ doesc(c) char c;
             if (network && (nettype == NET_SX25)) dox25clr = 1;
             else
 #endif /* SUNX25 */
-	    dohangup = 1; active = 0; conol("\r\nHanging up "); return;
+	    dohangup = 2; active = 0; conol("\r\nHanging up "); return;
 
 #ifdef SUNX25
-        case 'i':                       /* Send an X.25 interrupt packet */
-        case '\011':
-            if (network && (nettype == NET_SX25)) (VOID) x25intr(0);
-            conol("\r\n"); return;
-
         case 'r':                       /* Reset the X.25 virtual circuit */
         case '\022':
             if (network && (nettype == NET_SX25)) (VOID) x25reset();
             conol("\r\n"); return;
 #endif /* SUNX25 */
  
-	case 'q':
+	case 'q':			/* Quit */
 	    quitnow = 1; active = 0; conol("\r\n"); return;
 
 	case 's':			/* Status */
-	    conol("\r\nConnected thru ");
-	    conol(ttname);
+	    sprintf(temp,
+		    "\r\nConnected %s %s", network ? "to" : "through", ttname);
+	    conol(temp);
 #ifdef SUNX25
-            if (network && (nettype == NET_SX25))
-                printf(", Link ID %d, LCN %d",linkid,lcn);
+            if (network && (nettype == NET_SX25)) {
+                sprintf(temp,", Link ID %d, LCN %d",linkid,lcn); conol(temp);
+	    }
 #endif /* SUNX25 */
 	    if (speed >= 0L) {
-		sprintf(temp,", speed %ld",speed); conol(temp);
-	    }
-	    sprintf(temp,", %d terminal bits",(cmask == 0177) ? 7 : 8);
+		sprintf(temp,", speed %ld", speed);
+		conoll(temp);
+	    } else conoll("");
+	    sprintf(temp,
+		    "Terminal bytesize: %d, Command bytesize: %d, Parity: ",
+		    (cmask  == 0177) ? 7 : 8,
+		    (cmdmsk == 0177) ? 7 : 8 );
 	    conol(temp);
-	    if (parity) {
-		conol(", ");
-		switch (parity) {
-		    case 'e': conol("even");  break;
-		    case 'o': conol("odd");   break;
-		    case 's': conol("space"); break;
-		    case 'm': conol("mark");  break;
-		}
-		conol(" parity");
+
+	    switch (parity) {
+	      case  0:  conoll("none");  break;
+	      case 'e': conoll("even");  break;
+	      case 'o': conoll("odd");   break;
+	      case 's': conoll("space"); break;
+	      case 'm': conoll("mark");  break;
 	    }
+	    sprintf(temp,"Terminal echo: %s", duplex ? "local" : "remote");
+	    conoll(temp);
 	    if (seslog) {
-		conol(", logging to "); conol(sesfil);
+		conol("Logging to: "); conoll(sesfil);
             }
-	    conoll(""); return;
+	    if (!network) shomdm();
+	    return;
 
 	case '?':			/* Help */
 	    c = hconne(); continue;
 
 	case '0':			/* Send a null */
-	    c = '\0'; d = dopar(c); ttoc(d); return;
+	    c = '\0'; d = dopar((CHAR) c); ttoc((char) d); return;
 
 #ifndef NOPUSH
 	case 'z': case '\032':		/* Suspend */
@@ -1196,7 +1288,7 @@ doesc(c) char c;
 	case '!':
 	    conres();			/* Put console back to normal */
 	    zshcmd("");			/* Fork a shell. */
-	    if (conbin(escape) < 0) {
+	    if (conbin((char)escape) < 0) {
 		printf("Error resuming CONNECT session\n");
 		active = 0;
 	    }
@@ -1216,8 +1308,8 @@ doesc(c) char c;
 		*kbp = NUL; kbp = kbuf;
 		x = xxesc(&kbp);	/* Interpret it */
 		if (x >= 0) {		/* No key mapping here */
-		    c = dopar(x);
-		    ttoc(c);
+		    c = dopar((CHAR) x);
+		    ttoc((char) c);
 		    return;
 		} else {		/* Invalid backslash code. */
 		    conoc(BEL);

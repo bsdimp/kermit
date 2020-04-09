@@ -1,24 +1,32 @@
-char *versio = "C-Kermit 5A(179) BETA, 8 Feb 92"; /* Version herald. */
-long vernum =            501179L;
+#ifndef MAC
+char *versio = "C-Kermit 5A(188), 23 Nov 92"; /* Version herald. */
+#else
 /*
- String and numeric version numbers, keep these two in sync!
- Second digit of vernum: 0 = A, 1 = B, etc.
+  For Macintosh, also remember to change the Mac-specific version in ckmkr2.r.
 */
-
+char *versio = "Mac Kermit 0.99(188) Pre-ALPHA, 23 Nov 92";
+#endif /* MAC */
+long vernum = 501188L;
+/*
+  String and numeric version numbers, keep these three in sync!
+  First digit of vermum = major version, i.e. 5.
+  Second 2 digits of vernum: 00 = no minor version, 01 = A, 02 = B, etc.
+  Last three digits are edit number. 
+*/
 #ifndef VERWHO
 /* Change verwho in following line, or with -DVERWHO=x in makefile CFLAGS. */
 #define VERWHO 0
 #endif /* VERWHO */
 int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
 /*
- IMPORTANT: If you are working on your own private version of C-Kermit, please
- include some special notation, like your site name or your initials, in the
- "versio" string, e.g. "5A(159)-XXX", and use a nonzero code for the "verwho"
- variable (e.g. in the USA use your zip code).  Unless we stick to this
- discipline, divergent copies of C-Kermit will begin to appear that are
- intistinguishable from each other, which is a big support issue.  Also, if
- you have edited C-Kermit and made copies available to others, please add
- appropriate text to the BUG command (ckuus6.c, function dobug()).
+  IMPORTANT: If you are working on your own private version of C-Kermit, please
+  include some special notation, like your site name or your initials, in the
+  "versio" string, e.g. "5A(182)-XXX", and use a nonzero code for the "verwho"
+  variable (e.g. in the USA use your zip code).  Unless we stick to this
+  discipline, divergent copies of C-Kermit will begin to appear that are
+  intistinguishable from each other, which is a big support issue.  Also, if
+  you have edited C-Kermit and made copies available to others, please add
+  appropriate text to the BUG command (ckuus6.c, function dobug()).
 */
 #define CKCMAI
 
@@ -27,30 +35,58 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
 /*
   Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
   Columbia University Center for Computing Activities.
-  First released January 1985.
+
+  COPYRIGHT NOTICE:
+
   Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
   York.  Permission is granted to any individual or institution to use this
   software as long as it is not sold for profit.  This copyright notice must be
   retained.  This software may not be included in commercial products without
   written permission of Columbia University.
-*/
-/*
- The Kermit file transfer protocol was developed at the Columbia University
- Center for Computing Activities (CUCCA).  It is named after Kermit the Frog,
- star of the television series THE MUPPET SHOW; the name is used by permission
- of Henson Associates, Inc.  "Kermit" is also Celtic for "free".
-*/
-/*
- Thanks to at least the following people for their contributions to this 
- program over the years, and apologies to anybody I missed:
+
+  DOCUMENTATION:
+
+  "Using C-Kermit" by Frank da Cruz and Christine M. Gianone,
+  Digital Press, Burlington, MA, USA.  Publication date: Winter 1992.
+  Order Number: EY-J896E-DP
+  Digital Press ISBN: 1-55558-108-0
+  Prentice Hall ISBN: 0-13-037490-3
+
+  DISCLAIMER:
+
+  The C-Kermit software is provided in source code form by Kermit Development
+  and Distribution, Columbia University.  The software is provided "as is;" no
+  other warranty is provided, express or implied, including without
+  limitations, any implied warranty of merchantability or implied warranty of
+  fitness for a particular purpose.
+
+  Neither Columbia University nor any of the contributors to the C-Kermit
+  development effort, including, but not limited to, AT&T, Digital Equipment
+  Corporation, Data General Corporation, or International Business Machines
+  Corporation, warrant C-Kermit software or documentation in any way.  In
+  addition, neither the authors of any Kermit programs, publications or
+  documentation, nor Columbia University nor any contributing institutions or
+  individuals acknowledge any liability resulting from program or
+  documentation errors.
+
+  ACKNOWLEDGMENTS:
+
+  The Kermit file transfer protocol was developed at the Columbia University
+  Center for Computing Activities (CUCCA).  It is named after Kermit the Frog,
+  star of the television series THE MUPPET SHOW; the name is used by permission
+  of Henson Associates, Inc.
+
+  Thanks to at least the following people for their contributions to this
+  program over the years, and apologies to anybody I missed:
 
    Chris Adie, Edinburgh U, Scotland (OS/2 support)
    Robert Adsett, University of Waterloo, Canada
    Larry Afrin, Clemson U
+   Greg Andrews, Telebit Corp
    Barry Archer, U of Missouri
    Robert Andersson, International Systems A/S, Oslo, Norway
    Chris Armstrong, Brookhaven National Lab (OS/2)
-   William Bader, Moravian College
+   William Bader, Software Consulting Services, Nazareth, PA
    Fuat Baran, CUCCA
    Stan Barber, Rice U
    Jim Barbour, U of Colorado
@@ -65,6 +101,7 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Mike Brown, Purdue U
    Jack Bryans, California State U at Long Beach
    Mark Buda, DEC (VAX/VMS)
+   Fernando Cabral, Padrao IX, Brasilia, Brazil
    Bjorn Carlsson, Stockholm University Computer Centre QZ, Sweden
    Bill Catchings, formerly of CUCCA
    Bob Cattani, Columbia U CS Dept
@@ -84,20 +121,24 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Frank Dreano (Honeywell)
    John Dunlap, University of Washington
    David Dyck, John Fluke Mfg Co.
+   Stefaan A. Eeckels, Eurokom, Luxembourg
+   Paul Eggert, Twin Sun, Inc., El Segundo, CA
    Bernie Eiben, DEC
    Kristoffer Eriksson, Peridot Konsult AB, Oerebro, Sweden
    John R. Evans, IRS, Kansas City
    Glenn Everhart, RCA Labs
+   Charlie Finan, Cray Research
    Herm Fischer, Encino, CA (extensive contributions to version 4.0)
    Carl Fongheiser, CWRU
    Marcello Frutig, Catholic University, Sao Paulo, Brazil (X.25 support)
    Hirofumi Fujii, Japan Nat'l Lab for High Energy Physics, Tokyo (Kanji)
-   Chuck Fuller, PSC
+   Chuck Fuller, Westinghouse Corporate Computer Services
    Andy Fyfe, Caltech
    Christine M. Gianone, CUCCA
    John Gilmore, UC Berkeley
    German Goldszmidt, IBM
    Alistair Gorman, New Zealand
+   Richard Gration, ADFA, Australia
    Chris Green, Essex U, UK
    Alan Grieg, Dundee Tech, Scotland, UK
    Yekta Gursel, MIT
@@ -109,6 +150,8 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Simon Hania, Netherlands
    Stan Hanks, Rice U.
    Ken Harrenstein, SRI
+   Eugenia Harris, Data General (AOS/VS)
+   David Harrison, Kingston Warren Corp
    James Harvey, Indiana/Purdue U (VMS)
    Rob Healey
    Chuck Hedrick, Rutgers U
@@ -119,14 +162,17 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Mike Hickey, ITI
    R E Hill
    Bill Homer, Cray Research
+   Ray Hunter, The Wollongong Group
    Randy Huntziger, National Library of Medicine
    Larry Jacobs, Transarc
    Steve Jenkins, Lancaster University, UK
+   Dave Johnson, Gradient Technologies
    Mark B Johnson, Apple Computer
    Eric F Jones, AT&T
    Luke Jones, AT&T
    Peter Jones, U of Quebec Montreal
    Phil Julian, SAS Institute
+   Peter Kabal, U of Quebec
    Mic Kaczmarczik, U of Texas at Austin
    Sergey Kartashoff, Inst. of Precise Mechanics & Computer Equipment, Moscow
    Howie Kaye, CUCCA
@@ -140,11 +186,13 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    David Kricker, Encore Computer
    Thomas Krueger, UWM
    Bo Kullmar, Central Bank of Sweden, Kista
+   R. Brad Kummer, AT&T Bell Labs, Atlanta, GA
    John Kunze, UC Berkeley
    Bob Larson, USC (OS-9)
    Bert Laverman, Groningen U, Netherlands
    Steve Layton
    David Lawyer, UC Irvine
+   David LeVine, National Semiconductor Corporation
    S.O. Lidie, Lehigh U
    Tor Lillqvist, Helsinki University, Finland
    Dean Long
@@ -158,7 +206,7 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Peter Mauzey, AT&T
    Tye McQueen, Utah State U
    Ted Medin
-   Hellmuth Michaelis
+   Hellmuth Michaelis, Hanseatischer Computerservice GmbH, Hamburg, Germany
    Leslie Mikesell, American Farm Bureau
    Martin Minow, DEC (VAX/VMS)
    Pawan Mistra, Bellcore
@@ -176,11 +224,13 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Jim Noble, Planning Research Corporation (Macintosh)
    Ian O'Brien, Bath U, UK
    John Owens
+   Michael Pins, Iowa Computer Aided Engineering Network
    Andre' Pirard, University of Liege, Belgium
    Paul Placeway, Ohio State U (Macintosh & more)
    Piet W. Plomp, ICCE, Groningen University, Netherlands
    Ken Poulton, HP Labs
    Manfred Prange, Oakland U
+   Christopher Pratt, APV Baker, UK
    Frank Prindle, NADC
    Tony Querubin, U of Hawaii
    Anton Rang
@@ -193,6 +243,7 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Jack Rouse, SAS Institute (Data General and/or Apollo)
    Stew Rubenstein, Harvard U (VAX/VMS)
    Bill Schilit, Columbia University
+   Michael Schmidt, U of Paderborn, Germany
    Eric Schnoebelen, Convex
    Benn Schreiber, DEC
    Dan Schullman, DEC (modems, DIAL command, etc)
@@ -208,7 +259,9 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Richard S Smith, Cal State
    Ryan Stanisfer, UNT
    Bertil Stenstroem, Stockholm University Computer Centre (QZ), Sweden
+   James Sturdevant, CAP GEMENI AMERICA, Minneapolis
    Peter Svanberg, Royal Techn. HS, Sweden
+   James R. Swenson, Accu-Weather, Inc.
    Andy Tanenbaum, Vrije U, Amsterdam, Netherlands
    Markku Toijala, Helsinki U of Technology
    Rick Troxel, NIH
@@ -226,11 +279,13 @@ int verwho = VERWHO; /* Who produced this version, 0 = Columbia University */
    Dimitri Vulis, CUNY
    Roger Wallace, Raytheon
    Stephen Walton, Calif State U, Northridge (Amiga)
-   Jamie Watson, Switzerland (RS/6000)
+   Jamie Watson, Adasoft, Switzerland (RS/6000)
    Rick Watson, U of Texas (Macintosh)
-   Robert Weiner
-   Lauren Weinstein
+   Robert Weiner, Programming Plus, New York City
+   Lauren Weinstein, Vortex Technlogy
+   David Wexelblat, AT&T
    Joachim Wiesel, U of Karlsruhe
+   Lon Willett, U of Utah
    Michael Williams, UCLA
    Nate Williams, U of Montana
    David Wilson
@@ -300,6 +355,15 @@ BYE        REMOTE PRINT files  REMOTE TYPE files\r\n\
 FINISH     REMOTE HELP         REMOTE SET parameter value\r\n\
 \0";
 #else
+#ifdef datageneral
+char *hlptxt = "C-Kermit Server REMOTE Commands:\n\
+\n\
+GET files  REMOTE CD [dir]     REMOTE DIRECTORY [filespec]\n\
+SEND files REMOTE SPACE [dir]  REMOTE HOST command\n\
+BYE        REMOTE TYPE file    REMOTE DELETE files\n\
+FINISH     REMOTE WHO          REMOTE SET\n\
+\0";
+#else
 char *hlptxt = "C-Kermit Server REMOTE Commands:\n\
 \n\
 GET files  REMOTE CD [dir]     REMOTE DIRECTORY [files]\n\
@@ -313,63 +377,71 @@ FINISH     REMOTE HELP         REMOTE SET parameter value\n\
 #endif
 #endif
 #endif
+#endif
 
 #ifdef MINIX
 char *srvtxt = "\r\n\
-Entering server mode.\r\n\
-\n\0";
+Entering server mode.\r\n\0";
 #else
 #ifdef OSK
 char *srvtxt = "\r\l\
-C-Kermit server starting.  Return to your local machine by typing\r\l\
-its escape sequence for closing the connection, and issue further\r\l\
-commands from there.  To shut down the C-Kermit server, issue the\r\l\
-BYE command to logout, or the FINISH command and then reconnect.\r\l\
-\l\0";
-#else
+Entering server mode.  If your local Kermit software is menu driven, use\r\l\
+the menus to send commands to the server.  Otherwise, enter the escape\r\l\
+sequence to return to your local Kermit prompt and issue commands from\r\l\
+there.  Use SEND and GET for file transfer.  Use REMOTE HELP for a list of\r\l\
+other available services.  Use BYE or FINISH to end server mode.\r\l\0";
+#else /* UNIX, VMS, AOS/VS, and all others */
 char *srvtxt = "\r\n\
-C-Kermit server starting.  Return to your local machine by typing\r\n\
-its escape sequence for closing the connection, and issue further\r\n\
-commands from there.  To shut down the C-Kermit server, issue the\r\n\
-BYE command to logout, or the FINISH command and then reconnect.\r\n\
-\r\n\0";
-#endif
-#endif
-#else
+Entering server mode.  If your local Kermit software is menu driven, use\r\n\
+the menus to send commands to the server.  Otherwise, enter the escape\r\n\
+sequence to return to your local Kermit prompt and issue commands from\r\n\
+there.  Use SEND and GET for file transfer.  Use REMOTE HELP for a list of\r\n\
+other available services.  Use BYE or FINISH to end server mode.\r\n\0";
+#endif /* OSK */
+#endif /* MINIX */
+#else  /* server mode disabled */
 char *srvtxt = "";
 #endif /* NOSERVER */
 
 /* Declarations for Send-Init Parameters */
 
 int spsiz = DSPSIZ,                     /* Current packet size to send */
-    spmax = DSPSIZ,		/* (PWP) Biggest packet size we can send */
-                                /* (see rcalcpsz()) */
+    spmax = DSPSIZ,			/* Biggest packet size we can send */
     spsizr = DSPSIZ,			/* Send-packet size requested */
-    spsizf = 0,                         /* Flag to override what you ask for */
+    spsizf = 0,                         /* Flag to override size negotiation */
     rpsiz = DRPSIZ,                     /* Biggest we want to receive */
-    urpsiz = DRPSIZ,			/* User-requested rpsiz */
+    urpsiz = DRPSIZ,			/* User-requested receive pkt size */
     maxrps = MAXRP,			/* Maximum incoming long packet size */
     maxsps = MAXSP,			/* Maximum outbound l.p. size */
     maxtry = MAXTRY,			/* Maximum retries per packet */
-    wslots = 1,				/* Window size in use */
-    wslotr = 1,				/* Window size requested */
-    wslotn = 1,				/* Window size negotiated */
+    wslots = 1,				/* Window size currently in use */
+    wslotr = 1,				/* Window size from SET WINDOW */
+    wslotn = 1,				/* Window size negotiated in S-pkt */
     timeouts = 0,			/* For statistics reporting */
     spackets = 0,			/*  ... */
     rpackets = 0,			/*  ... */
     retrans = 0,			/*  ... */
     crunched = 0,			/*  ... */
     wmax = 0,				/*  ... */
-    timint = DMYTIM,                    /* Timeout interval I use */
-    srvtim = DSRVTIM,			/* Server command wait timeout */
+    wcur = 0,				/*  ... */
     srvdis = 0,				/* Server file xfer display */
-    pkttim = DMYTIM,			/* Normal packet wait timeout */
-    rtimo = URTIME,                     /* Timeout I want you to use */
+    srvtim = DSRVTIM,			/* Server command wait timeout */
+/*
+  timint is the timeout interval I use when waiting for a packet.
+  pkttim is the SET RECEIVE TIMEOUT value, sent to the other Kermit.
+  rtimo is the SET SEND TIMEOUT value.  rtimo is the initial value of
+  timint.  timint is changed by the value in the incoming negotiation
+  packet unless a SET SEND TIMEOUT command was given.
+*/
+    timint = DMYTIM,                    /* Timeout interval I use */
+    pkttim = URTIME,			/* Timeout I want you to use */
+    rtimo = DMYTIM,			/* Normal packet wait timeout */
     timef = 0,                          /* Flag to override what you ask */
     npad = MYPADN,                      /* How much padding to send */
     mypadn = MYPADN,                    /* How much padding to ask for */
     bctr = 1,                           /* Block check type requested */
     bctu = 1,                           /* Block check type used */
+    bctl = 1,				/* Block check length */
     ebq =  MYEBQ,                       /* 8th bit prefix */
     ebqflg = 0,                         /* 8th-bit quoting flag */
     rqf = -1,				/* Flag used in 8bq negotiation */
@@ -446,6 +518,7 @@ int pktnum = 0,                         /* Current packet number */
     osize,                              /* Previous output packet data size */
     maxsize,                            /* Max size for building data field */
     spktl = 0,				/* Length packet being sent */
+    rpktl = 0,				/* Length of packet just received */
     rprintf,				/* REMOTE PRINT flag */
     rmailf;				/* MAIL flag */
 
@@ -481,7 +554,7 @@ int stayflg = 0;			/* Flag for "stay", i.e. "-S" */
 
 /* Communication line variables */
 
-char ttname[50];                        /* Name of communication line. */
+char ttname[80];                        /* Name of communication line. */
 
 #ifdef MAC
 int connected = 0;			/* true if connected */
@@ -489,16 +562,6 @@ int startconnected;			/* initial state of connected */
 #endif /* MAC */
 
 long speed = -1L;			/* Line speed */
-int mdmspd = 1;				/* Modem changes speed flag */
-
-#ifndef NODIAL
-int dialhng = 1;			/* Whether to hangup before dialing */
-int dialtmo = 0;			/* Secs to wait for call to complete */
-int dialksp = 0;			/* Kermit spoof in modem */
-int dialdpy = 0;			/* Dial display */
-int dialmnp = 0;			/* Dial MNP-negotiation enabled */
-char *dialini = (char *) 0;		/* User-spec'd dialer init string */
-#endif /* NODIAL */
 
 int parity,                             /* Parity specified, 0,'e','o',etc */
     autopar = 0,			/* Automatic parity change flag */
@@ -517,7 +580,12 @@ int parity,                             /* Parity specified, 0,'e','o',etc */
 #define MYHOSTL 100
     char myhost[MYHOSTL];		/* Local host name */
     int network = 0;			/* Network vs tty connection */
+#ifdef OS2
+/* For now, DECnet is the only type supported by OS/2 */
+    int nettype = NET_DEC;
+#else
     int nettype = NET_TCPB;		/* Assume TCP/IP (BSD sockets) */
+#endif /* OS2 */
 
 #ifdef SUNX25
     extern initpad();
@@ -560,7 +628,8 @@ long filcnt,                    /* Number of files in transaction */
     tfc,                        /* Chars to/from files in transaction */
     rptn;			/* Repeated characters compressed */
 
-int tsecs;                      /* Seconds for transaction */
+int tsecs = 0;                  /* Seconds for transaction */
+int fsecs = 0;			/* Per-file timer */
 
 /* Flags */
 
@@ -625,7 +694,12 @@ int en_set = 1;				/* SET */
 int en_spa = 1;				/* SPACE */
 int en_typ = 1;				/* TYPE */
 int en_who = 1;				/* WHO */
+#ifdef datageneral
+/* Data General AOS/VS can't do this */
+int en_bye = 0;				/* BYE */
+#else
 int en_bye = 1;				/* BYE */
+#endif /* datageneral */
 
 /* Miscellaneous */
 
@@ -675,7 +749,11 @@ main(argc,argv) int argc; char **argv;
 #endif /* MAC */
 #endif /* aegis */
 {
-
+#ifdef datageneral
+short *pfha = 016000000036;             /* Get around LANG_RT problem -- */
+*pfha = (short) 0;                      /* No user protection fault handler */
+#endif /* datageneral */
+  
 /* Do some initialization */
 
     if (sysinit() < 0)			/* System-dependent initialization. */
@@ -696,11 +774,13 @@ main(argc,argv) int argc; char **argv;
     local = dfloc;                      /* And whether it's local or remote. */
     parity = dfprty;                    /* Set initial parity, */
     flow = dfflow;                      /* and flow control. */
+#ifndef COHERENT
     if (local) if (ttopen(ttname,&local,0,0) < 0) { /* If default tty line */
 	printf("%s: Can't open device\n",ttname);   /* is external, open it */
 	local = 0;			            /* now... */
 	strcpy(ttname,CTTNAM);
     }
+#endif /* COHERENT */
     speed = ttgspd();			/* Get transmission speed. */
 
 #ifdef SUNX25
@@ -711,7 +791,6 @@ main(argc,argv) int argc; char **argv;
       fatal("Can't allocate packet buffers!");
 
 #ifndef NOICP
-
 #ifdef MAC
     cmdini();
 #else /* Not MAC */

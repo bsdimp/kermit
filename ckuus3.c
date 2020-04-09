@@ -31,14 +31,16 @@
 extern int size, spsiz, spmax, urpsiz, srvtim, 
   local, server, success,
   flow, binary, delay, parity, escape, what, srvdis,
-  turn, duplex,
+  turn, duplex, backgrd,
   turnch, bctr, mdmtyp, keep, maxtry, unkcs, network,
   ebqflg, quiet, swcapr, nettype,
   wslotr, lscapr, lscapu,
   carrier, debses,
-  cdtimo, nlangs, bgset, pflag, dblchar,
+  cdtimo, nlangs, bgset, pflag, msgflg, dblchar,
   cmdmsk, spsizr, wildxpand, suspend, 
   techo, terror;
+
+extern char *ccntab[];
 
 #ifndef NOSCRIPT
 extern int secho;			/* Whether SCRIPT cmd should echo */
@@ -103,9 +105,20 @@ extern int cmdlvl;			/* Overall command level */
 extern int sessft;			/* Session-log file type */
 #endif /* UNIX */
 
+
+#ifdef VMS
+int vms_msgs = 1;			/* SET MESSAGES */
+#endif /* VMS */
 
 /* Keyword tables for SET commands */
  
+struct keytab chktab[] = {
+    "1", 1, 0,
+    "2", 2, 0,
+    "3", 3, 0,
+    "blank-free-2", 4, 0
+};
+
 /* For SET MODEM */
 
 struct keytab autotab[] = {
@@ -148,30 +161,43 @@ int ndbg = 3;
 /* rather than numeric order. */ 
 
 struct keytab spdtab[] = {
-      "0",    0,  CM_INV,
+    "0",      0,  CM_INV,
     "110",   11,  0,
-   "1200",  120,  0,
-    "150",   15,  0,
+#ifdef OS2
+#ifdef __32BIT__
+ "115200",11520,  0,
+#endif /* __32BIT__ */
+#endif /* OS2 */
+  "1200",   120,  0,
+#ifdef OS2
+  "14400", 1440,  0,
+#endif /* OS2 */
+  "150",     15,  0,
   "19200", 1920,  0,
-    "200",   20,  0,
-   "2400",  240,  0,
-    "300",   30,  0,
-   "3600",  360,  0,
+  "200",     20,  0,
+  "2400",   240,  0,
+  "300",     30,  0,
+  "3600",   360,  0,
   "38400", 3840,  0,
-   "4800",  480,  0,
-     "50",    5,  0,
+  "4800",   480,  0,
+  "50",       5,  0,
 #ifdef OS2
   "57600", 5760,  0,  
 #endif /* OS2 */
-    "600",   60,  0,
+  "600",     60,  0,
 #ifdef OS2
-   "7200",  720,  0,
+  "7200",   720,  0,
 #endif /* OS2 */
-     "75",    7,  0,
+  "75",       7,  0,
 #ifdef ANYBSD
-"75/1200",  888,  0,		/* Special code "888" for split speed */
-#endif
-   "9600",  960,  0
+  "75/1200",888,  0,		/* Special code "888" for split speed */
+#endif /* ANYBSD */
+#ifdef OS2
+#ifdef __32BIT__
+  "76800", 7680,  0,
+#endif /* __32BIT__ */
+#endif /* OS2 */
+  "9600",   960,  0
 };
 int nspd = (sizeof(spdtab) / sizeof(struct keytab)); /* how many speeds */
 
@@ -196,6 +222,7 @@ struct keytab filtab[] = {
 #endif /* NOCSETS */
     "collision",        XYFILX, 0,
     "display",          XYFILD, 0,
+    "incomplete",       XYFILI, 0,
 #ifdef VMS
     "label",            XYFILL, 0,
 #endif /* VMS */
@@ -210,20 +237,20 @@ int nfilp = (sizeof(filtab) / sizeof(struct keytab));
 
 /* Flow Control */
 
-#ifdef UTEK
-struct keytab flotab[] = {
-    "none",	FLO_NONE, 0,
-    "xon/xoff",	FLO_XONX, 0,
-    "idtr/octs",FLO_HARD, 0
-};
-#else
-struct keytab flotab[] = {
-    "none",     FLO_NONE, 0,
+struct keytab flotab[] = {		/* SET FLOW-CONTROL keyword table */
+#ifdef CK_DTRCD
     "dtr/cd",   FLO_DTRC, 0,
+#endif /* CK_DTRCD */
+#ifdef CK_DTRCTS
+    "dtr/cts",FLO_DTRT, 0,
+#endif /* CK_DTRCTS */
+    "keep",     FLO_KEEP, 0,
+    "none",     FLO_NONE, 0,
+#ifdef CK_RTSCTS
     "rts/cts",  FLO_RTSC, 0,
+#endif /* CK_RTSCTS */
     "xon/xoff", FLO_XONX, 0
 };
-#endif /* UTEK */
 int nflo = (sizeof(flotab) / sizeof(struct keytab));
 
 /*  Handshake characters  */
@@ -256,7 +283,10 @@ int nfttyp = (sizeof(fttab) / sizeof(struct keytab));
  
 #ifndef NODIAL
 extern struct keytab mdmtab[] ;		/* Modem types (in module ckudia.c) */
-extern int nmdm;
+extern int nmdm;			/* Number of them */
+#ifndef MINIDIAL
+extern int tbmodel;			/* Telebit model ID */
+#endif /* MINIDIAL */
 #endif /* NODIAL */
  
 #ifdef UNIX
@@ -322,16 +352,33 @@ struct keytab onoff[] = {
     "on",        1, 0
 };
  
+struct keytab rltab[] = {
+    "local",     1, 0,
+    "off",       0, CM_INV,
+    "on",        1, CM_INV,
+    "remote",    0, 0
+};
+int nrlt = (sizeof(rltab) / sizeof(struct keytab));
+
 /* Incomplete File Disposition table */
-static 
+static
 struct keytab ifdtab[] = {
     "discard",   0, 0,
     "keep",      1, 0
 };
 
-/* Take parameters table */
+/* SET TAKE parameters table */
 static
 struct keytab taktab[] = {
+    "echo",  0, 0,
+    "error", 1, 0,
+    "off",   2, CM_INV,			/* For compatibility */
+    "on",    3, CM_INV			/* with MS-DOS Kermit... */
+};
+
+/* SET MACRO parameters table */
+static
+struct keytab smactab[] = {
     "echo",  0, 0,
     "error", 1, 0
 };
@@ -357,7 +404,8 @@ struct keytab srvtab[] = {
 };
 #endif /* NOSERVER */
 
-/* 'set transfer' table */
+/* SET TRANSFER/XFER table */
+
 struct keytab tstab[] = {
 #ifndef NOCSETS
     "character-set", 1,   0,
@@ -380,7 +428,133 @@ struct keytab lstab[] = {
     "on",     1,   0
 };
 int nls = (sizeof(lstab) / sizeof(struct keytab));
-
+
+/* SET TELNET table */
+#ifdef TNCODE
+extern int tn_duplex, tn_nlm;
+extern char *tn_term;
+struct keytab tntab[] = {
+    "echo",          CK_TN_EC,   0,
+    "newline-mode",  CK_TN_NL,   0,
+    "terminal-type", CK_TN_TT,   0
+};
+int ntn = (sizeof(tntab) / sizeof(struct keytab));
+#endif /* TNCODE */
+
+struct keytab ftrtab[] = {		/* Feature table */
+#ifndef NOCSETS				/* 0 = we have it, 1 = we don't */
+"character-sets",	0, 0,
+#else
+"character-sets",	1, 0,
+#endif /* NOCSETS */
+#ifndef NOCYRIL
+"cyrillic",		0, 0,
+#else
+"cyrillic",		1, 0,
+#endif /* NOCYRIL */
+
+#ifndef NODEBUG
+"debug",		0, 0,
+#else
+"debug",		1, 0,
+#endif /* NODEBUG */
+
+#ifndef NODIAL
+"dial",			0, 0,
+#else
+"dial",			1, 0,
+#endif /* NODIAL */
+
+#ifdef DYNAMIC
+"dynamic-memory",       0, 0,
+#else
+"dynamic-memory",       1, 0,
+#endif /* DYNAMIC */
+
+#ifdef CK_CURSES
+"fullscreen-display",	0, 0,
+#else
+"fullscreen-display",	1, 0,
+#endif /* CK_CURSES */
+#ifndef NOHELP
+"help",			0, 0,
+#else
+"help",			1, 0,
+#endif /* NOHELP */
+#ifndef NOSPL
+"if-command",		0, 0,
+#else
+"if-command",		1, 0,
+#endif /* NOSPL */
+#ifndef NOJC
+#ifdef UNIX
+"job-control",		0, 0,
+#else
+"job-control",		1, 0,
+#endif /* UNIX */
+#else
+"job-control",		1, 0,
+#endif /* NOJC */
+#ifdef KANJI
+"kanji",		0, 0,
+#else
+"kanji",		1, 0,
+#endif /* KANJI */
+#ifndef NOCSETS
+"latin1",		0, 0,
+#else
+"latin1",		1, 0,
+#endif /* NOCSETS */
+#ifdef LATIN2
+"latin2",		0, 0,
+#else
+"latin2",		1, 0,
+#endif /* LATIN2 */
+#ifdef NETCONN
+"network",		0, 0,
+#else
+"network",		1, 0,
+#endif /* NETCONN */
+#ifndef NOPUSH
+"push",			0, 0,
+#else
+"push",			1, 0,
+#endif /* PUSH */
+#ifndef NOSCRIPT
+"script-command",	0, 0,
+#else
+"script-command",	1, 0,
+#endif /* NOSCRIPT */
+#ifndef NOSERVER
+"server-mode",		0, 0,
+#else
+"server-mode",		1, 0,
+#endif /* NOSERVER */
+#ifndef NOSHOW
+"show-command",		0, 0,
+#else
+"show-command",		1, 0,
+#endif /* NOSHOW */
+#ifndef NOXMIT
+"transmit",		0, 0,
+#else
+"transmit",		1, 0
+#endif /* NOXMIT */
+};
+int nftr = (sizeof(ftrtab) / sizeof(struct keytab));
+
+int					/* CHECK command */
+dochk() {
+    int x, y;
+    if ((y = cmkey(ftrtab,nftr,"","",xxstring)) < 0) return(y);
+    if ((x = cmcfm()) < 0) return(x);
+    if (msgflg)				/* If at top level... */
+      printf(" %svailable\n", y ? "Not a" : "A"); /* Print a message */
+    else if (y && !backgrd)		/* Or if not available and in */
+      printf(" CHECK: feature not available\n"); /* command file or macro */
+    return(success = 1 - y);
+}
+
 #ifndef MAC
 #ifndef NOSETKEY
 int
@@ -395,6 +569,9 @@ set_key() {				/* SET KEY */
 	printf("?key code must be between 0 and %d\n", KMSIZE - 1);
 	return(-9);
     }
+#ifdef OS2
+    wideresult = -1;
+#endif /* OS2 */
     if ((y = cmtxt("key definition","",&bind,xxstring)) < 0)
       return(y);
     if (macrotab[kc]) {			/* Possibly free old macro from key */
@@ -402,22 +579,28 @@ set_key() {				/* SET KEY */
 	macrotab[kc] = NULL;
     }
     switch (strlen(bind)) {		/* Action depends on length */
+#ifdef OS2
+      case 0:				/* Reset to default binding */
+        keymap[kc] = wideresult == -1 ? kc : 0;   /* or bind to NUL */
+	break;
+      case 1:				/* Single character */
+	keymap[kc] = wideresult == -1 ? (CHAR) *bind : wideresult;
+	break;
+#else /* Not OS/2 */
       case 0:				/* Reset to default binding */
 	keymap[kc] = kc;
 	break;
       case 1:				/* Single character */
-#ifdef OS2
-	keymap[kc] = wideresult;
-#else
-	keymap[kc] = (CHAR) *bind;
+  	keymap[kc] = (CHAR) *bind;
+  	break;
 #endif /* OS2 */
-      break;
-    default:				/* Character string */
-      keymap[kc] = kc;
-      macrotab[kc] = (MACRO) malloc(strlen(bind)+1);
-      if (macrotab[kc])
-        strcpy((char *) macrotab[kc], bind);
-      break;
+
+      default:				/* Character string */
+	keymap[kc] = kc;
+	macrotab[kc] = (MACRO) malloc(strlen(bind)+1);
+	if (macrotab[kc])
+	  strcpy((char *) macrotab[kc], bind);
+	break;
     }
     return(1);
 }
@@ -453,8 +636,8 @@ case XYMARK:
 case XYNPAD:
 case XYPADC:
 case XYTIMO:
-    printf("...Use 'set send' or 'set receive' instead.\n");
-    printf("Type 'help set send' or 'help set receive' for more info.\n");
+    printf("...Use SET SEND or SET RECEIVE instead.\n");
+    printf("Type HELP SET SEND or HELP SET RECEIVE for more info.\n");
     return(success = 0);
 
 case XYATTR:				/* File Attribute packets */
@@ -483,6 +666,7 @@ case XYNET:				/* SET NETWORK */
     if ((x = cmcfm()) < 0) return(x);
     nettype = z;
     if (
+	(nettype != NET_DEC) &&
 	(nettype != NET_SX25) &&
         (nettype != NET_TCPB)) {
 	printf("?Network type not supported\n");
@@ -565,15 +749,14 @@ case XYBUF: {				/* BUFFERS */
 }
 
 case XYCHKT:				/* BLOCK-CHECK */
-    if ((y = cmnum("1, 2, or 3","1",10,&x,xxstring)) < 0) return(y);
+    if ((x = cmkey(chktab,4,"","1",xxstring)) < 0) return(x);
     if ((y = cmcfm()) < 0) return(y);
-    if (x < 0 || x > 3) {
-	printf("?The choices are 1, 2, and 3\n");
-	return(-2);
-    }
     bctr = x;			     /* Set locally too, even if REMOTE SET */
     if (rmsflg) {
-	sprintf(tmpbuf,"%d",x);
+	if (x == 4) {
+	    tmpbuf[0] = 'B';
+	    tmpbuf[1] = '\0';
+	} else sprintf(tmpbuf,"%d",x);
 	sstate = setgen('S', "400", tmpbuf, "");
 	return((int) sstate);
     } else {
@@ -596,6 +779,40 @@ case XYCARR:				/* CARRIER */
     return(success = 1);
 #endif /* MAC */
 
+#ifdef TNCODE
+case XYTEL:				/* TELNET */
+    if ((z = cmkey(tntab,ntn,"parameter for TELNET negotiations", "",
+		   xxstring)) < 0) return(z);
+    switch (z) {
+      case CK_TN_EC:			/* ECHO */
+	if ((x = cmkey(rltab,nrlt,
+		       "initial TELNET echoing state","local",xxstring)) < 0)
+	  return(x);
+	if ((y = cmcfm()) < 0) return(y);
+	tn_duplex = x;
+	return(success = 1);
+
+      case CK_TN_TT:			/* TERMINAL TYPE */
+	if ((y = cmtxt("terminal type for TELNET connections","",
+		       &s,xxstring)) < 0)
+	  return(y);
+	if (tn_term) free(tn_term);	/* Free any previous storage */
+	if (s == NULL || *s == NUL) {	/* If none given */
+	    tn_term = NULL;		/* remove the override string */
+	    return(success = 1);
+	} else if (tn_term = malloc(strlen(s)+1)) { /* Make storage for new */
+	    strcpy(tn_term,s);		/* Copy string into new storage */
+	    return(success = 1);
+	} else return(success = 0);
+
+      case CK_TN_NL:			/* NEWLINE-MODE */
+	return(success = seton(&tn_nlm));
+
+      default:
+	return(-2);
+    }
+#endif /* TNCODE */
+
 default:
     break;
 }
@@ -604,7 +821,7 @@ switch (xx) {
 #ifndef NOSPL
 case XYCOUN:				/* SET COUNT */
     x = cmnum("Positive number","0",10,&z,xxstring);
-    if (x < 0) return(z);
+    if (x < 0) return(x);
     if ((x = cmcfm()) < 0) return(x);
     if (z < 0) {
 	printf("?A positive number, please\n");
@@ -639,29 +856,31 @@ case XYDFLT:				/* SET DEFAULT = CD */
 case XYDEBU:				/* SET DEBUG { on, off, session } */
     if ((y = cmkey(dbgtab,ndbg,"","",xxstring)) < 0) return(y);
     if ((x = cmcfm()) < 0) return(x);
-#ifdef DEBUG
     switch (y) {
       case 0:				/* 0 = all debugging off. */
 	debses = 0;
+#ifdef DEBUG
 	if (deblog) doclslog(LOGD);
+#endif /* DEBUG */
         return(success = 1);
 
       case 1:				/* 1 = log debugging to debug.log */
+#ifdef DEBUG
 	deblog = debopn("debug.log", 0);
 	return(success = deblog ? 1 : 0);
+#else
+	printf("?Sorry, debug log feature not enabled\n");
+	return(success = 0);
+#endif /* DEBUG */
 
       case 2:				/* 2 = session. */
 	return(success = debses = 1);
     }
-#else
-    printf("?Sorry, debugging not enabled\n");
-    return(success = 0);
-#endif /* DEBUG */
- 
+
 case XYDELA:				/* SET DELAY */
     y = cmnum("Number of seconds before starting to send","5",10,&x,xxstring);
-    debug(F101,"XYDELA: y","",y);
-    return(success = setnum(&delay,x,y,94));
+    if (x < 0) x = 0;
+    return(success = setnum(&delay,x,y,999));
 
 default:
     break;
@@ -679,7 +898,7 @@ case XYDOUB:
     if ((x = cmfld("Character to double","none",&s,xxstring)) < 0) {
 	if (x == -3) {
 	    dblchar = -1;
-	    if (!quiet) printf("Doubling Off\n");
+	    if (msgflg) printf("Doubling Off\n");
 	    return(success = 1);
 	} else return(x);
     }
@@ -688,12 +907,12 @@ case XYDOUB:
     if ((x = cmcfm()) < 0) return(x);
     if (!xxstrcmp(lp,"none",4)) {
 	dblchar = -1;
-	if (!quiet) printf("Doubling Off\n");
+	if (msgflg) printf("Doubling Off\n");
 	return(success = 1);
     }
     if ((int)strlen(lp) != 1) return(-2);
     dblchar = *lp & 0xFF;
-    if (!quiet) printf("Doubled: %d\n",dblchar);
+    if (msgflg) printf("Doubled: %d\n",dblchar);
     return(success = 1);
 #endif /* COMMENT */
 
@@ -707,8 +926,17 @@ case XYLCLE:				/* LOCAL-ECHO (= DUPLEX) */
     return(success = seton(&duplex));
 
 case XYESC:				/* SET ESCAPE */
-    y = cmnum("Decimal ASCII code for escape character","",10,&x,xxstring);
-    return(success = setcc(&escape,x,y));
+    sprintf(tmpbuf,"%d",DFESC);
+    y = cmnum("Decimal ASCII code for CONNECT-mode escape character",
+	      tmpbuf, 10,&x,xxstring);
+    success = setcc(&escape,x,y);
+#ifdef COMMENT
+/* This is what SHOW ESCAPE is for. */
+    if (success && msgflg)
+      printf(" CONNECT-mode escape character: %d (Ctrl-%c, %s)\n",
+	     escape,ctl(escape),(escape == 127 ? "DEL" : ccntab[escape]));
+#endif /* COMMENT */
+    return(success);
 
 default:
     break;
@@ -719,24 +947,13 @@ case XYFILE:				/* SET FILE */
     return(setfil(rmsflg));
 
 case XYFLOW:				/* FLOW-CONTROL */
+/*
+  Note: flotab[] keyword table (defined above) only includes the legal 
+  flow-control options for each implementation, controlled by symbols
+  defined in ckcdeb.h.
+*/
     if ((y = cmkey(flotab,nflo,"","xon/xoff",xxstring)) < 0) return(y);
     if ((x = cmcfm()) < 0) return(x);
-#ifdef NOTERMIX
-#ifdef NEXT
-    if (y != FLO_NONE || y != FLO_XONX) {
-	if (y == FLO_RTSC) {
-	    printf("Informational only, you must use the /dev/cuf? device.\n");
-	} else {
-	    printf("?Flow control type not supported on this computer\n");
-	    return(-9);
-	}
-#else
-    if (y != FLO_NONE || y != FLO_XONX) {
-	printf("?Flow control type not supported on this computer\n");
-	return(-9);
-    }
-#endif /* NEXT */
-#endif /* TERMIX */
     flow = y;
     debug(F101,"set flow","",flow);
     return(success = 1);
@@ -758,8 +975,7 @@ case XYHAND:				/* HANDSHAKE */
  
 #ifndef NOSPL
 case XYMACR:				/* SET MACRO */
-    /* Note, if TAKE and MACRO options become different, make a new table */
-    if ((y = cmkey(taktab,2,"","",xxstring)) < 0) return(y);
+    if ((y = cmkey(smactab,2,"","",xxstring)) < 0) return(y);
     switch (y) {
       case 0: return(success = seton(&mecho));
       case 1: return(success = seton(&merror));
@@ -771,18 +987,22 @@ case XYMACR:				/* SET MACRO */
 case XYMODM:				/* SET MODEM */
     if ((x = cmkey(mdmtab,nmdm,"type of modem","none", xxstring)) < 0)
 	return(x);
-#ifdef COMMENT
-    if ((y = cmkey(autotab,2,
-		   "speed configuration","changes-speed",xxstring)) < 0)
-      return(y);
-#endif /* COMMENT */
     if ((z = cmcfm()) < 0) return(z);
     mdmtyp = x;
-#ifdef COMMENT
-    mdmspd = y;
-#endif /* COMMENT */
+#ifndef MINIDIAL
+    tbmodel = 0;          /* If it's a Telebit, we don't know the model yet */
+#endif /* MINIDIAL */
     return(success = 1);
 #endif /* NODIAL */
+
+  case XYMSGS:
+#ifdef VMS
+    if ((z = cmkey(onoff,2,"","",xxstring)) < 0) return(z);
+    if ((y = cmcfm()) < 0) return(y);
+    vms_msgs = z;
+    printf("Sorry, SET MESSAGES not implemented yet\n");
+    return(success = 0);
+#endif /* VMS */
 default:
     break;
 }
@@ -817,20 +1037,27 @@ case XYPROM:				/* SET PROMPT */
 	    s[x-1] = NUL;
 	    s++;
 	}
-    } else if (*s == '"') {		/* For compatibility with pre-5A */
+    }
+#ifdef COMMENT
+/*
+  Let's not do this any more -- we don't do it anywhere else.
+*/
+    else if (*s == '"') {		/* For compatibility with pre-5A */
 	x = (int)strlen(s);
 	if (s[x-1] == '"') {
 	    s[x-1] = NUL;
 	    s++;
 	}
     }
-    cmsetp(s);				/* set the prompt */
+#endif /* COMMENT */
+    cmsetp(s);				/* Set the prompt */
     return(success = 1);
 #endif /* NOFRILLS */
  
 case XYRETR:				/* RETRY: per-packet retry limit */
     y = cmnum("Maximum retries per packet","10",10,&x,xxstring);
-    if ((x = setnum(&maxtry,x,y,94)) < 0) return(x);
+    if (x < 0) x = 0;
+    if ((x = setnum(&maxtry,x,y,999)) < 0) return(x);
     if (maxtry <= wslotr) {
 	printf("?Retry limit must be greater than window size\n");
 	return(success = 0);
@@ -865,8 +1092,7 @@ case XYSERV:				/* SET SERVER items */
 	    return(success = 1);
 	}
       case XYSERD:			/* SERVER DISPLAY */
-	seton(&srvdis);			/* on or off... */
-	return(success = 1);
+	return(success = seton(&srvdis)); /* ON or OFF... */
       default:
 	return(-2);
     }
@@ -881,10 +1107,12 @@ case XYSUSP:				/* SET SUSPEND */
 #endif /* UNIX */
 
 case XYTAKE:				/* SET TAKE */
-    if ((y = cmkey(taktab,2,"","",xxstring)) < 0) return(y);
+    if ((y = cmkey(taktab,4,"","",xxstring)) < 0) return(y);
     switch (y) {
       case 0: return(success = seton(&techo));
       case 1: return(success = seton(&terror));
+      case 2: techo = 0; return(success = 1); /* For compatibility with */
+      case 3: techo = 1; return(success = 1); /* MS-DOS Kermit */
       default: return(-2);
     }
 
@@ -940,7 +1168,7 @@ case XYSPEE:				/* SET SPEED */
     }
     if ((y = cmcfm()) < 0) return(y);
     if (!local) {
-	printf("?Sorry, you must 'set line' first\n");
+	printf("?Sorry, you must SET LINE first\n");
 	return(success = 0);
     }
     zz = (long) x * 10L;
@@ -1014,32 +1242,34 @@ case XYSPEE:				/* SET SPEED */
 
   case XYWIND:				/* WINDOW-SLOTS */
     y = cmnum("Number of sliding-window slots, 1 to 31","1",10,&x,xxstring);
-    y = setnum(&wslotr,x,y,31);
+    y = setnum(&z,x,y,31);
     if (y < 0) return(y);
-    if (wslotr < 1) wslotr = 1;
+    if (z < 1) z = 1;
 #ifdef COMMENT
     /* This is unreasonable */
-    if (maxtry < wslotr) {
+    if (maxtry < z) {
 	printf("?Window slots must be less than retry limit\n");
 	return(success = 0);
     }
 #endif /* COMMENT */
-    if (rmsflg) {
+    if (rmsflg) {			/* Set remote window size */
 	tp = tmpbuf;
-	sprintf(tp,"%d",wslotr);
+	sprintf(tp,"%d",z);
 	sstate = setgen('S', "406", tp, "");
 	return((int) sstate);
     }
+    wslotr = z;				/* Set local window size */
     swcapr = (wslotr > 1) ? 1 : 0;	/* Set window bit in capas word? */
     if (wslotr > 1) {			/* Window size > 1? */
 	y = adjpkl(urpsiz,wslotr,bigrbsiz); /* Maybe adjust packet size */
-	if (y != urpsiz) {		       /* Did it change? */
+	if (y != urpsiz) {		/* Did it change? */
 	    urpsiz = y;
-	    if (!quiet)
-	    printf("Adjusting receive packet size to %d for %d window slots\n",
+	    if (msgflg)
+	    printf(
+" Adjusting receive packet-length to %d for %d window slots\n",
 		   urpsiz, wslotr);
 	}
-    } else swcapr = 0;
+    }
     return(success = 1);
 
 default:

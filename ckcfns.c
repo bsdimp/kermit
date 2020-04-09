@@ -1,4 +1,4 @@
-char *fnsv = "C-Kermit functions, 5A(073) 8 Feb 92";
+char *fnsv = "C-Kermit functions, 5A(079) 23 Nov 92";
 
 /*  C K C F N S  --  System-independent Kermit protocol support functions.  */
 
@@ -29,9 +29,9 @@ char *fnsv = "C-Kermit functions, 5A(073) 8 Feb 92";
 /* Externals from ckcmai.c */
 extern int spsiz, spmax, rpsiz, timint, srvtim, rtimo, npad, ebq, ebqflg,
  rpt, rptq, rptflg, capas, keep, fncact, pkttim, autopar, spsizr;
-extern int pktnum, bctr, bctu, fmask, clfils, sbufnum,
- size, osize, spktl, nfils, warn, timef, spsizf;
-extern int parity, turn, network, what,
+extern int pktnum, bctr, bctu, bctl, fmask, clfils, sbufnum,
+ size, osize, spktl, nfils, warn, timef, spsizf, sndtyp, success;
+extern int parity, turn, network, what, fsecs,
  delay, displa, xflg, mypadn;
 extern long filcnt, ffc, flci, flco, tlci, tlco, tfc, fsize, speed;
 extern int fblksiz, frecl, frecfm, forg, fcctrl;
@@ -116,11 +116,21 @@ int sndsrc;		/* Flag for where to get names of files to send: */
 
 int  memstr;				/* Flag for input from memory string */
 
+#ifdef pdp11
+CHAR myinit[25];			/* Copy of my Send-Init data */
+#else
+CHAR myinit[100];			/* Copy of my Send-Init data */
+#endif /* pdp11 */
+
 /* Variables local to this module */
 
 static char *memptr;			/* Pointer for memory strings */
 
-static char cmdstr[100];		/* Unix system command string */
+#ifdef pdp11
+static char cmdstr[50];			/* System command string. */
+#else
+static char cmdstr[100];
+#endif /* pdp11 */
 
 static int drain;			/* For draining stacked-up ACKs. */
 
@@ -142,11 +152,13 @@ extern int quiet;
   Note: Character set translation is never done in this case.
 */
 
+#ifdef pdp11
+#define ENCBUFL 100
+#else
 #define ENCBUFL 200
-CHAR encbuf[ENCBUFL];			/* Because getpkt always writes */
-					/* into "data", but when this */
-					/* function is called, "data" might */
-					/* might not be allocated. */
+#endif /* pdp11 */
+CHAR encbuf[ENCBUFL];
+
 int
 encstr(s) CHAR* s; {
     int m; char *p;
@@ -156,9 +168,9 @@ encstr(s) CHAR* s; {
 	debug(F111,"encstr string too long for buffer",s,ENCBUFL);
 	s[ENCBUFL] = '\0';
     }
-    if (m > spsiz-bctu-3) {
-	debug(F111,"encstr string too long for packet",s,spsiz-bctu-3);
-	s[spsiz-bctu-3] = '\0';
+    if (m > spsiz-bctl-3) {
+	debug(F111,"encstr string too long for packet",s,spsiz-bctl-3);
+	s[spsiz-bctl-3] = '\0';
     }
     m = memstr; p = memptr;		/* Save these. */
 
@@ -167,7 +179,11 @@ encstr(s) CHAR* s; {
     first = 1;				/* Initialize character lookahead. */
     dsave = data;			/* Boy is this ugly... */
     data = encbuf + 7;			/* Why + 7?  See spack()... */
-    getpkt(spsiz-bctu-3,0);		/* Fill a packet from the string. */
+#ifdef COMMENT
+    getpkt(spsiz-bctl-3,0);		/* Fill a packet from the string. */
+#else
+    getpkt(spsiz,0);
+#endif /* COMMENT */
     data = dsave;			/* (sorry...) */
     memstr = m;				/* Restore memory string flag */
     memptr = p;				/* and pointer */
@@ -323,6 +339,14 @@ decode(buf,fn,xlate) register CHAR *buf; register int (*fn)(); int xlate;
     int t;				/* Int version of character */
     int ssflg;				/* Character was single-shifted */
 
+/*
+  Catch the case in which we are asked to decode into a file that is not open,
+  for example, if the user interrupted the transfer, but the other Kermit
+  keeps sending.
+*/
+    if ((cxseen || czseen || discard) && (fn == putfil))
+      return(0);
+
     xdbuf = buf;			/* Make global copy of pointer. */
     rpt = 0;				/* Initialize repeat count. */
 
@@ -391,7 +415,7 @@ decode(buf,fn,xlate) register CHAR *buf; register int (*fn)(); int xlate;
 		} else
 #endif /* KANJI */
 #endif /* NOCSETS */
-		if ((t = zmchout(a)) < 0) {	/* zmchout is a macro */
+		if ((t = zmchout(a & fmask)) < 0) { /* zmchout is a macro */
 #ifdef COMMENT
 /* Too costly, uncomment these if you really need them. */
 		    debug(F101,"decode zmchout","",t);
@@ -403,6 +427,7 @@ decode(buf,fn,xlate) register CHAR *buf; register int (*fn)(); int xlate;
 		ffc++;			/* Count the character */
 	    }
 	} else {			/* Output to something else. */
+	    a &= fmask;			/* Apply file mask */
 	    for (; rpt > 0; rpt--) {	/* Output the char RPT times */
 		if ((*fn)((char) a) < 0) return(-1); /* Send to output func. */
 		ffc++;
@@ -419,6 +444,10 @@ decode(buf,fn,xlate) register CHAR *buf; register int (*fn)(); int xlate;
  Encodes the data into the packet, filling the packet optimally.
  Set first = 1 when calling for the first time on a given input stream
  (string or file).
+
+ Call with:
+ bufmax -- current send-packet size
+ xlate  -- flag: 0 to skip character-set translation, 1 to translate
 
  Uses global variables:
  t     -- current character.
@@ -485,12 +514,20 @@ getpkt(bufmax,xlate) int bufmax, xlate; { /* Fill one packet buffer */
     register int a7;			/* Low 7 bits of character */
     static CHAR leftover[9] = { '\0','\0','\0','\0','\0','\0','\0','\0','\0' };
     CHAR xxls, xxdl, xxrc, xxss, xxcq;	/* Pieces of prefixed sequence */
+    int n;				/* worker */
 
-#ifdef KANJI
-    int zkanji();			/* For translating Kanji characters */
-    int zkanjf();
-    int zkanjz();
-#endif /* KANJI */
+/*
+  Assume bufmax is the receiver's total receive-packet buffer length.
+  Our whole packet has to fit into it, so we adjust the data field length.
+  We also decide optimally whether it is better to use a short-format or
+  long-format packet when we're near the borderline.
+*/
+    n = bufmax - 5;			/* Space for Data and Checksum */
+    if (n > 92 && n < 96) n = 92;	/* "Short" Long packets don't pay */
+    if (n > 92 && lpcapu == 0)		/* If long packets needed, */
+      n = 92;				/* make sure they've been negotiated */
+    bufmax = n - bctl;			/* Space for data */
+    if (n > 92) bufmax -= 3;		/* Long packet needs header chksum */
 
     if (first == 1) {		/* If first character of this file... */
 	ffc = 0L;		/* Reset file character counter */
@@ -547,6 +584,8 @@ getpkt(bufmax,xlate) int bufmax, xlate; { /* Fill one packet buffer */
 #endif /* not NOCSETS */
 
 	rt &= fmask;			/* Apply SET FILE BYTESIZE mask */
+	debug(F101,"getpkt fmask","",fmask);
+	debug(F101,"getpkt new rt","",rt);
 
 #ifndef NOCSETS
 	if (xlate) {
@@ -613,7 +652,7 @@ getpkt(bufmax,xlate) int bufmax, xlate; { /* Fill one packet buffer */
 #endif /* KANJI */
 #endif /* not NOCSETS */
 
-	debug(F101,"getpkt rnext","",rnext);
+	/*** debug(F101,"getpkt rnext","",rnext); ***/
 
 #ifndef NOCSETS
 #ifdef KANJI
@@ -805,12 +844,15 @@ tinit() {
     debug(F101,"tinit rx   ","",rx);
 #endif /* COMMENT */
 #endif /* NOCSETS */
+    myinit[0] = '\0';			/* Haven't sent init string yet */
     autopar = 0;			/* Automatic parity detection flag */
+    retrans = 0;			/* Packet retransmission count */
+    sndtyp = 0;				/* No previous packet */
     xflg = 0;				/* Reset x-packet flag */
     rqf = -1;				/* Reset 8th-bit-quote request flag */
     memstr = 0;				/* Reset memory-string flag */
     memptr = NULL;			/*  and pointer */
-    bctu = 1;				/* Reset block check type to 1 */
+    bctu = bctl = 1;			/* Reset block check type to 1 */
     ebq = MYEBQ;			/* Reset 8th-bit quoting stuff */
     ebqflg = 0;
     if (savmod) {			/* If global file mode was saved, */
@@ -825,12 +867,13 @@ tinit() {
     numerrs = 0;			/* Transmission error counter */
     if (server) 			/* If acting as server, */
       timint = srvtim;			/* Use server timeout interval. */
-    else
-      timint = pkttim;
+    else				/* Otherwise */
+      timint = chktimo(rtimo,timef);	/* Begin by using local value */
     spsiz = spsizr;			/* Initial send-packet size */
     wslots = 1;				/* One window slot */
+    wslotn = 1;				/* No window negotiated yet */
     winlo = 0;				/* Packet 0 is at window-low */
-    x = mksbuf(wslots);			/* Make a 1-slot send-packet buffer */
+    x = mksbuf(1);			/* Make a 1-slot send-packet buffer */
     if (x < 0) return(x);
     x = getsbuf(0);			/* Allocate first send-buffer. */
     debug(F101,"tinit getsbuf","",x);
@@ -875,9 +918,15 @@ rinit(d) CHAR *d; {
 VOID
 resetc() {
     rptn = 0;				/* Repeat counts */
-    flci = flco = 0L;			/* File chars in and out */
+    fsecs = flci = flco = 0L;		/* File chars in and out */
     tfc = tlci = tlco = 0L;		/* Total file, line chars in & out */
-    fsize = 0L;				/* File size */
+#ifdef COMMENT
+    fsize = -1L;			/* File size */
+#else
+    if (what != W_SEND)
+      fsize = -1L;
+    debug(F101,"resetc fsize","",fsize);
+#endif /* COMMENT */
     timeouts = retrans = 0;		/* Timeouts, retransmissions */
     spackets = rpackets = 0;		/* Packet counts out & in */
     crunched = 0;			/* Crunched packets */
@@ -893,7 +942,7 @@ resetc() {
 #ifdef DYNAMIC
 char *cmargbuf = NULL;
 #else
-char cmargbuf[256];			/* Filename buffer must be static */
+char cmargbuf[256];
 #endif /* DYNAMIC */
 char *cmargp[2];
 
@@ -998,7 +1047,7 @@ sipkt(c) char c;
 	debug(F101,"sipkt getsbuf","",k);    
     }
     ttflui();				/* Flush pending input. */
-    rp = rpar();			/* Get parameters. */
+    rp = rpar();			/* Get protocol parameters. */
     return(spack(c,pktnum,(int)strlen((char *)rp),rp)); /* Send them. */
 }
 
@@ -1030,7 +1079,12 @@ xsinit() {
   lowercase), and finally if a file of the same name already exists, 
   takes the desired collision action.
 */
+#ifdef pdp11
 #define XNAMLEN 256
+#else
+#define XNAMLEN 65
+#endif /* pdp11 */
+
 int
 rcvfil(n) char *n; {
     char xname[XNAMLEN], *xp;		/* Buffer for constructing name */
@@ -1088,7 +1142,12 @@ rcvfil(n) char *n; {
 
 /* Filename collision action section. */
 
-    if (zchki(xname) != -1) {		/* File of same name exists? */
+    if (
+#ifdef UNIX
+	strcmp(xname,"/dev/null") &&	/* It's not the null device? */
+#endif /* UNIX */
+	(zchki(xname) != -1)		/* File of same name exists? */
+	) {				
 	debug(F111,"rcvfil exists",xname,fncact);
 	switch (fncact) {		/* Yes, do what user said. */
 	  case XYFX_A:			/* Append */
@@ -1126,20 +1185,25 @@ rcvfil(n) char *n; {
 	}
     }
     debug(F110,"rcvfil: xname",xname,0);
+    screen(SCR_AN,0,0l,xname);		/* Display it */
     strcpy(n,xname);			/* Return pointer to actual name. */
+
 #ifndef NOICP
 #ifndef MAC
+/* Why not Mac? */
     strcpy(fspec,xname);		/* Here too for \v(filespec) */
 #endif /* MAC */
 #endif /* NOICP */
     debug(F110,"rcvfil: n",n,0);
     ffc = 0L;				/* Init per-file counters */
+    fsecs = gtimer();			/* Time this file started */
     filcnt++;
+    intmsg(filcnt);
     return(1);				/* Always succeeds */
 }
 
 
-/*  R E O F  --  Receive End Of File  */
+/*  R E O F  --  Receive End Of File packet for incoming file */
 
 /*
   Closes the received file.
@@ -1149,7 +1213,7 @@ rcvfil(n) char *n; {
     2 if disposition was mail, mail was sent, but temp file not deleted.
     3 if disposition was print, file was printed, but not deleted.
    -2 if disposition was mail and mail could not be sent
-   -3 if disposition was print file could not be printed
+   -3 if disposition was print and file could not be printed
 */
 int
 reof(f,yy) char *f; struct zattr *yy; {
@@ -1159,51 +1223,50 @@ reof(f,yy) char *f; struct zattr *yy; {
 
     debug(F111,"reof fncact",f,fncact);
     debug(F101,"reof discard","",discard);
+    success = 1;			/* Assume status is OK */
     lsstate = 0;			/* Cancel locking-shift state */
-    if ((fncact == XYFX_D || fncact == XYFX_U)
-	&& discard != 0) {	   /* SET FILE COLLISION DISCARD or UPDATE */
+    if (
+#ifdef COMMENT
+/*
+  If the discard flag is set, for whatever reason, we discard it, right?
+*/
+	(fncact == XYFX_D || fncact == XYFX_U) &&
+#endif /* COMMENT */
+	discard != 0) {	   /* SET FILE COLLISION DISCARD or UPDATE */
+
 	debug(F101,"reof discarding","",0);
 	discard = 0;			/* We never opened it, */
 	return(0);			/* so we won't close it. */
     }
-    if (cxseen == 0) cxseen = (*rdatap == 'D');	/* Got discard directive? */
-    x = (cxseen || czseen) && (keep == 0);
-    debug(F101,"reof x","",x);
-    x = clsof((cxseen || czseen) && (keep == 0));
+    if (cxseen == 0) cxseen = (*rdatap == 'D');	/* Got cancel directive? */
+    success = (cxseen || czseen) ? 0 : 1; /* Set SUCCESS flag appropriately */
+    x = clsof(cxseen || czseen);	/* Close the file (resets cxseen) */
+    if (x < 0) success = 0;		/* If failure to close, FAIL */
     if (atcapu) zstime(f,yy,0);		/* Set file creation date */
-    if (cxseen || czseen) {
-	cxseen = 0;
-	if (keep) {
-	    tlog(F100," *** Incomplete","",0L);
-	    fstats();
-	} else {
-	    tlog(F100," *** Discarding","",0L);
-	}
-    } else {
-	fstats();
 
 /* Handle dispositions from attribute packet... */
 
 #ifndef NOFRILLS
-	if (yy->disp.len != 0) {
-	    p = yy->disp.val;
-	    c = *p++;
-	    if (c == 'M') {		/* Mail to user. */
-		x = zmail(p,filnam);	/* Do the system's mail command */
-		tlog(F110,"mailed",filnam,0L);
-		tlog(F110," to",p,0L);
-		zdelet(filnam);		/* Delete the file */
-	    } else if (c == 'P') {	/* Print the file. */
-		x = zprint(p,filnam);	/* Do the system's print command */
-		tlog(F110,"printed",filnam,0L);
-		tlog(F110," with options",p,0L);
-#ifndef vms
-		if (zdelet(filnam) && x == 0) x = 3; /* Delete the file */
-#endif /* vms */
-	    }
+    if (yy->disp.len != 0) {
+	p = yy->disp.val;
+	c = *p++;
+	if (c == 'M') {			/* Mail to user. */
+	    x = zmail(p,filnam);	/* Do the system's mail command */
+	    if (x < 0) success = 0;	/* Remember status */
+	    tlog(F110,"mailed",filnam,0L);
+	    tlog(F110," to",p,0L);
+	    zdelet(filnam);		/* Delete the file */
+	} else if (c == 'P') {		/* Print the file. */
+	    x = zprint(p,filnam);	/* Do the system's print command */
+	    if (x < 0) success = 0;	/* Remember status */
+	    tlog(F110,"printed",filnam,0L);
+	    tlog(F110," with options",p,0L);
+#ifndef VMS
+	    if (zdelet(filnam) && x == 0) x = 3; /* Delete the file */
+#endif /* VMS */
 	}
-#endif /* NOFRILLS */
     }
+#endif /* NOFRILLS */
     debug(F101,"reof returns","",x);
     *filnam = '\0';
     return(x);
@@ -1224,7 +1287,12 @@ reot() {
 
 int
 sfile(x) int x; {
-    char pktnam[257];			/* Local copy of name */
+#ifdef pdp11
+#define PKTNL 64
+#else
+#define PKTNL 256
+#endif /* pdp11 */
+    char pktnam[PKTNL+1];		/* Local copy of name */
     char *s;
 
     lsstate = 0;			/* Cancel locking-shift state */
@@ -1232,13 +1300,13 @@ sfile(x) int x; {
     if (x == 0) {			/* F-Packet setup */
 
     	if (*cmarg2 != '\0') {		/* If we have a send-as name, */
-	    strncpy(pktnam,cmarg2,256);	/* copy it literally, */
+	    strncpy(pktnam,cmarg2,PKTNL); /* copy it literally, */
 	    cmarg2 = "";		/* and blank it out for next time. */
     	} else {			/* Otherwise use actual file name: */
 	    if (fncnv) {		/* If converting names, */
 	    	zltor(filnam,pktnam);	/* convert it to common form, */
 	    } else {			/* otherwise, */
-	    	strncpy(pktnam,filnam,256); /* copy it literally. */
+	    	strncpy(pktnam,filnam,PKTNL); /* copy it literally. */
             }
     	}
     	debug(F110,"sfile",filnam,0);	/* Log debugging info */
@@ -1285,6 +1353,8 @@ sfile(x) int x; {
     intmsg(++filcnt);			/* Count file, give interrupt msg */
     first = 1;				/* Init file character lookahead. */
     ffc = 0L;				/* Init file character counter. */
+    fsecs = gtimer();			/* Time this file started */
+    debug(F101,"SFILE fsecs","",fsecs);
     return(1);
 }
 
@@ -1343,10 +1413,14 @@ sdata() {
 		return(-1);
 	    }
 	}
+#ifdef COMMENT
 	if (spsiz > 94)			/* Fill the packet's data buffer */
-	  len = getpkt(spsiz-bctu-6,1);	/* long packet */
+	  len = getpkt(spsiz-bctl-6,1);	/* long packet */
 	else				/*  or */
-	  len = getpkt(spsiz-bctu-3,1);	/* short packet */
+	  len = getpkt(spsiz-bctl-3,1);	/* short packet */
+#else
+	len = getpkt(spsiz,1);
+#endif /* COMMENT */
 	if (len == 0) {			/* Done if no data. */
 	    if (pktnum == winlo) return(-1);
 	    drain = 1;			/* But can't return -1 until all */
@@ -1386,8 +1460,8 @@ szeof(s) CHAR *s; {
 	tlog(F100," *** interrupted, sending discard request","",0L);
     } else {
 	spack('Z',pktnum,0,(CHAR *)"");
-	fstats();
     }
+    discard = 0;			/* Turn off per-file discard flag */
     return(0);
 }
 
@@ -1445,23 +1519,11 @@ CHAR dada[20];				/* Use this instead of data[]. */
 
 CHAR *
 rpar() {
-    int cps;
-
-/* The following bit is in case user's timeout is shorter than the amount */
-/* of time it would take to receive a packet of the negotiated size. */
-
-    if (speed > 0L && !network) {	/* First recompute timeout */
-	cps = (int) (speed / 10L);	/* Characters per second */
-	if (cps * rtimo < spsiz) {
-	    rtimo = (spsiz / cps) + 2;
-	    debug(F101,"rpar new rtimo","",rtimo);
-	}
-    }
     if (rpsiz > MAXPACK)		/* Biggest normal packet I want. */
       dada[0] = tochar(MAXPACK);	/* If > 94, use 94, but specify */
     else				/* extended packet length below... */
       dada[0] = tochar(rpsiz);		/* else use what the user said. */
-    dada[1] = tochar(rtimo);		/* When I want to be timed out */
+    dada[1] = tochar(chktimo(pkttim,0)); /* When I want to be timed out */
     dada[2] = tochar(mypadn);		/* How much padding I need (none) */
     dada[3] = ctl(mypadc);		/* Padding character I want */
     dada[4] = tochar(eol);		/* End-Of-Line character I want */
@@ -1478,7 +1540,7 @@ rpar() {
       dada[6] = 'N';			/* means no single-shift */
     else
       dada[6] = sq;
-    dada[7] = bctr + '0';		/* Block check type */
+    dada[7] = (bctr == 4) ? 'B' : bctr + '0'; /* Block check type */
     if (rptflg)				/* Run length encoding */
     	dada[8] = rptq;			/* If receiving, agree. */
     else
@@ -1488,7 +1550,7 @@ rpar() {
 		     (atcapr ? atcapb : 0) | /* Attribute packets */
 		     (lpcapr ? lpcapb : 0) | /* Long packets */
 		     (swcapr ? swcapb : 0)); /* Sliding windows */
-    dada[10] = tochar(swcapr ? wslotr : 0);  /* Window size */
+    dada[10] = tochar(swcapr ? wslotr : 1);  /* Window size */
     rpsiz = urpsiz - 1;			/* Long packets ... */
     dada[11] = tochar(rpsiz / 95);	/* Long packet size, big part */
     dada[12] = tochar(rpsiz % 95);	/* Long packet size, little part */
@@ -1499,6 +1561,7 @@ rpar() {
 	rdebu(dada,(int)strlen((char *)dada));
     }
 #endif /* DEBUG */
+    strcpy((char *)myinit,(char *)dada);
     return(dada);			/* Return pointer to string. */
 }
 
@@ -1521,10 +1584,13 @@ spar(s) CHAR *s; {			/* Set parameters */
     spmax = spsiz;			/* Remember maximum size */
 
 /* Timeout on inbound packets */
-    if (!timef) {			/* Only if not SET-cmd override */
-	x = (rln >= 2) ? xunchar(s[2]) : 5;
-	timint = pkttim = (x < 0) ? 5 : x;
+    if (timef) {
+	timint = rtimo;			/* SET SEND TIMEOUT value overrides */
+    } else {				/* Otherwise use requested value, */
+	x = (rln >= 2) ? xunchar(s[2]) : rtimo; /* if it is legal. */
+	timint = (x < 0) ? rtimo : x;
     }
+    timint = chktimo(timint,timef);	/* Adjust if necessary */
 
 /* Outbound Padding */
     npad = 0; padch = '\0';
@@ -1567,8 +1633,9 @@ spar(s) CHAR *s; {			/* Set parameters */
 /* Block check */
     x = 1;
     if (rln >= 8) {
-	x = s[8] - '0';
-	if ((x < 1) || (x > 3)) x = 1;
+	if (s[8] == 'B') x = 4;
+	else x = s[8] - '0';
+	if ((x < 1) || (x > 4)) x = 1;
     }
     bctr = x;
 
@@ -1600,9 +1667,11 @@ spar(s) CHAR *s; {			/* Set parameters */
     }
 
 /* Long Packets */
+    debug(F101,"spar lpcapu","",lpcapu);
     if (lpcapu) {
         if (rln > y+1) {
 	    x = xunchar(s[y+2]) * 95 + xunchar(s[y+3]);
+	    debug(F101,"spar lp len","",x);
 	    if (spsizf) {		/* If overriding negotiations */
 		spsiz = (x < lpsiz) ? x : lpsiz; /* do this, */
 	    } else {			         /* otherwise */
@@ -1613,6 +1682,8 @@ spar(s) CHAR *s; {			/* Set parameters */
     }
     /* (PWP) save current send packet size for optimal packet size calcs */
     spmax = spsiz;
+    debug(F101,"spar lp spmax","",spmax);
+    timint = chktimo(timint,timef);	/* Recalculate the packet timeout! */
     
 /* Sliding Windows... */
 
@@ -1620,23 +1691,21 @@ spar(s) CHAR *s; {			/* Set parameters */
         if (rln > y) {			/* See what other Kermit says */
 	    x = xunchar(s[y+1]);
 	    debug(F101,"spar window","",x);
-	    wslotn = x > MAXWS ? MAXWS : x;
-/* #ifdef COMMENT */
+	    wslotn = (x > MAXWS) ? MAXWS : x;
 /*
-  During testing of windows, this code required the user to SET WINDOW n
-  on BOTH Kermits.  Now that windows appear to be working pretty well, let's
-  use whatever the other Kermit requests.  (Edit 177)
-  BUT THEN...  It seems that certain commercial Kermit implementations do not
-  "do windows" correctly, even though they claim to in their initialization
-  packets.  If the following line is not active, there is no way for the
-  C-Kermit user to override the use of windows when the other Kermit requests
-  them.  (Edit 179)
+  wslotn = negotiated size (from other Kermit's S or I packet).
+  wslotr = requested window size (from this Kermit's SET WINDOW command).
 */
-	    if (wslotn > wslotr) wslotn = wslotr;
-/* #endif */  /* COMMENT */
-	    if (wslotn > 1) swcapu = 1; /* We do windows... */
-	} else {
-	    wslotn = 1;		/* We don't do windows... */
+	    if (wslotn > wslotr)	/* Use the smaller of the two */
+	      wslotn = wslotr;
+	    if (wslotn < 1)		/* Watch out for bad negotiation */
+	      wslotn = 1;
+	    if (wslotn > 1)
+	      swcapu = 1; /* We do windows... */
+	    debug(F101,"spar window after adjustment","",x);
+	} else {			/* No window size specified. */
+	    wslotn = 1;			/* We don't do windows... */
+	    debug(F101,"spar window","",x);
 	    swcapu = 0;
 	    debug(F101,"spar no windows","",wslotn);
 	}
@@ -1685,7 +1754,7 @@ gnfile() {
     int retcode = 0;
 
     debug(F101,"gnfile sndsrc","",sndsrc);
-    fsize = 0L;				/* Initialize file size */
+    fsize = -1L;			/* Initialize file size */
     if (sndsrc == 0) {			/* It's not really a file */
 	if (nfils > 0) {		/* It's a pipe, or stdin */
 	    strcpy(filnam, *cmlist);	/* Copy its "name" */
@@ -1788,6 +1857,34 @@ sndhlp() {
 #endif /* NOSERVER */
 }
 
+#ifdef OS2
+/*  S N D S P A C E -- send disk space message  */
+int
+sndspace(int drive) {
+#ifndef NOSERVER
+    static char spctext[64];
+    if (drive)
+      sprintf(spctext, " Drive %c: %ldK free\n", drive, 
+	      zdskspace(drive - 'A' + 1) / 1024L);
+    else
+      sprintf(spctext, " Free space: %ldK\n", zdskspace(0)/1024L);
+    nfils = 0;			/* No files, no lists. */
+    xflg = 1;			/* Flag we must send X packet. */
+    strcpy(cmdstr,"free space");/* Data for X packet. */
+    first = 1;			/* Init getchx lookahead */
+    memstr = 1;			/* Just set the flag. */
+    memptr = spctext;		/* And the pointer. */
+    if (binary) {		/* If file mode is binary, */
+        savmod = binary;	/*  remember to restore it later. */
+        binary = 0;		/*  turn it back to text for this, */
+    }
+    return(sinit());
+#else
+    return(0);
+#endif /* NOSERVER */
+}
+#endif /* OS2 */
+
 /*  C W D  --  Change current working directory  */
 
 /*
@@ -1827,14 +1924,6 @@ syscmd(prefix,suffix) char *prefix, *suffix; {
 
     if (prefix == NULL || *prefix == '\0') return(0);
 
-#ifdef datageneral
-/* A kludge for now -- the real change needs to be done elsewhere... */
-    {
-	extern char *WHOCMD;
-	if ((strcmp(prefix,WHOCMD) == 0) && (*suffix == 0))
-	  strcpy(suffix,"[!pids]");
-    }
-#endif /* datageneral */
     for (cp = cmdstr; *prefix != '\0'; *cp++ = *prefix++) ;
     while (*cp++ = *suffix++) ;		/* copy suffix */
 
@@ -1942,21 +2031,23 @@ remset(s) char *s; {
 	return(1);
       case 400:				/* Block check */
 	y = atoi(p);
-	if (y < 4 && y > 0) {
+	if (y < 5 && y > 0) {
 	    bctr = y;
 	    return(1);
-	} else return(0);
+	} else if (*p == 'B') {
+	    bctr = 4;
+	    return(1);
+	}
+	return(0);
       case 401:				/* Receive packet-length */
 	urpsiz = atoi(p);
 	if (urpsiz > MAXRP) urpsiz = MAXRP;
 	urpsiz = adjpkl(urpsiz,wslots,bigrbsiz);
 	return(1);
       case 402:				/* Receive timeout */
-	y = atoi(p);
-	if (y > -1 && y < 95) {
-	    timef = 1;
-	    timint = pkttim = y;
-	    chktimo();
+	y = atoi(p);			/* Client is telling us */
+	if (y > -1 && y < 999) {	/* the timeout that it wants */
+	    pkttim = chktimo(y,timef);	/* us to tell it to use. */
 	    return(1);
 	} else return(0);
       case 403:				/* Retry limit */

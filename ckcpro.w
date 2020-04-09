@@ -1,4 +1,4 @@
-char *protv = "C-Kermit Protocol Module 5A(043), 25 Dec 91"; /* -*-C-*- */
+char *protv = "C-Kermit Protocol Module 5A(052), 23 Nov 92"; /* -*-C-*- */
 
 /* C K C P R O  -- C-Kermit Protocol Module, in Wart preprocessor notation. */
 /*
@@ -31,11 +31,12 @@ char *protv = "C-Kermit Protocol Module 5A(043), 25 Dec 91"; /* -*-C-*- */
   extern char *versio, *srvtxt, *cmarg, *cmarg2, **cmlist;
   extern char filnam[], ttname[];
   extern CHAR sstate, *rpar(), encbuf[], *srvptr, *data;
-  extern int timint, pkttim, nfils, hcflg, xflg, flow, mdmtyp, network;
-  extern int cxseen, czseen, server, srvdis, local, displa, bctu, bctr, quiet;
-  extern int tsecs, parity, backgrd, nakstate, atcapu, wslotn, winlo;
-  extern int wslots, success, xitsta, rprintf, discard, cdtimo, keep;
-  extern long speed;
+  extern int timint, rtimo, nfils, hcflg, xflg, flow, mdmtyp, network;
+  extern int cxseen, czseen, server, srvdis, local, displa, bctu, bctr, bctl;
+  extern int quiet, tsecs, parity, backgrd, nakstate, atcapu, wslotn, winlo;
+  extern int wslots, success, xitsta, rprintf, discard, cdtimo, keep, fdispla;
+  extern int timef;
+  extern long speed, ffc;
   extern char *DIRCMD, *DIRCM2, *DELCMD, *TYPCMD, *SPACMD, *SPACM2, *WHOCMD;
   extern CHAR *rdatap;
   extern struct zattr iattr;
@@ -81,8 +82,10 @@ extern int
  return(1)
 
 %%
-/* Protocol entry points, one for each start state (sstate) */
-/* nakstate = 1 means we're in a receiving state, in which we can send NAKs */
+/*
+  Protocol entry points, one for each start state (sstate).
+  The lowercase letters are internal "inputs" from the user interface.
+*/
 
 s { TINIT;				/* Do Send command */
     if (sinit()) BEGIN ssinit;
@@ -101,8 +104,10 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     success = 0;
     return(0); }			/* Return from protocol. */
 
-/* Dynamic states: <current-states>input-character { action } */
-
+/*
+  Dynamic states: <current-states>input-character { action }
+  nakstate != 0 means we're in a receiving state, in which we send ACKs & NAKs.
+*/
 <rgen,get,serve>S {			/* Receive Send-Init packet. */
     if (state == serve && !en_sen) {	/* Not allowed if in server mode */
 	errpkt((CHAR *)"SEND disabled"); /* and SEND is disabled. */
@@ -111,11 +116,10 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 	nakstate = 1;			/* Can send NAKs from here. */
 	rinit(rdatap);			/* Set parameters */
 	bctu = bctr;			/* Switch to agreed-upon block check */
-	timint = pkttim;		/* Switch to per-packet timer */
-	chktimo();			/* Check & adjust timeout */
+	bctl = (bctu == 4) ? 2 : bctu;	/* Set block-check length */
+	what = W_RECV;			/* Remember we're receiving */
 	resetc();			/* Reset counters */
 	rtimer();			/* Reset timer */
-	what = W_RECV;			/* Remember we're receiving */
 	BEGIN rfile;			/* Go into receive-file state */
     }
 }
@@ -131,12 +135,13 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     getsbuf(winlo = 0);			/* Set window-low back to zero */
 #else
     winlo = 0;
-#endif
+#endif /* COMMENT */
     if (vcmd) {				/* If sending a generic command */
 	scmd(vcmd,(CHAR *)cmarg);	/* Do that */
 	vcmd = 0;			/* and then un-remember it. */
-    } else if (vstate == get) srinit();	/* If sending GET command, do that */
-    winlo = 0;				/* Again! */
+    } else if (vstate == get) srinit();	/* If sending GET command, do that. */
+    rtimer();				/* Reset the elapsed seconds timer. */
+    winlo = 0;				/* Window back to 0, again. */
     nakstate = 1;			/* Can send NAKs from here. */
     BEGIN vstate;			/* Switch to desired state */
 }
@@ -146,8 +151,8 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     getsbuf(winlo = 0);			/* Set window-low back to zero */
 #else
     winlo = 0;
-#endif
-    if (vcmd) {				/* in case other Kermit doesn't */
+#endif /* COMMENT */
+    if (vcmd) {				/* In case other Kermit doesn't */
 	scmd(vcmd,(CHAR *)cmarg);	/* understand I-packets. */
 	vcmd = 0;			/* Otherwise act as above... */
     } else if (vstate == get) srinit();
@@ -187,7 +192,7 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 #endif /* NOMSEND */
 	nakstate = 0;			/* Now I'm the sender! */
 	if (sinit()) {			/* Send Send-Init */
-	    timint = pkttim;		/* Switch to per-packet timer */
+	    timint = chktimo(rtimo,timef); /* Switch to per-packet timer */
 	    BEGIN ssinit;		/* If successful, switch state */
 	} else { SERVE; }		/* Else back to server command wait */
     }
@@ -202,7 +207,8 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 	sstate = srvcmd[0];		/* Set requested start state */
 	nakstate = 0;			/* Now I'm the sender. */
 	what = W_REMO;			/* Doing a REMOTE command. */
-	timint = pkttim;		/* Switch to per-packet timer */
+	if (timint < 1)
+	  timint = chktimo(rtimo,timef); /* Switch to per-packet timer */
 	BEGIN generic;			/* Switch to generic command state */
     } else {
 	errpkt((CHAR *)"Badly formed server command"); /* report error */
@@ -221,7 +227,8 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 	nakstate = 0;			/* Now sending, not receiving */
 	if (syscmd((char *)srvcmd,"")) { /* Try to execute the command */
 	    what = W_REMO;		/* Doing a REMOTE command. */
-	    timint = pkttim;		/* Switch to per-packet timer */
+	    if (timint < 1)
+	      timint = chktimo(rtimo,timef); /* Switch to per-packet timer */
 	    BEGIN ssinit;		/* If OK, send back its output */
 	} else {			/* Otherwise */
 	    errpkt((CHAR *)"Can't do system command"); /* report error */
@@ -237,6 +244,11 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     } else {
 	success = 0; QUIT;
     }
+}
+
+<serve>N {				/* Server got a NAK in command-wait */
+    errpkt((CHAR *)"Did you say RECEIVE instead of GET?");
+    SERVE;
 }
 
 <serve>. {				/* Any other command in this state */
@@ -378,11 +390,24 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 	SERVE;
     } else {
 	x = *(srvcmd+1);		/* Get area to check */
-	x = ((x == '\0') || (x == SP));
+	x = ((x == '\0') || (x == SP)
+#ifdef OS2
+	     || (x == '!')
+#endif /* OS2 */
+	     );
 	if (!x && !en_cwd) {		/* If CWD disabled and they gave */
 	    errpkt((CHAR *)"Access denied"); /* a non-default area, */
 	    SERVE;			/* refuse. */
 	} else {
+#ifdef OS2
+_PROTOTYP(int sndspace,(int));
+	    if (sndspace(x ? toupper(srvcmd[2]) : 0))
+	      BEGIN ssinit;		/* Try to send it */
+	    else {			/* If not ok, */
+		errpkt((CHAR *)"Can't send space"); /* send error message */
+		SERVE;			/* and return to server command wait */
+	    }
+#else
 	    x = (x ? syscmd(SPACMD,"") : syscmd(SPACM2,(char *)(srvcmd+2)));
 	    if (x) {				/* If we got the info */
 		BEGIN ssinit;			/* send it */
@@ -390,6 +415,7 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 		errpkt((CHAR *)"Can't check space"); /* send error message */
 		SERVE;			/* and await next server command */
 	    }
+#endif /* OS2 */
 	}
     }
 }
@@ -424,6 +450,7 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 
 <rgen>Y {				/* Short-Form reply */
     decode(rdatap,puttrm,0);		/* in ACK Data field */
+    if (rdatap && *rdatap) conoll("");	/* Maybe add a CRLF */
     RESUME;
 }
 
@@ -436,7 +463,10 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 	encstr((CHAR *)filnam);		/* Encode the name */
 	ack1((CHAR *)(encbuf+7));	/* Send it back in ACK */
 	initattr(&iattr);		/* Clear file attribute structure */
-	window(wslotn);			/* allocate negotiated window slots */
+	if (window(wslotn) < 0) {	/* Allocate negotiated window slots */
+	    errpkt((CHAR *)"Can't open window");
+	    RESUME;
+	}
 	BEGIN rattr;			/* Now expect Attribute packets */
     }
 }
@@ -445,7 +475,10 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     xflg = 1;				/* Screen data */
     ack();				/* Acknowledge the X-packet */
     initattr(&iattr);			/* Initialize attribute structure */
-    window(wslotn);			/* allocate negotiated window slots */
+    if (window(wslotn) < 0) {		/* allocate negotiated window slots */
+	errpkt((CHAR *)"Can't open window");
+	RESUME;
+    }
     what = W_REMO;			/* we're doing a REMOTE command */
     BEGIN rattr;			/* Expect Attribute packets */
 }
@@ -453,10 +486,13 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 <rattr>A {				/* Attribute packet */
     if (discard) {			/* If SET FILE COLLISION DISCARD */
 	ack1((CHAR *)"N");		/* refuse it */
-    } else if (gattr(rdatap,&iattr) == 0) /* Read into attribute structure */
-      ack();				/* If OK, acknowledge */
-    else				/* Otherwise */
-      ack1((CHAR *)iattr.reply.val);	/* refuse to accept the file */
+	screen(SCR_ST,ST_REFU,0L,"file collision setting");
+    } else if (gattr(rdatap,&iattr) == 0) { /* Read into attribute structure */
+	ack();				/* If OK, acknowledge */
+    } else {				/* Otherwise */
+	ack1((CHAR *)iattr.reply.val);	/* refuse to accept the file */
+	screen(SCR_ST,ST_REFU,0L,getreason(iattr.reply.val)); /* give reason */
+    }
 }
 
 <rattr>D {				/* First data packet */
@@ -511,43 +547,36 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 	RESUME;				/* and quit */
     } else {				/* otherwise */
 	ack();				/* acknowledge the EOF packet */
-	success = 1;
 	BEGIN rfile;			/* and await another file */
     }
 }
 
 <rdata>Z {				/* End Of File (EOF) Packet */
 /*  wslots = 1;	*/			/* Window size back to 1 */
-    if (discard) {			/* If discarding, there's no file */
-	discard = 0;			/* to close, just reset the discard */
-	ack();				/* flag, ack, and proceed normally. */
-	success = 1;			/* Count this as a success. */
-	BEGIN rfile;
-    } else
 #ifndef COHERENT
 /*
   Coherent compiler blows up on this switch() statement.
 */
-    switch (x = reof(filnam, &iattr)) {
+    x = reof(filnam, &iattr);		/* Handle the EOF packet */
+    switch (x) {			/* reof() sets the success flag */
       case -3:				/* If problem, send error msg */
-	errpkt((CHAR *)"Can't print file");
+	errpkt((CHAR *)"Can't print file"); /* Fatal */
         RESUME;
 	break;
       case -2:
-	errpkt((CHAR *)"Can't mail file");
+	errpkt((CHAR *)"Can't mail file"); /* Fatal */
         RESUME;
 	break;
       case 2:
       case 3:
-	errpkt((CHAR *)"Can't delete temp file");
+	screen(SCR_EM,0,0l,"Can't delete temp file"); /* Not fatal */
         RESUME;
 	break;
       default:
-	if (x < 0) {
+	if (x < 0) {			/* Fatal */
 	    errpkt((CHAR *)"Can't close file");
 	    RESUME;
 	} else {			/* Success */
-	    success = 1;
 	    ack();			/* Acknowledge the EOF packet */
 	    BEGIN rfile;		/* and await another file */
 	}
@@ -556,9 +585,8 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     if (reof(filnam, &iattr) < 0) {	/* Close and dispose of the file */
 	errpkt((CHAR *)"Error at end of file");
 	RESUME;
-    } else {
+    } else {				/* reof() sets success flag */
 	ack();
-	success = 1;
 	BEGIN rfile;
     }
 #endif /* COHERENT */
@@ -567,12 +595,12 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 <ssinit>Y {				/* ACK for Send-Init */
     spar(rdatap);			/* set parameters from it */
     bctu = bctr;			/* switch to agreed-upon block check */
+    bctl = (bctu == 4) ? 2 : bctu;	/* Set block-check length */
     what = W_SEND;			/* Remember we're sending */
     x = sfile(xflg);			/* Send X or F header packet */
     if (x) {				/* If the packet was sent OK */
 	resetc();			/* reset per-transaction counters */
 	rtimer();			/* reset timers */
-	chktimo();			/* Check & adjust timeout */
 	BEGIN ssfile;			/* and switch to receive-file state */
     } else {				/* otherwise send error msg & quit */
 	s = xflg ? "Can't execute command" : "Can't open file";
@@ -603,18 +631,24 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     srvptr = srvcmd;			/* Point to string buffer */
     decode(rdatap,putsrv,0);		/* Decode data field, if any */
     putsrv('\0');			/* Terminate with null */
-    if (*srvcmd)			/* If remote name was recorded */
-      tlog(F110," stored as",(char *) srvcmd,0L); /* Log in transaction log. */
+    ffc = 0L;				/* Reset file byte counter */
+    if (*srvcmd) {			/* If remote name was recorded */
+	if (fdispla == XYFD_C) screen(SCR_AN,0,0L,(char *)srvcmd);
+	tlog(F110," stored as",(char *) srvcmd,0L); /* Transaction log. */
+    }
     if (atcapu) {			/* If attributes are to be used */
 	if (sattr(xflg) < 0) {		/* set and send them */
 	    errpkt((CHAR *)"Can't send attributes"); /* if problem, say so */
 	    RESUME;			     /* and quit */
 	} else BEGIN ssattr;		/* if ok, switch to attribute state */
     } else {
-	window(wslotn);
+	if (window(wslotn) < 0) {
+	    errpkt((CHAR *)"Can't open window");
+	    RESUME;
+	}
 	if (sdata() < 0) {		/* No attributes, send data */
 	    clsif();			/* If not ok, close input file, */
-	    window(wslots = 1);		/* put window size back to 1, */
+	    window(1);			/* put window size back to 1, */
 	    seof((CHAR *)"");		/* send EOF packet, */
 	    BEGIN sseof;		/* and switch to EOF state. */
 	} else BEGIN ssdata;		/* All ok, switch to send-data state */
@@ -622,15 +656,20 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
 }
 
 <ssattr>Y {				/* Got ACK to A packet */
+    ffc = 0L;				/* Reset file byte counter */
     if (rsattr(rdatap) < 0) {		/* Was the file refused? */
-	clsif();			/* yes, close it */
+	discard = 1;			/* Set the discard flag */
+	clsif();			/* Close the file */
 	sxeof((CHAR *)"D");		/* send EOF with "discard" code */
 	BEGIN sseof;			/* switch to send-EOF state */
     } else {
-	window(wslotn);			/* Allocate negotiated window. */
+	if (window(wslotn) < 0) {	/* Allocate negotiated window slots */
+	    errpkt((CHAR *)"Can't open window");
+	    RESUME;
+	}
 	if (sdata() < 0) {		/* File accepted, send data */
 	    clsif();			/* If problem, close input file */
-	    window(wslots = 1);		/* Window size back to 1... */
+	    window(1);			/* Window size back to 1... */
 	    seof((CHAR *)"");		/* send EOF packet */
 	    BEGIN sseof;		/* and switch to send-EOF state. */
 	} else {			/* All ok, enter send-data state. */
@@ -643,7 +682,7 @@ a { if (!data) TINIT;			/* "ABEND" -- Tell other side. */
     canned(rdatap);			/* Check if file transfer cancelled */
     if (sdata() < 0) {			/* Try to send next data */
 	clsif();			/* If no more data, close file */
-	window(wslots = 1);		/* Window size back to 1... */
+	window(1);			/* Window size back to 1... */
 	if (cxseen || czseen)		/* If interrupted */
 	  seof((CHAR *)"D");		/* send special EOF packet */
 	else seof((CHAR *)"");		/* Otherwise regular EOF packet */
@@ -680,7 +719,19 @@ E {					/* Got Error packet, in any state */
     clsif(); clsof(1);			/* discarding any output file. */
     tsecs = gtimer();			/* Get timers */
     quiet = x;				/* restore quiet state */
-    if (backgrd && !server) fatal("Protocol error");
+/*
+  If we are executing commands from a command file or macro, let the command
+  file or macro decide whether to exit, based on SET { TAKE, MACRO } ERROR.
+*/
+    if (
+#ifndef NOSPL
+	cmdlvl == 0
+#else
+	tlevel < 0
+#endif /* NOSPL */
+	)
+      if (backgrd && !server)
+	fatal("Protocol error");
     xitsta |= what;			/* Save this for doexit(). */
     RESUME;
 }
@@ -730,9 +781,10 @@ proto() {
 	debug(F101,"server quiet","",quiet);
 	if (!quiet && !backgrd) {
     	    debug(F100,"SHOULD NOT SEE THIS IF IN BACKGROUND!","",0);
-	    if (!local)			/* and issue appropriate message. */
-	    	conol(srvtxt);
-	    else {
+	    if (!local)	{		/* and issue appropriate message. */
+	    	conoll(srvtxt);
+		conoll("KERMIT READY TO SERVE...");
+	    } else {
 	    	conol("Entering server mode on ");
 		conoll(ttname);
 		conoll("Type Ctrl-C to quit.");
@@ -745,22 +797,33 @@ proto() {
       conoll("");
     if (local) conres();       /* So Ctrl-C will work */
 #endif /* VMS */
-    if (sstate == 'v' && !local && !quiet && !backgrd &&
+/*
+  If in remote mode, not shushed, not in background, and at top command level,
+  issue a helpful message telling what to do...
+*/
+    if (!local && !quiet && !backgrd &&
 #ifndef NOSPL
 	cmdlvl == 0
 #else
 	tlevel < 0
 #endif /* NOSPL */
-	)
-      conoll("Escape back to your local Kermit and give a SEND command...");
-    if (sstate == 's' && !local && !quiet && !backgrd &&
-#ifndef NOSPL
-	cmdlvl == 0
-#else
-	tlevel < 0
-#endif /* NOSPL */
-	)
-      conoll("Escape back to your local Kermit and give a RECEIVE command...");
+	) {
+	if (sstate == 'v') {
+	    conoll("Return to your local Kermit and give a SEND command.");
+	    conoll("");
+	    conoll("KERMIT READY TO RECEIVE...");
+	} else if (sstate == 's') {
+	    conoll("Return to your local Kermit and give a RECEIVE command.");
+	    conoll("");
+	    conoll("KERMIT READY TO SEND...");
+	} else if ( sstate == 'g' || sstate == 'r' || sstate == 'c' ) {
+	    conoll("Return to your local Kermit and give a SERVER command.");
+	    conoll("");
+	    conoll((sstate == 'r') ?
+		   "KERMIT READY TO GET..." :
+		   "KERMIT READY TO SEND SERVER COMMAND...");
+	}
+    }
     sleep(1);
 /*
  The 'wart()' function is generated by the wart program.  It gets a
@@ -772,7 +835,6 @@ proto() {
     wart();				/* Enter the state table switcher. */
     
     if (server) {			/* Back from packet protocol. */
-	server = 0;
     	if (!quiet && !backgrd) {	/* Give appropriate message */
 	    conoll("");
 	    conoll("C-Kermit server done");
@@ -785,6 +847,10 @@ proto() {
   Ctrl-\ might have been turned off (see ttpkt).  So this call to ttres() is
   essential.
 */
-    if (!local) ttres();		/* Reset the terminal */
+#ifndef OS2
+    if (!local)
+#endif /* OS2 */
+      ttres();				/* Reset the communication device */
     screen(SCR_TC,0,0l,"");		/* Transaction complete */
+    server = 0;				/* Not a server any more */
 }

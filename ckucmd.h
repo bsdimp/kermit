@@ -39,7 +39,9 @@
 
 /* Sizes of things */
  
+#ifndef CMDDEP
 #define CMDDEP  20			/* Maximum command recursion depth */
+#endif /* CMDDEP */
 #define HLPLW   78			/* Width of ?-help line */
 #define HLPCW   19			/* Width of ?-help column */
 #define HLPBL  100			/* Help string buffer length */
@@ -91,7 +93,7 @@ typedef int (*xx_strp)();
 
 _PROTOTYP( int xxesc, (char **) );
 _PROTOTYP( VOID cmsetp, (char *) );
-_PROTOTYP( VOID cmsavp, (char *, int) );
+_PROTOTYP( VOID cmsavp, (char [], int) );
 _PROTOTYP( VOID prompt, (xx_strp) );
 _PROTOTYP( VOID pushcmd, (void) );
 _PROTOTYP( VOID cmres, (void) );
@@ -105,14 +107,14 @@ _PROTOTYP( int cmifi, (char *, char *, char **, int *, xx_strp ) );
 _PROTOTYP( int cmdir, (char *, char *, char **, xx_strp ) );
 _PROTOTYP( int cmfld, (char *, char *, char **, xx_strp ) );
 _PROTOTYP( int cmtxt, (char *, char *, char **, xx_strp ) );
-_PROTOTYP( int cmkey, (struct keytab *, int, char *, char *, xx_strp) );
-_PROTOTYP( int cmkey2,(struct keytab *, int, char *, char *, char *,xx_strp));
+_PROTOTYP( int cmkey, (struct keytab [], int, char *, char *, xx_strp) );
+_PROTOTYP( int cmkey2,(struct keytab [], int, char *, char *, char *,xx_strp));
 _PROTOTYP( int chktok, (char *) );
 _PROTOTYP( int cmcfm, (void) );
 _PROTOTYP( int rdigits, (char *) );
 _PROTOTYP( int chknum, (char *) );
 _PROTOTYP( int lower, (char *) );
-_PROTOTYP( int lookup, (struct keytab *, char *, int, int *) );
+_PROTOTYP( int lookup, (struct keytab [], char *, int, int *) );
 _PROTOTYP( int ungword, (void) );
 
 #ifdef DCMDBUF

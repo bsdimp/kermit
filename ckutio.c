@@ -1,11 +1,11 @@
-char *ckxv = "UNIX tty I/O, 5A(089), 8 Feb 92";
+char *ckxv = "UNIX Communications support, 5A(0102), 23 Nov 92";
 
 /*  C K U T I O  */
 
 /* C-Kermit interrupt, terminal control & i/o functions for UNIX */
 
 /*
-  Author: Frank da Cruz (fdc@cunixc.cc.columbia.edu, FDCCU@CUVMA.BITNET),
+  Author: Frank da Cruz (fdc@columbia.edu, FDCCU@CUVMA.BITNET),
   Columbia University Center for Computing Activities.
   First released January 1985.
   Copyright (C) 1985, 1992, Trustees of Columbia University in the City of New
@@ -15,19 +15,21 @@ char *ckxv = "UNIX tty I/O, 5A(089), 8 Feb 92";
   written permission of Columbia University.
 */
 
-/* Includes for all Unixes (conditional includes come later) */
+/* Includes */
 
 #include "ckcdeb.h"			/* This moved to here. */
-#include "ckcnet.h"			/* Symbols for network types. */
-
 #include <errno.h>			/* System error numbers */
 #ifdef __386BSD__
-#include <sys/errno.h>			/* System error numbers */
-/* If you define _POSIX_SOURCE you cannot get ENOTCONN from sys/errno.h */
-#define	ENOTCONN	57		/* Socket is not connected */
+#define ENOTCONN 57
 #endif /* __386BSD__ */
 
+#include "ckcnet.h"			/* Symbols for network types. */
 
+/*
+  The directory-related includes are here because we need to test some
+  file-system-related symbols to find out which system we're being compiled
+  under.  For example, MAXNAMLEN is defined in BSD4.2 but not 4.1.
+*/
 #ifdef SDIRENT				/* Directory bits... */
 #define DIRENT
 #endif /* SDIRENT */
@@ -66,6 +68,10 @@ char *ckxv = "UNIX tty I/O, 5A(089), 8 Feb 92";
 #else
 #define HZ ( 1000 / CLOCK_TICK )
 #endif /* TRS16 */
+#ifdef NAPHACK
+#define nap(x) (void)syscall(3112, (x))
+#define NAP
+#endif /* NAPHACK */
 #endif /* NAP */
 #endif /* ATTSV */
 #endif /* MIPS */
@@ -111,7 +117,6 @@ char *ckxv = "UNIX tty I/O, 5A(089), 8 Feb 92";
 #endif /* FT21 */
 #endif /* MAXNAMLEN */
 #endif /* BSD4 */
-
 /*
  Minix support added by Charles Hedrick,
  Rutgers University:  hedrick@aramis.rutgers.edu
@@ -141,6 +146,12 @@ char *ckxsys = HERALD;
   PIDSTRING means use ASCII string to represent pid in lockfile.
 */
 #ifndef LOCK_DIR
+#ifdef BSD44
+#define LOCK_DIR "/var/spool/uucp";
+#else
+#ifdef DGUX430
+#define LOCK_DIR "/var/spool/locks";
+#else
 #ifdef RTAIX				/* IBM RT PC AIX 2.2.1 */
 #define PIDSTRING
 #define LOCK_DIR "/etc/locks";
@@ -162,6 +173,9 @@ char *ckxsys = HERALD;
 #else
 #ifdef SVR4
 #define LOCK_DIR "/var/spool/locks";
+#ifndef LOCKF
+#define LOCKF				/* Use lockf() too in SVR4 */
+#endif /* LOCKF */
 #else
 #ifdef SUNOS4
 #define LOCK_DIR "/var/spool/locks";
@@ -181,6 +195,8 @@ char *ckxsys = HERALD;
 #endif /* ISIII */
 #endif /* AIXRS */
 #endif /* RTAIX */
+#endif /* DGUX430 */
+#endif /* BSD44 */
 #endif /* !LOCK_DIR (outside ifndef) */
    
 #endif /* !NOUUCP */
@@ -190,7 +206,9 @@ char *ckxsys = HERALD;
 #endif /* ATTSV */
 
 #ifdef ATT7300
+#ifndef MYREAD
 #define MYREAD
+#endif /* MYREAD */
 /* bits for attmodem: internal modem in use, restart getty */
 #define ISMODEM 1
 #define DOGETY 512
@@ -319,11 +337,29 @@ Time functions
 #include <sys/file.h>
 #endif /* NOFILEH */
 
+/* POSIX */
+
+#ifdef BSD44ORPOSIX			/* POSIX uses termios.h */
+#define TERMIOS
+#ifdef bsdi
+#ifndef NCCS
+#define NCCS 20
+#endif /* NCCS */
+#endif /* bsdi */
+#include <termios.h>
+#ifndef BSD44				/* Really POSIX */
+#define NOSYSIOCTLH			/* No ioctl's allowed. */
+#undef ultrix				/* Turn off any ultrix features. */
+#endif /* BSD44 */
+#endif /* POSIX */
+
 /* System III, System V */
 
 #ifdef ATTSV
+#ifndef BSD44
 #include <termio.h>
-#ifdef SVR3				/* Sys V R3 and later */
+#endif /* BSD44 */
+#ifdef SVR4				/* Sys V R4 and later */
 #ifdef TERMIOX
 /* Need this for termiox structure, RTS/CTS and DTR/CD flow control */
 #include <termiox.h>
@@ -334,19 +370,8 @@ Time functions
   struct termiox rctsx;
 #endif /* STERMIOX */
 #endif /* TERMIOX */
-#endif /* SVR3 */
+#endif /* SVR4 */
 #endif /* ATTSV */
-
-/* POSIX */
-
-#ifdef POSIX				/* POSIX uses termios.h */
-#define	NCCS		20
-#include <termios.h>
-#ifndef __386BSD__
-#define NOSYSIOCTLH			/* No ioctl's allowed. */
-#endif /* __386BSD__ */
-#undef ultrix				/* Turn off any ultrix features. */
-#endif /* POSIX */
 
 #ifdef MINIX				/* MINIX uses ioctl's */
 #define NOSYSIOCTLH			/* but has no <sys/ioctl.h> */
@@ -355,10 +380,32 @@ Time functions
 /* Others */
 
 #ifndef NOSYSIOCTLH			/* Others use ioctl() */
+#ifdef SUN4S5
+/*
+  This is to get rid of cpp warning messages that occur because all of
+  these symbols are defined by both termios.h and ioctl.h on the SUN.
+*/
+#undef ECHO
+#undef NL0
+#undef NL1
+#undef TAB0
+#undef TAB1
+#undef TAB2
+#undef XTABS
+#undef CR0
+#undef CR1
+#undef CR2
+#undef CR3
+#undef FF0
+#undef FF1
+#undef BS0
+#undef BS1
+#undef TOSTOP
+#undef FLUSHO
+#undef PENDIN
+#undef NOFLSH
+#endif /* SUN4S5 */
 #include <sys/ioctl.h>
-#ifdef __386BSD__
-#include <sys/ioctl_compat.h>
-#endif /* __386BSD__ */
 #endif /* NOSYSIOCTLH */
 
 /* Whether to include <fcntl.h> */
@@ -367,17 +414,11 @@ Time functions
 #ifndef BSD41
 #ifndef FT21
 #ifndef FT18
-#ifndef COHERENT
 #include <fcntl.h>
-#endif /* COHERENT */
 #endif /* FT18 */
 #endif /* FT21 */
 #endif /* BSD41 */
 #endif /* not is68k */
-
-#ifdef COHERENT
-#include <sys/fcntl.h>
-#endif /* COHERENT */
 
 #ifdef ATT7300				/* Unix PC, internal modem dialer */
 #include <sys/phone.h>
@@ -400,7 +441,20 @@ typedef int mflag;
 
 /* BSD, V7, Coherent, Minix, et al. */
 
-#ifndef SVORPOSIX			/* Not AT&T Sys V or POSIX */
+#ifdef SVORPOSIX			/* Sys V or POSIX */
+#ifdef BSD44
+#include <sys/time.h>
+#endif /* BSD44 */
+#ifdef AIXRS
+#include <sys/time.h>
+#endif /* AIXRS */
+#ifdef NOIEXTEN				/* This is broken on some systems */
+#undef IEXTEN				/* like Convex/OS 9.1 */
+#endif /* NOIEXTEN */
+#ifndef IEXTEN				/* Turn off ^O/^V processing. */
+#define IEXTEN 0			/* Needed, at least, on BSDI. */
+#endif /* IEXTEN */
+#else					/* Not AT&T Sys V or POSIX */
 #include <sgtty.h>                      /* So we use <sgtty.h> */
 #ifndef PROVX1				/* Now <sys/time.h> ... */
 #ifndef V7
@@ -412,6 +466,10 @@ typedef int mflag;
 #endif /* V7 */
 #endif /* PROVX1 */
 #endif /* SVORPOSIX */
+
+#ifdef OSF				/* DEC OSF/1 1.0 */
+#include <sys/timeb.h>
+#endif /* OSF */
 
 #ifdef BSD41				/* BSD 4.1 */
 #include <sys/timeb.h>
@@ -471,7 +529,9 @@ typedef int mflag;
 /* Declarations */
 
 #ifdef _POSIX_SOURCE			/* This includes MINIX */
+#ifndef AIXRS
 #include <time.h>
+#endif /* AIXRS */
 #ifdef __GNUC__
 #ifdef XENIX
 /*
@@ -502,15 +562,9 @@ char *initrawq(), *qaddr[2]={0,0};
     char *dfmdm = "none";
     int dfloc = 1;                  /* that goes in local mode by default */
 #else
-#ifdef COHERENT
-    char *dftty = "/dev/modem";
-    char *dfmdm = "none";
-    int dfloc = 1;
-#else
     char *dftty = CTTNAM;               /* Remote by default, use normal */
     char *dfmdm = "none";
     int dfloc = 0;                      /* controlling terminal name. */
-#endif /* COHERENT */
 #endif /* PROVX1 */
 #else
     char *dftty = DFTTY;		/* Default location specified on */
@@ -523,11 +577,12 @@ char *initrawq(), *qaddr[2]={0,0};
 #endif /* RTU */
 
     int dfprty = 0;                     /* Default parity (0 = none) */
-    int ttprty = 0;                     /* Parity in use. */
+    int ttprty = 0;                     /* The parity that is in use. */
+    int ttpflg = 0;			/* Parity not sensed yet. */
     static int ttpmsk = 0377;		/* Parity stripping mask. */
     int ttmdm = 0;                      /* Modem in use. */
     int ttcarr = CAR_AUT;		/* Carrier handling mode. */
-    int dfflow = 1;                     /* Xon/Xoff flow control */
+    int dfflow = FLO_XONX;		/* Default is Xon/Xoff */
     int backgrd = 0;                    /* Assume in foreground (no '&' ) */
 #ifdef ultrix
     int iniflags = 0;			/* fcntl flags for ttyfd */
@@ -544,15 +599,15 @@ char *initrawq(), *qaddr[2]={0,0};
     static int km_ext = -1;		/* Kanji mode for external device */
 #endif /* sony_news */
 
-extern int ttnproto;
-extern int ttnet;
+extern int ttnproto;			/* Defined in ckcnet.c */
+extern int ttnet;			/* Defined in ckcnet.c */
 
 int ckxech = 0; /* 0 if system normally echoes console characters, else 1 */
 
 /* Declarations of variables global within this module */
 
 static time_t tcount;			/* Elapsed time counter */
-SIGTYP (*saval)() = NULL;		/* For saving alarm handler */
+static SIGTYP (*saval)() = NULL;	/* For saving alarm() handler */
 
 /*
   BREAKNULS is defined for systems that simulate sending a BREAK signal
@@ -595,10 +650,23 @@ static int netconn = 0;			/* 1 if network connection active */
 
 static char escchr;                     /* Escape or attn character */
 
+#ifdef AIXRS
+    static struct timeval tv;		/* For getting time, from sys/time.h */
+    static struct timezone tz;
+#else
+#ifdef BSD44
+    static struct timeval tv;		/* For getting time, from sys/time.h */
+    static struct timezone tz;
+#else
 #ifdef BSD42
     static struct timeval tv;		/* For getting time, from sys/time.h */
     static struct timezone tz;
+#ifdef OSF
+    static struct timeb ftp;            /* And from sys/timeb.h */
+#endif /* OSF */
 #endif /* BSD42 */
+#endif /* BSD44 */
+#endif /* AIXRS */
 
 #ifdef BSD29
     static long xclock;                  /* For getting time from sys/time.h */
@@ -631,8 +699,12 @@ static char escchr;                     /* Escape or attn character */
 
 /* sgtty/termio information... */
 
+#ifdef BSD44ORPOSIX			/* POSIX or BSD44 */
+  static struct termios
+    ttold, ttraw, tttvt, ttcur,
+    ccold, ccraw, cccbrk;
+#else					/* BSD, V7, etc */
 #ifdef ATTSV
-
   static struct termio ttold = {0}; /* Init'd for word alignment, */
   static struct termio ttraw = {0}; /* which is important for some */
   static struct termio tttvt = {0}; /* systems, like Zilog... */
@@ -641,11 +713,6 @@ static char escchr;                     /* Escape or attn character */
   static struct termio ccraw = {0};
   static struct termio cccbrk = {0};
 #else
-#ifdef POSIX				/* POSIX */
-  static struct termios
-    ttold, ttraw, tttvt, ttcur,
-    ccold, ccraw, cccbrk;
-#else					/* BSD, V7, etc */
   static struct sgttyb                  /* sgtty info... */
     ttold, ttraw, tttvt, ttcur, 	/* for communication line */
     ccold, ccraw, cccbrk;		/* and for console */
@@ -667,8 +734,8 @@ static char escchr;                     /* Escape or attn character */
 #endif /* TIOCGLTC */
   int lmodef = 0;			/* Local modes */
   int lmode = 0;
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
 
 #ifdef PROVX1
   static struct sgttyb ttbuf;
@@ -777,20 +844,20 @@ _PROTOTYP( static int ttlock, (char *) );
 _PROTOTYP( static int ttunlck, (void) );
 _PROTOTYP( int mygetbuf, (void) );
 _PROTOTYP( int myfillbuf, (void) );
-_PROTOTYP( VOID conbgt, (void) );
+_PROTOTYP( VOID conbgt, (int) );
 #ifdef ACUCNTRL
 _PROTOTYP( VOID acucntrl, (char *, char *) );
 #endif /* ACUCNTRL */
 
+#ifdef BSD44ORPOSIX
+_PROTOTYP( int carrctl, (struct termios *, int) );
+#else
 #ifdef ATTSV
 _PROTOTYP( int carrctl, (struct termio *, int) );
 #else
-#ifdef POSIX
-_PROTOTYP( int carrctl, (struct termios *, int) );
-#else
 _PROTOTYP( int carrctl, (struct sgttyb *, int) );
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
 
 #ifdef ATT7300
 _PROTOTYP( int attdial, (char *, long, char *) );
@@ -837,15 +904,21 @@ int
 sysinit() {
     int x;
 
-    conbgt();				/* See if we're in the background */
+    conbgt(0);				/* See if we're in the background */
+#ifndef __386BSD__
+/*
+  386BSD doesn't allow opening /dev/tty if Kermit is running setuid.
+*/
     congm();				/* Get console modes */
+#endif /* __386BSD__ */
+    signal(SIGALRM,SIG_IGN);		/* Ignore alarms */
 
 #ifdef ultrix
     gtty(0,&vanilla);			/* Get sgtty info */
     iniflags = fcntl(0,F_GETFL,0);	/* Get flags */
 #else
 #ifdef AUX
-    set42sig();			      /* Don't ask! (hakanson@cs.orst.edu) */
+    set42sig();				/* Don't ask! (hakanson@cs.orst.edu) */
 #endif /* AUX */
 #endif /* ultrix */
 
@@ -859,6 +932,12 @@ sysinit() {
 	if (x | 4) fprintf(stderr,"Fatal: C-Kermit setuid to root!\n");
 	exit(1);
     }
+#ifdef __386BSD__
+/*
+  386BSD...  OK, now we have changed into ourselves, so can open /dev/tty.
+*/
+    congm();				/* Get console modes */
+#endif /* __386BSD__ */
     return(0);
 }
 
@@ -874,20 +953,6 @@ syscleanup() {
     return(0);
 }
 
-/*
-  Major change in 5A(174).  We used to use LPASS8, if it was defined, in all
-  versions except ENCORE, to allow 8-bit data and Xon/Xoff flow control at the
-  same time.  But this LPASS8 business seems to have been causing trouble for
-  everybody but me!  For example, Annex terminal servers, commonly used with
-  Encore computers, do not support LPASS8 even though the Encore itself does.
-  Now, reportedly, even vanilla 4.3 BSD systems can't do this.  So let's turn
-  it off for everybody.  That means we goes back to using
-  raw mode, with no flow control.  Phooey.
-*/
-#ifdef LPASS8
-#undef LPASS8
-#endif /* LPASS8 */
-
 /*  T T O P E N  --  Open a tty for exclusive access.  */
 
 /*
@@ -922,6 +987,9 @@ static int ttotmo = 0;			/* Timeout flag */
 int
 ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 
+#ifdef BSD44
+#define ctermid(x) strcpy(x,"")
+#else
 #ifdef SVORPOSIX
 #ifndef CIE
     extern char *ctermid();		/* Wish they all had this! */
@@ -929,6 +997,7 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 #define ctermid(x) strcpy(x,"")
 #endif /* CIE */
 #endif /* SVORPOSIX */
+#endif /* BSD44 */
 
     char *x;				/* what's this ? */
 
@@ -937,10 +1006,12 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 #endif /* MINIX */
     char cname[DEVNAMLEN+4];
 
+#ifndef pdp11
 #define NAMEFD	 /* Feature to allow name to be an open file descriptor */
+#endif /* pdp11 */
 
 #ifdef NAMEFD
-    int i, j; char *p;
+    char *p;
 
     debug(F101,"ttopen telnetfd","",telnetfd);
 #endif /* NAMEFD */
@@ -948,6 +1019,31 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
     debug(F111,"ttopen entry modem",ttname,modem);
     debug(F101," ttyfd","",ttyfd);
     debug(F101," lcl","",*lcl);
+
+#ifdef MAXNAMLEN
+    debug(F100,"ttopen MAXNAMLEN defined","",0);
+#else
+    debug(F100,"ttopen MAXNAMLEN *NOT* defined","",0);
+#endif
+
+#ifdef BSD4
+    debug(F100,"ttopen BSD4 defined","",0);
+#else
+    debug(F100,"ttopen BSD4 *NOT* defined","",0);
+#endif
+
+#ifdef BSD42
+    debug(F100,"ttopen BSD42 defined","",0);
+#else
+    debug(F100,"ttopen BSD42 *NOT* defined","",0);
+#endif /* BSD42 */
+
+#ifdef MYREAD
+    debug(F100,"ttopen MYREAD defined","",0);
+#else
+    debug(F100,"ttopen MYREAD *NOT* defined","",0);
+#endif /* MYREAD */
+
 
     if (ttyfd > -1) {			/* if device already opened */
         if (strncmp(ttname,ttnmsv,DEVNAMLEN)) /* are new & old names equal? */
@@ -966,7 +1062,7 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 	debug(F111,"ttopen net",ttname,modem);
 #ifdef NAMEFD
 	for (p = ttname; isdigit(*p); p++) ; /* Check for all digits */
-	if (*p == '\0') {
+ 	if (*p == '\0' && (telnetfd || x25fd)) { /* Avoid X.121 addresses */
 	    ttyfd = atoi(ttname);	/* Is there a way to test it's open? */
 	    ttfdflg = 1;		/* We got an open file descriptor */
 	    debug(F111,"ttopen got open network fd",ttname,ttyfd);
@@ -1085,9 +1181,11 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
  go off, and should do no harm...
 */
     ttotmo = 0;				/* Flag no timeout */
-    saval = signal(SIGALRM,timerh);	/* Timed, set up timer. */
     if (timo > 0) {
-	alarm(timo);			/* Timed open() */
+	int xx;
+	saval = signal(SIGALRM,timerh);	/* Timed, set up timer. */
+	xx = alarm(timo);		/* Timed open() */
+	debug(F101,"ttopen alarm","",xx);
 	if (setjmp(sjbuf)) {
 	    ttotmo = 1;			/* Flag timeout. */
 	} else ttyfd = do_open(ttname);
@@ -1155,6 +1253,12 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 
     /* If any of 0, 1, or 2 not redirected, we can use ttyname() to get */
     /* the name of the controlling terminal... */
+
+/*
+  Warning: on some UNIX systems (SVR4?), ttyname() reportedly opens /dev but
+  never closes it.  If it is called often enough, we run out of file
+  descriptors and subsequent open()'s of other devices or files can fail.
+*/
 
         } else if ((x0 = isatty(0)) || (x1 = isatty(1)) || isatty(2)) {
 #ifndef MINIX
@@ -1261,18 +1365,18 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 
 /* Get tty device settings */
 
+#ifdef BSD44ORPOSIX			/* POSIX */
+    tcgetattr(ttyfd,&ttold);
+    debug(F101,"ttopen tcgetattr ttold.c_lflag","",ttold.c_lflag);
+    tcgetattr(ttyfd,&ttraw);
+    tcgetattr(ttyfd,&tttvt);
+#else					/* BSD, V7, and all others */
 #ifdef ATTSV				/* AT&T UNIX */
     ioctl(ttyfd,TCGETA,&ttold);
     debug(F101,"ttopen ioctl TCGETA ttold.c_lflag","",ttold.c_lflag);
     ioctl(ttyfd,TCGETA,&ttraw);
     ioctl(ttyfd,TCGETA,&tttvt);
 #else
-#ifdef POSIX				/* POSIX */
-    tcgetattr(ttyfd,&ttold);
-    debug(F101,"ttopen tcgetattr ttold.c_lflag","",ttold.c_lflag);
-    tcgetattr(ttyfd,&ttraw);
-    tcgetattr(ttyfd,&tttvt);
-#else					/* BSD, V7, and all others */
     gtty(ttyfd,&ttold);
     debug(F101,"ttopen gtty ttold.sg_flags","",ttold.sg_flags);
 
@@ -1327,8 +1431,9 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
     gtty(ttyfd,&ttraw);                 /* And a copy of it for packets*/
     gtty(ttyfd,&tttvt);                 /* And one for virtual tty service */
 
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
+
 
 /* Section for changing line discipline.  It's restored in ttres(). */
 
@@ -1380,10 +1485,14 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 	 * or you have a carrier, otherwise you wouldn't be running this.
 	 */
 #ifdef ATTSV
+#ifdef BSD44
+	tcsetattr(ttyfd, TCSADRAIN, &ttraw);
+#else
 	if (xlocal) {
 	    ttraw.c_cflag |= CLOCAL;
 	    ioctl(ttyfd, TCSETA, &ttraw);
 	}
+#endif /* BSD44 */
 #endif /* ATTSV */
 #ifndef SCO3R2
 #ifndef OXOS
@@ -1419,18 +1528,18 @@ ttopen(ttname,lcl,modem,timo) char *ttname; int *lcl, modem, timo; {
 #ifdef SVORPOSIX
 	ttraw.c_lflag &= ~ECHO;
 	ttold.c_lflag &= ~ECHO;
-#ifdef ATTSV
-	ioctl(ttyfd, TCSETA, &ttraw);
-#else
+#ifdef BSD44ORPOSIX
 	tcsetattr(ttyfd, TCSADRAIN, &ttraw);
-#endif /* ATTSV */
+#else
+	ioctl(ttyfd, TCSETA, &ttraw);
+#endif /* BSD44ORPOSIX */
 
 #else /* BSD, etc */
 	ttraw.sg_flags &= ~ECHO;
 	ttold.sg_flags &= ~ECHO;
 	stty(ttyfd,&ttraw);
 #endif /* SVORPOSIX */
-/*	ttflui();  This fails some reason  */
+/*	ttflui();  This fails for some reason  */
     }
     
     /* Get current speed */
@@ -1510,8 +1619,10 @@ ttclos(foo) int foo; {			/* Arg req'd for signal() prototype */
 	debug(F100,"ttclos about to call ttres","",0);
     }
     if (ttyfd > 0) {
+	int xx;
 	saval = signal(SIGALRM,timerh);	/* Enable timer interrupt. */
-	alarm(5);			/* Allow 5 seconds for this. */
+	xx = alarm(5);			/* Allow 5 seconds for this. */
+	debug(F101,"ttclos alarm","",xx);
 	if (setjmp(sjbuf)) {		/* Timer went off? */
 	    x = -1;
 	} else {			/* What we're really trying to do */
@@ -1569,6 +1680,7 @@ tthang() {
 
 #ifdef SVORPOSIX			/* AT&T, POSIX, HPUX declarations. */
     int spdsav;				/* for saving speed */
+    int spdsavi;
 #ifdef HPUX
     mflag dtr_down = 00000000000,
     modem_rtn;
@@ -1583,30 +1695,28 @@ tthang() {
     if (xlocal < 1) return(0);		/* Don't do this if not local */
 
 #ifdef NETCONN
-    if (netconn) {			/* Network connection. */
-	if (netclos() < 0) return(-1);	/* Close it */
-        tvtflg = 0;
-	ttyfd = -1;
-        x = 1;
-	if (netopen(ttnmsv, &x, ttmdm) < 0) /* Open it again */
-	  return(-1);
-	else 
-	  return(1);
-    }
+    if (netconn)			/* Network connection. */
+      return((netclos() < 0) ? -1 : 1);	/* Just close it. */
 #endif /* NETCONN */
 
 /* From here down, we handle real tty devices. */
 
-#ifdef POSIX
+#ifdef BSD44ORPOSIX
 /* Should add some error checking here... */
+    debug(F100,"tthang POSIX style","",0);
     spdsav = cfgetospeed(&ttcur);	/* Get current speed */
+    spdsavi = cfgetispeed(&ttcur);	/* Get current speed */
     cfsetospeed(&ttcur,B0);		/* Replace by 0 */
-    tcsetattr(ttyfd,TCSADRAIN,&ttcur);	/* Set it */
+    cfsetispeed(&ttcur,B0);
+    if (tcsetattr(ttyfd,TCSADRAIN,&ttcur) == -1)
+      debug(F100,"tthang tcsetattr fails","",errno);
     msleep(HUPTIME);			/* Sleep */
     cfsetospeed(&ttcur,spdsav);		/* Restore previous speed */
+    cfsetispeed(&ttcur,spdsavi);
     tcsetattr(ttyfd,TCSADRAIN,&ttcur);
     return(1);
-#endif /* POSIX */
+
+#else /* BSD44ORPOSIX */
 
 #ifdef aegis				/* Apollo Aegis */
     sio_$control((short)ttyfd, sio_$dtr, false, st);    /* DTR down */
@@ -1689,7 +1799,7 @@ tthang() {
     modem_sav = modem_rtn;		/* save line status */
     modem_rtn &= ~MDTR;			/* DTR bit down */
     sprintf(modem_state,"%#lx",modem_rtn);
-    debug(F110,"tthang HP-UX: modem lines lowerd DTR = ",modem_state,0);    
+    debug(F110,"tthang HP-UX: modem lines lowered DTR = ",modem_state,0); 
     if (ioctl(ttyfd,MCSETAF,&modem_rtn) < 0) { /* lower DTR */
 	debug(F100,"tthang HP-UX: can't lower DTR!","",0);
 	return(-1);			/* oops, can't. */
@@ -1729,6 +1839,13 @@ tthang() {
 /* It is not known how many, if any, systems actually implement them, */
 /* so we include them here in ifdef's. */
 
+#ifndef _IBMR2
+/*
+  No modem-signal twiddling for IBM RT PC or RS/6000.
+  In AIX 3.1 and earlier, the ioctl() call is broken.
+  This code could be activated for AIX 3.1 with PTF 2006 or later
+  (e.g. AIX 3.2), but close/open does the job too, so why bother.
+*/
 #ifdef TIOCMBIS				/* Bit Set */
 #ifdef TIOCMBIC				/* Bit Clear */
 #ifdef TIOCM_DTR			/* DTR */
@@ -1738,30 +1855,18 @@ tthang() {
 
     z = TIOCM_DTR;			/* Code for DTR. */
 #ifdef TIOCM_RTS			/* Lower RTS too if symbol is known. */
-#ifndef _IBMR2				/* Don't do this on RS/6000... */
     z |= TIOCM_RTS;			
-#endif /* _IBMR2 */			/* or DTR will never come up again. */
 #endif /* TIOCM_RTS */
 
     debug(F101,"tthang TIOCM signal mask","",z);
-#ifndef _IBMR2
-/* SVID says the argument must be a pointer to an int. */
-    if (ioctl(ttyfd,TIOCMBIC,&z) > -1)
-#else
-/* Reportedly, the RS/6000 requires an int, not a pointer. */
-    if (ioctl(ttyfd,TIOCMBIC,z) > -1)
-#endif /* _IBMR2 */
-      { /* Try to lower DTR. */
+    if (ioctl(ttyfd,TIOCMBIC,&z) > -1) {   /* Try to lower DTR. */
 	debug(F100,"tthang TIOCMBIC ok","",0);
 	msleep(HUPTIME);		   /* Pause half a second. */
-#ifndef _IBMR2
-	if (ioctl(ttyfd,TIOCMBIS,&z) > -1) /* Try to turn it back on. */
-#else
-	if (ioctl(ttyfd,TIOCMBIS,z) > -1)
-#endif /* _IBMR2 */
-	  {
+	if (ioctl(ttyfd,TIOCMBIS,&z) > -1) { /* Try to turn it back on. */
 	    debug(F100,"tthang TIOCMBIS ok","",0);
+#ifndef CLSOPN
 	    return(1);			/* Success, done. */
+#endif /* CLSOPN */
 	} else {			/* Couldn't raise, continue. */
 	    debug(F101,"tthang TIOCMBIS errno","",errno);
 	}
@@ -1771,7 +1876,7 @@ tthang() {
 #endif /* TIOCM_DTR */
 #endif /* TIOCMBIC */
 #endif /* TIOCMBIS */
-
+#endif /* _IBMR2 */
 /*
   General AT&T UNIX case, not HPUX.  The following code is highly suspect.  No
   two AT&T-based systems seem to do this the same way.  The object is simply
@@ -1801,7 +1906,7 @@ tthang() {
     debug(F101,"tthang speed","",spdsav);
 
 #ifdef O_NDELAY
-    debug(F100,"tthang O_NDELAY on","",0);
+    debug(F100,"tthang turning O_NDELAY on","",0);
     fcntl(ttyfd, F_SETFL, flags | O_NDELAY); /* Activate O_NDELAY */
 #endif /* O_NDELAY */
 
@@ -1888,10 +1993,6 @@ tthang() {
 
 #ifndef SCO32 /* Not needed by, and harmful to, SCO UNIX 3.2 / Xenix 2.3 */
 
-#ifdef RTAIX				/* RT AIX needs this too... */
-#define CLSOPN
-#endif /* RTAIX */
-
 #ifdef O_NDELAY
 #define OPENFLGS O_RDWR | O_NDELAY
 #else
@@ -1899,7 +2000,7 @@ tthang() {
 #endif
 
 #ifndef CLSOPN
-/* This method is used by default. */
+/* This method is used by default, i.e. unless CLSOPN is defined. */
 /* It is thought to be safer because there is no window where getty */
 /* can seize control of the device.  The drawback is that it might not work. */
 
@@ -1913,14 +2014,7 @@ tthang() {
     debug(F101,"tthang close/open, OPENFLGS","",OPENFLGS);
     close(ttyfd);
     msleep(10);
-#ifdef COMMENT
-/* Why did we return? */
-    if (ttyfd = priv_opn(ttnmsv, OPENFLGS)) return(1);
-#else
-/* We still need to restore the flags, etc. */
-    ttyfd = priv_opn(ttnmsv, OPENFLGS);
-#endif /* COMMENT */
-
+    ttyfd = priv_opn(ttnmsv, OPENFLGS);	/* Open it again */
 #endif /* CLSOPN */
 #undef OPENFLGS
 
@@ -1934,13 +2028,43 @@ tthang() {
     ttcur.c_cflag = ttc_save;		/* Get old speed back. */
     if (ioctl(ttyfd,TCSETAF,&ttcur) < 0) /* ioctl parameters. */
       return(-1); 
+#ifdef O_NDELAY
+/*
+  This is required for IBM RT and RS/6000, probably helps elsewhere too (?).
+  After closing a modem line, the modem will probably not be asserting
+  carrier any more, so we should not require carrier any more.  If this
+  causes trouble on non-IBM UNIXes, change the #ifdef to use _IBMR2 rather
+  than O_NDELAY.
+*/
+    flags &= ~O_NDELAY;			/* Don't require carrier on reopen */
+#endif /* O_NDELAY */
     if (fcntl(ttyfd,F_SETFL,flags) < 0)	/* fcntl parameters */
       return(-1);
 
     return(1);
 #endif /* not HPUX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
 }
+
+/*
+  Major change in 5A(174).  We used to use LPASS8, if it was defined, to
+  allow 8-bit data and Xon/Xoff flow control at the same time.  But this
+  LPASS8 business seems to have been causing trouble for everybody but me!
+  For example, Annex terminal servers, commonly used with Encore computers,
+  do not support LPASS8 even though the Encore itself does.  Ditto for many
+  other terminal servers, TELNET connections, rlogin connections, etc etc.
+  Now, reportedly, even vanilla 4.3 BSD systems can't do this right on their
+  serial lines, even though LPASS8 is a feature of 4.3BSD.  So let's turn it
+  off for everybody.  That means we goes back to using raw mode, with no
+  flow control.  Phooey.
+
+  NOTE: This must be done before the first reference to LPASS8 in this file,
+  and after the last #include statment.
+*/
+#ifdef LPASS8
+#undef LPASS8
+#endif /* LPASS8 */
 
 /*  T T R E S  --  Restore terminal to "normal" mode.  */
 
@@ -1980,12 +2104,12 @@ ttres() {                               /* Restore the tty to normal. */
 
 /* Real terminal device, so restore its original modes */
 
+#ifdef BSD44ORPOSIX			/* For POSIX like this */
+    x = tcsetattr(ttyfd,TCSADRAIN,&ttold);
+#else					/* For all others... */
 #ifdef ATTSV                            /* For AT&T versions... */
     x = ioctl(ttyfd,TCSETAW,&ttold);	/* Restore tty modes this way. */
 #else
-#ifdef POSIX				/* For POSIX like this */
-    x = tcsetattr(ttyfd,TCSADRAIN,&ttold);
-#else					/* For all others... */
     msleep(HUPTIME);			/* This replaces sleep(1)... */
 					/* Put back sleep(1) if tty is */
 					/* messed up after close. */
@@ -2001,14 +2125,14 @@ ttres() {                               /* Restore the tty to normal. */
     }
 #endif /* LPASS8 */
 
-#ifdef UTEK			/* Undo hardware flow if it were done */
+#ifdef CK_DTRCTS		   /* Undo hardware flow if it were done */
     if (lmodef) {
  	if (ioctl(ttyfd,TIOCLSET,&lmode) < 0)
  	  debug(F100,"ttres TIOCLSET failed","",0);
  	else
  	  debug(F100,"ttres TIOCLSET ok","",0);
     }
-#endif /* UTEK */
+#endif /* CK_DTRCTS */
 
 #ifdef TIOCGETC				/* Put back special characters */
     if (tcharf && (xlocal == 0)) {
@@ -2030,8 +2154,8 @@ ttres() {                               /* Restore the tty to normal. */
 
     x = stty(ttyfd,&ttold);             /* restore tty modes the old way. */
 
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
 
     debug(F101,"ttres tty modes restore","",x);
     if (x < 0) debug(F101,"ttres errno","",errno);
@@ -2118,7 +2242,9 @@ ttrpid(name) char *name; {
 */
 #ifdef SVR4				/* Lockfile uses device numbers. */
 #ifndef LFDEVNO				/* Define this for SVR4 */
+#ifndef AIXRS				/* But not for RS/6000 AIX 3.2 */
 #define LFDEVNO				/* If anybody else needs it, */
+#endif /* AIXRS */
 #endif /* LFDEVNO */			/* define it here or on CC */
 #endif /* SVR4 */			/* command line. */
 
@@ -2174,7 +2300,7 @@ ttlock(ttdev) char *ttdev; {
     char lockfil[LFNAML];		/* Lock file name */
 #ifdef RTAIX
     char lklockf[LFNAML];		/* Name for link to lock file  */
-#endif
+#endif /* RTAIX */
     char tmpnam[LFNAML+30];		/* Temporary lockfile name. */
     char *lockdir = LOCK_DIR;		/* Defined near top of this file, */
 					/* or on cc command line. */
@@ -2188,7 +2314,7 @@ ttlock(ttdev) char *ttdev; {
 /*  device  = name of tty device without the path, e.g. "ttyh8" */
 /*  lockfil = name of lock file, without path, e.g. "LCK..ttyh8" */
 
-    device = ((devname=xxlast(ttdev,'/')) != NULL ? devname+1 : ttdev);
+    device = ((devname = xxlast(ttdev,'/')) != NULL ? devname+1 : ttdev);
 
 #ifdef ISIII				/* Interactive System III, PC/IX */
     strcpy(lockfil, device);
@@ -2229,7 +2355,7 @@ ttlock(ttdev) char *ttdev; {
     sprintf(flfnam,"%s/%s",lockdir,lockfil);
 #ifdef RTAIX
     sprintf(lkflfn,"%s/%s",lockdir,lklockf);
-#endif
+#endif /* RTAIX */
     sprintf(tmpnam,"%s/LTMP.%05d",lockdir,(int) pid);
     debug(F110,"ttlock flfnam",flfnam,0);
     debug(F110,"ttlock tmpnam",tmpnam,0);
@@ -2251,7 +2377,7 @@ ttlock(ttdev) char *ttdev; {
 /* Now write the pid into the temp lockfile in the appropriate format */
 
 #ifdef PIDSTRING			/* For Honey DanBer UUCP, */
-    sprintf(pid_str,"%10d\n", (int) pid); /* write pid as decimal string. */
+    sprintf(pid_str,"%10d\n", (int) pid); /* Write pid as decimal string. */
     write(lockfd, pid_str, 11);
     debug(F111,"ttlock hdb pid string",pid_str,(int) pid);
 #else					/* Others use integer pid */
@@ -2270,10 +2396,28 @@ ttlock(ttdev) char *ttdev; {
 	if (haslock) {			      /* If we got the lockfile */
 #ifdef RTAIX
 	    link(flfnam,lkflfn);
-#endif	    
-	    break;		  	      /* we're done. */
-	} else {			      /* Otherwise, */
-	    if ((fpid = ttrpid(flfnam)) > -1) {	/* Read pid from lockfile */
+#endif /* RTAIX */ 
+#ifdef LOCKF
+/*
+  Advisory file locking works on SVR4, so we use it.  In fact, it is
+  necessary in some cases, e.g. when SLIP is involved.
+*/
+            while ( lockf(ttyfd, F_TLOCK, 0L) != 0 ) {
+                debug(F111, "ttlock: lockf returns errno", "", errno);
+                if ( (++tries >= 3) || (errno != EAGAIN) ) {
+                    x = unlink(flfnam); /* remove the lockfile */
+                    debug(F111,"ttlock unlink",flfnam,x);
+                    haslock = 0;
+		    break;
+		}
+                sleep(2);
+	    }
+	    if (haslock)		/* If we got an advisory lock */
+#endif /* LOCKF */
+	      break;			/* We're done. */
+
+	} else {			/* We didn't create a new lockfile. */
+	    if ((fpid = ttrpid(flfnam)) > -1) {	/* Read pid from old one. */
 		if (fpid > 0) {
 		    debug(F101,"ttlock fpid","",fpid);
 		    errno = 0;		/* See if process still exists. */
@@ -2290,7 +2434,7 @@ ttlock(ttdev) char *ttdev; {
 			x = unlink(flfnam); /* remove the lockfile. */
 			debug(F111,"ttlock unlink",flfnam,x);
 			continue;	/* and go back and try again. */
-		    } else if (x < 0 && errno == EPERM || x == 0) {
+		    } else if ((x < 0 && errno == EPERM) || x == 0) {
 			unlink(tmpnam);	/* Delete the tempfile */
 			debug(F101,"ttlock found tty locked","",fpid);
 			priv_off();	/* Turn off privs */
@@ -2300,7 +2444,7 @@ ttlock(ttdev) char *ttdev; {
 		    debug(F101,"ttlock can't get fpid","",fpid);
 		    break;
 		}
-	    } else break;
+	    } else break;		/* Couldn't read pid from old file */
 	}
     }
     unlink(tmpnam);			/* Unlink (remove) the temp file. */
@@ -2318,8 +2462,11 @@ ttunlck() {                             /* Remove UUCP lockfile. */
 	priv_on();			/* Turn privileges on.  */
 	unlink(flfnam);			/* Remove the lockfile. */
 #ifdef RTAIX
-	unlink(lkflfn);
-#endif
+	unlink(lkflfn);			/* Remove other lockfile */
+#endif /* RTAIX */
+#ifdef LOCKF
+        (void) lockf(ttyfd, F_ULOCK, 0L); /* Remove advisory lock */
+#endif /* LOCKF */
 	*flfnam = '\0';			/* Erase the name. */
 	priv_off();			/* Turn privileges off. */
     }
@@ -2344,34 +2491,180 @@ acucntrl(flag,ttname) char *flag, *ttname; {
 }
 #endif /* ACUCNTRL */
 
-/*  T T P K T  --  Condition the communication line for packets. */
-/*              or for modem dialing */
+/*
+  T T H F L O W  --  Set hardware flow control.
+*/
+static int
+tthflow(flow) int flow; {
+    int x = 0;				/* Return code */
 
-#define DIALING 4               /* flags (via flow) for modem handling */
-#define CONNECT 5
+/* There is no hardware flow control in POSIX. */
 
-/*  If called with speed > -1, also set the speed.  */
+/*
+  For SunOS 4.0 and later in the BSD environment ...
 
-/*  Returns 0 on success, -1 on failure.  */
+  The declarations are copied and interpreted from the System V header files,
+  so we don't actually have to pull in all the System V junk when building
+  C-Kermit for SunOS in the BSD environment, which would be dangerous because
+  having those symbols defined would cause us to take the wrong paths through
+  the code.  The code in this section is used in both the BSD and Sys V SunOS
+  versions.
+*/
+#ifdef SUNOS41
+/*
+  In SunOS 4.1 and later, we use the POSIX calls rather than ioctl calls
+  because GNU CC uses different formats for the _IOxxx macros than regular CC;
+  the POSIX forms work for both.  But the POSIX calls are not available in
+  SunOS 4.0.
+*/
+#define CRTSCTS 0x80000000		/* RTS/CTS flow control */
+#define TCSANOW 0			/* Do it now */
 
+    struct termios {
+	unsigned long c_iflag;		/* Input modes */
+	unsigned long c_oflag;		/* Output modes */
+	unsigned long c_cflag;		/* Control modes */
+	unsigned long c_lflag;		/* Line discipline modes */
+	char c_line;
+	CHAR c_cc[17];
+    };
+    struct termios temp;
+
+_PROTOTYP( int tcgetattr, (int, struct termios *) );
+_PROTOTYP( int tcsetattr, (int, int, struct termios *) );
+
+/*
+  When CRTSCTS is set, SunOS won't do output unless both CTS and CD are
+  asserted.  So we don't set CRTSCTS unless CD is up.  This should be OK,
+  since we don't need RTS/CTS during dialing, and after dialing is complete,
+  we should have CD.  If not, we still communicate, but without RTS/CTS.
+*/
+	  int mflags;				    /* Modem signal flags */
+	  if (ioctl(ttyfd,TIOCMGET,&mflags) > -1 && /* Get modem signals */
+	      (mflags & TIOCM_CAR)) {		    /* Check for CD */
+	      debug(F100,"tthflow SunOS has CD","",0);
+	      if (tcgetattr(ttyfd, &temp) > -1 &&   /* Get device attributes */
+		  !(temp.c_cflag & CRTSCTS)) {	    /* Check for RTS/CTS */
+		  temp.c_cflag |= CRTSCTS;	    /* Not there, add it */
+		  x = tcsetattr(ttyfd,TCSANOW,&temp);
+	      }
+	  } else debug(F100,"tthflow SunOS no CD","",0);
+#else
+#ifdef SUNOS4
+/*
+  SunOS 4.0 (and maybe earlier?).  This code is dangerous because it
+  prevents compilation with GNU gcc, which uses different formats for the
+  _IORxxx macros than regular cc.  SunOS 4.1 and later can use the POSIX
+  routines in the #else part of this clause, which work for both cc and gcc.
+*/
+#define TCGETS _IOR(T, 8, struct termios) /* Get modes into termios struct */
+#define TCSETS _IOW(T, 9, struct termios) /* Set modes from termios struct */
+#define CRTSCTS 0x80000000		  /* RTS/CTS flow control */
+
+    struct termios {
+	unsigned long c_iflag;		/* Input modes */
+	unsigned long c_oflag;		/* Output modes */
+	unsigned long c_cflag;		/* Control modes */
+	unsigned long c_lflag;		/* Line discipline modes */
+	char c_line;
+	CHAR c_cc[17];
+    };
+    struct termios temp;
+
+    if (ioctl(ttyfd,TCGETS,&temp) > -1) { /* Get current terminal modes. */
+	temp.c_cflag |= CRTSCTS;	/* Add RTS/CTS to them. */
+	x = ioctl(ttyfd,TCSETS,&temp);	/* Set them again. */
+    }
+#else					/* Not SunOS 4.0 or later */
+#ifdef ATTSV
+    if (flow == FLO_RTSC) {
+	/* RTS/CTS Flow control... */
+#ifdef RTSXOFF
+	/* This is the preferred way, according to SVID R4 */
+	if (ioctl(ttyfd,TCGETX,&rctsx) > -1) {
+	    rctsx.x_hflag |= RTSXOFF | CTSXON;
+	    x = ioctl(ttyfd,TCSETX,&rctsx);
+	}
+#endif /* RTSXOFF */
+    }
+    if (flow == FLO_DTRC) {
+	/* DTR/CD Flow control... */
+#ifdef DTRXOFF
+	/* This is straight out of SVID R4 */
+	if (ioctl(ttyfd,TCGETX,&rctsx) > -1) {
+	    rctsx.x_hflag |= DTRXOFF | CDXON;
+	    x = ioctl(ttyfd,TCSETX,&rctsx);
+	}
+#endif /* DTRXOFF */
+    }
+#else /* not System V */
+#ifdef CK_DTRCTS
+    x = LDODTR | LDOCTS;		/* Found only on UTEK? */
+    if (flow == FLO_DTRT) {		/* Use hardware flow control */
+	if (lmodef) {
+	    x = ioctl(ttyfd,TIOCLBIS,&x);
+	    if (x < 0) {
+	        debug(F100,"hardflow TIOCLBIS error","",0);
+	    } else {
+		lmodef++;
+		debug(F100,"hardflow TIOCLBIS ok","",0);
+	    }
+	}
+    } else {
+	if (lmodef) {
+	    x = ioctl(ttyfd,TIOCLBIC,&x);
+	    if (x < 0) {
+	        debug(F100,"hardflow TIOCLBIC error","",0);
+	    } else {
+		lmodef++;
+		debug(F100,"hardflow TIOCLBIC ok","",0);
+	    }
+	}
+    }
+#endif /* CK_DTRCTS */
+#endif /* ATTSV */
+#endif /* SUNOS4 */
+#endif /* SUNOS41 */
+    return(x);
+}
+
+/*  T T P K T  --  Condition the communication line for packets */
+/*                 or for modem dialing */
+
+/*
+  If called with speed > -1, also set the speed.
+  Returns 0 on success, -1 on failure.
+
+  NOTE: the "xflow" parameter is supposed to be the currently selected
+  type of flow control, but for historical reasons, this parameter is also
+  used to indicate that we are dialing.  Therefore, when the true flow
+  control setting is needed, we access the external variable "flow", rather
+  than trusting our "xflow" argument.
+*/
 int
-ttpkt(speed,flow,parity) long speed; int flow, parity; {
+#ifdef CK_ANSIC
+ttpkt(long speed, int xflow, int parity)
+#else
+ttpkt(speed,xflow,parity) long speed; int xflow, parity;
+#endif /* CK_ANSIC */
+/* ttpkt */ {
     int s2;
     int s = -1;
 #ifndef SVORPOSIX
     int x;
 #endif /* SVORPOSIX */
+    extern int flow;			/* REAL flow-control setting */
 
     if (ttyfd < 0) return(-1);          /* Not open. */
 
     debug(F101,"ttpkt parity","",parity);
-    debug(F101,"ttpkt flow","",flow);
+    debug(F101,"ttpkt xflow","",xflow);
     debug(F101,"ttpkt speed","",(int) speed);
 
     ttprty = parity;                    /* Let other tt functions see these. */
+    ttpflg = 0;				/* Parity not sensed yet */
     ttpmsk = ttprty ? 0177 : 0377;	/* Parity stripping mask */
-    ttspeed = speed;
-    ttflow = flow;			/* Now make this available too. */
+    ttspeed = speed;			/* Make global copy for this module */
 
 #ifdef NETCONN				/* Nothing to do for telnet */
     if (netconn) return (0);
@@ -2395,27 +2688,41 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 #endif /* LPASS8 */
 #endif /* SVORPOSIX */
 
+    if (xflow != FLO_DIAL && xflow != FLO_DIAX)
+      ttflow = xflow;			/* Now make this available too. */
+
     if (xlocal) {
 	s2 = (int) (speed / 10L);	/* Convert bps to cps */
 	s = ttsspd(s2);			/* Check and set the speed */
-	debug(F101,"ttpkt carrier","",flow);
- 	carrctl(&ttraw, flow != DIALING	/* Carrier control */
+	debug(F101,"ttpkt carrier","",xflow);
+ 	carrctl(&ttraw, xflow != FLO_DIAL /* Carrier control */
 		&& (ttcarr == CAR_ON));
 	tvtflg = 0;			/* So ttvt() will work next time */
     }
 
-#ifndef SVORPOSIX				/* BSD section */
-#ifdef UTEK
-    hardflow(flow);
-    if (flow == FLO_NONE || flow == FLO_HARD) /* Something besides Xon/Xoff */
-#else
-    if (flow == FLO_NONE)		/* No Xon/Xoff flow control */
-#endif /* UTEK */
-    {
-	debug(F100,"ttpkt turning TANDEM off, RAW on","",0);
+#ifndef SVORPOSIX			/* BSD section */
+    if (flow == FLO_RTSC ||		/* Hardware flow control */
+	flow == FLO_DTRC ||
+	flow == FLO_DTRT) {
+	tthflow(flow);
+	debug(F100,"ttpkt hard flow, TANDEM off, RAW on","",0);
 	ttraw.sg_flags &= ~TANDEM;	/* Don't ask for it. */
 	ttraw.sg_flags |= RAW;
-    } else if (flow == FLO_XONX) {	/* Xon/Xoff requested. */
+    } else if (flow == FLO_NONE) {	/* No Xon/Xoff flow control */
+	debug(F100,"ttpkt no flow, TANDEM off, RAW on","",0);
+	ttraw.sg_flags &= ~TANDEM;	/* Don't ask for it. */
+	ttraw.sg_flags |= RAW;
+/* NOTE: We should also turn off hardware flow control here! */
+    } else if (flow == FLO_KEEP) {	/* Keep device's original setting */
+	debug(F100,"ttpkt keeping original TANDEM","",0);
+	ttraw.sg_flags &= ~TANDEM;
+	ttraw.sg_flags |= (ttold.sg_flags & TANDEM);
+/* NOTE: We should also handle hardware flow control here! */
+    }
+
+/* SET FLOW XON/XOFF is in effect, or SET FLOW KEEP resulted in Xon/Xoff */
+
+    if ((flow == FLO_XONX) || (ttraw.sg_flags & TANDEM)) {
 	debug(F100,"ttpkt turning on TANDEM","",0);
 	ttraw.sg_flags |= TANDEM;	/* So ask for it. */
 
@@ -2424,7 +2731,7 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 /* be used, even if parity is none and we are transferring 8-bit data.  */
 /* But we only need to do all this if Xon/Xoff is requested. */
 /* BUT... this tends not to work through IP or LAT connections, terminal */
-/* servers, telnet, rlogin, etc, so it is not generally used. */
+/* servers, telnet, rlogin, etc, so it is currently disabled. */
 	x = LPASS8;			/* If LPASS8 defined, then */
 	debug(F100,"ttpkt executing LPASS8 code","",0);
 	if (lmodef) {			/* TIOCLBIS must be too. */
@@ -2446,6 +2753,10 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 	    tchnoi.t_quitc = -1;	/* and quit character. */
 	    tchnoi.t_startc = 17;	/* Make sure xon */
 	    tchnoi.t_stopc = 19;	/* and xoff not ignored. */
+#ifndef NOBRKC
+	    tchnoi.t_eofc = -1;		/* eof character. */ 
+	    tchnoi.t_brkc = -1;		/* brk character. */ 
+#endif /* NOBRKC */
 	    if (ioctl(ttyfd,TIOCSETC,&tchnoi) < 0) {
 		debug(F100,"ttpkt TIOCSETC failed","",0);
 	    } else {
@@ -2504,6 +2815,10 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 		tchnoi.t_quitc = -1;	/* and quit character. */
 		tchnoi.t_startc = 17;	/* Make sure xon */
 		tchnoi.t_stopc = 19;	/* and xoff not ignored. */
+#ifndef NOBRKC
+		tchnoi.t_eofc = -1;	/* eof character. */ 
+		tchnoi.t_brkc = -1;	/* brk character. */ 
+#endif /* NOBRKC */
 		if (ioctl(ttyfd,TIOCSETC,&tchnoi) < 0) {
 		    debug(F100,"ttpkt TIOCSETC failed","",0);
 		} else {
@@ -2529,11 +2844,8 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 	    ttraw.sg_flags |= RAW;	/* must use 8-bit raw mode. */
 	    debug(F101,"ttpkt setting rawmode, parity","",parity);
 	}
-    } else {			/* No Xon/Xoff */
-	debug(F101,"ttpkt setting rawmode, flow","",flow);
-	ttraw.sg_flags |= RAW;	/* Can use 8-bit raw mode. */
 #endif /* LPASS8 */
-    }
+    } /* End of Xon/Xoff section */
 
     /* Don't echo, don't map CR to CRLF on output, don't fool with case */
 #ifdef LCASE
@@ -2543,7 +2855,7 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 #endif /* LCASE */
 
 #ifdef TOWER1
-    ttraw.sg_flags &= ~ANYP;            /* Must tell Tower no parity */
+    ttraw.sg_flags &= ~ANYP;            /* Must set this on old Towers */
 #endif /* TOWER1 */
 
     if (stty(ttyfd,&ttraw) < 0) return(-1); /* Set the new modes. */
@@ -2574,40 +2886,31 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 /* AT&T UNIX and POSIX */
 
 #ifdef SVORPOSIX
-    if (flow == FLO_XONX) ttraw.c_iflag |= (IXON|IXOFF);
-    if (flow == FLO_NONE) ttraw.c_iflag &= ~(IXON|IXOFF);
-    if (flow == FLO_RTSC) {
-	/* RTS/CTS Flow control... */
-#ifdef RTSXOFF
-	/* This is the preferred way, according to SVID R4 */
-	if (ioctl(ttyfd,TCGETX,&rctsx) > -1) {
-	    rctsx.x_hflag |= RTSXOFF | CTSXON;
-	    ioctl(ttyfd,TCSETX,&rctsx);	/* Ignore errors for now. */
-	}
-#else
-#ifdef CRTSCTS
-	/* Found this one in <termios.h> */
-	ttraw.c_iflag |= CRTSCTS;
-#endif /* CRTSCRS */
-#endif /* RTSXOFF */
-    }
-    if (flow == FLO_DTRC) {
-	/* DTR/CD Flow control... */
-#ifdef DTRXOFF
-	/* This is straight out of SVID R3 */
-	if (ioctl(ttyfd,TCGETX,&rctsx) > -1) {
-	    rctsx.x_hflag |= DTRXOFF | CDXON;
-	    ioctl(ttyfd,TCSETX,&rctsx);	/* Ignore errors. */
-	}
-#endif /* DTRXOFF */
-    }
+    if (flow == FLO_XONX)		/* Xon/Xoff */
+      ttraw.c_iflag |= (IXON|IXOFF);
+    else if (flow == FLO_NONE)		/* None */
+      /* NOTE: We should also turn off hardware flow control here! */
+      ttraw.c_iflag &= ~(IXON|IXOFF);
+    else if (flow == FLO_KEEP) {	/* Keep */
+	ttraw.c_iflag &= ~(IXON|IXOFF);	/* Turn off Xon/Xoff flags */
+	ttraw.c_iflag |= (ttold.c_iflag & (IXON|IXOFF)); /* OR in old ones */
+	/* NOTE: We should also handle hardware flow control here! */
+    } else if (flow == FLO_RTSC ||	/* Hardware */
+	flow == FLO_DTRC ||
+	flow == FLO_DTRT)
+      tthflow(flow);
 
     ttraw.c_lflag &= ~(ICANON|ECHO);
     ttraw.c_lflag &= ~ISIG;		/* Do NOT check for interrupt chars */
+    ttraw.c_lflag &= ~IEXTEN;		/* Turn off ^O/^V processing */
     ttraw.c_lflag |= NOFLSH;		/* Don't flush */
     ttraw.c_iflag |= (BRKINT|IGNPAR);
 #ifdef ATTSV
+#ifdef BSD44
+    ttraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|INPCK|ISTRIP|IXANY);
+#else
     ttraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|IUCLC|INPCK|ISTRIP|IXANY);
+#endif /* BSD44 */
 #else /* POSIX */
     ttraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|INPCK|ISTRIP);
 #endif /* ATTSV */
@@ -2618,8 +2921,20 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
     ttraw.c_cc[4] = 48;  /* So Series/1 doesn't interrupt on every char */
     ttraw.c_cc[5] = 1;
 #else
+#ifndef VEOF	/* for DGUX this is VEOF, not VMIN */
     ttraw.c_cc[4] = 1;   /* [VMIN]  return max of this many characters or */
+#else
+#ifdef VMIN
+    ttraw.c_cc[VMIN] = 1;
+#endif /* VMIN */
+#endif /* VEOF */
+#ifndef VEOL	/* for DGUX this is VEOL, not VTIME */
     ttraw.c_cc[5] = 0;	 /* [VTIME] when this many secs/10 expire w/no input */
+#else
+#ifdef VTIME
+    ttraw.c_cc[VTIME] = 0;
+#endif /* VTIME */
+#endif /* VEOL */
 #endif /* IX370 */
 
 #ifdef VINTR				/* Turn off interrupt character */
@@ -2627,19 +2942,19 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
       ttraw.c_cc[VINTR] = 0;		/* packet mode. */
 #endif /* VINTR */
 
-#ifdef ATTSV
-    if (xlocal && (s > 0)) {		/* set speed */
-        ttraw.c_cflag &= ~CBAUD;
-        ttraw.c_cflag |= s;
-    }
-    if (ioctl(ttyfd,TCSETAW,&ttraw) < 0) return(-1);  /* set new modes . */
-#else /* POSIX */
+#ifdef BSD44ORPOSIX
     if (xlocal && (s > 0)) {
 	cfsetispeed(&ttraw,s);
 	cfsetospeed(&ttraw,s);
     }
     if (tcsetattr(ttyfd,TCSADRAIN,&ttraw) < 0) return(-1);
-#endif /* ATTSV */
+#else /* ATTSV */
+    if (xlocal && (s > 0)) {		/* set speed */
+        ttraw.c_cflag &= ~CBAUD;
+        ttraw.c_cflag |= s;
+    }
+    if (ioctl(ttyfd,TCSETAW,&ttraw) < 0) return(-1);  /* set new modes . */
+#endif /* BSD44ORPOSIX */
     tvtflg = 0;
     return(0);
 #endif /* ATTSV */
@@ -2648,7 +2963,12 @@ ttpkt(speed,flow,parity) long speed; int flow, parity; {
 /*  T T V T -- Condition communication line for use as virtual terminal  */
 
 int
-ttvt(speed,flow) long speed; int flow; {
+#ifdef CK_ANSIC
+ttvt(long speed, int flow)
+#else
+ttvt(speed,flow) long speed; int flow;
+#endif /* CK_ANSIC */
+/* ttvt */ {
     int s, s2;
 
     debug(F101,"ttvt ttyfd","",ttyfd);
@@ -2670,60 +2990,94 @@ ttvt(speed,flow) long speed; int flow; {
     if (xlocal) {			/* For external lines... */
 	s2 = (int) (speed / 10L);
 	s = ttsspd(s2);			/* Check/set the speed */
-	carrctl(&tttvt, flow != DIALING	/* Do carrier control */
-		&& (ttcarr == CAR_ON || ttcarr == CAR_AUT && ttmdm != 0));
+	carrctl(&tttvt, flow != FLO_DIAL /* Do carrier control */
+		&& (ttcarr == CAR_ON || (ttcarr == CAR_AUT && ttmdm != 0)));
     } else s = s2 = -1;
 
 #ifndef SVORPOSIX
     /* Berkeley, V7, etc */
-    if (flow == FLO_XONX) tttvt.sg_flags |= TANDEM; /* XON/XOFF if selected */
-#ifdef UTEK
-    hardflow(flow);
-    if (flow == FLO_NONE || flow == FLO_HARD) tttvt.sg_flags &= ~TANDEM;
-#else
-    if (flow == FLO_NONE) tttvt.sg_flags &= ~TANDEM;
-#endif /* UTEK */
-    tttvt.sg_flags |= RAW;              /* Raw mode */
+    if (flow == FLO_RTSC ||		/* Hardware flow control */
+	flow == FLO_DTRC ||
+	flow == FLO_DTRT)
+      tthflow(flow);
+    if (flow == FLO_XONX) {		/* No Xon/Xoff flow control */
+	tttvt.sg_flags |= TANDEM;	/* Ask for it. */
+    } else if (flow == FLO_KEEP) {
+	tttvt.sg_flags &= ~TANDEM;
+	tttvt.sg_flags |= (ttold.sg_flags & TANDEM);
+/* NOTE: We should also handle hardware flow control here! */
+    } else if (flow == FLO_NONE) {
+	tttvt.sg_flags &= ~TANDEM;	/* Don't ask for it. */
+/* NOTE: We should also turn off hardware flow control here! */
+    }
+    tttvt.sg_flags |= RAW;              /* Raw mode in all cases */
 #ifdef TOWER1
     tttvt.sg_flags &= ~(ECHO|ANYP);     /* No echo or parity */
 #else
     tttvt.sg_flags &= ~ECHO;            /* No echo */
 #endif /* TOWER1 */
 
-    if (stty(ttyfd,&tttvt) < 0) return(-1);
+    if (stty(ttyfd,&tttvt) < 0)		/* Set the new modes */
+      return(-1);
 
 #else /* It is ATTSV or POSIX */
 
-    if (flow == FLO_XONX) tttvt.c_iflag |= (IXON|IXOFF);
-    if (flow == FLO_NONE) tttvt.c_iflag &= ~(IXON|IXOFF);
+    if (flow == FLO_RTSC ||		/* Hardware flow control */
+	flow == FLO_DTRC ||
+	flow == FLO_DTRT)
+      tthflow(flow);
+    else if (flow == FLO_XONX)		/* Software flow control */
+      tttvt.c_iflag |= (IXON|IXOFF);	/* On if requested. */
+    else if (flow == FLO_KEEP) {
+	tttvt.c_iflag &= ~(IXON|IXOFF);	/* Turn off Xon/Xoff flags */
+	tttvt.c_iflag |= (ttold.c_iflag & (IXON|IXOFF)); /* OR in old ones */
+	/* NOTE: We should also handle hardware flow control here! */
+    } else if (flow == FLO_NONE)	/* Off if NONE or hardware */
+      tttvt.c_iflag &= ~(IXON|IXOFF);	/* requested. */
 
-    tttvt.c_lflag &= ~(ISIG|ICANON|ECHO);
+    tttvt.c_lflag &= ~(ISIG|ICANON|ECHO|IEXTEN);
     tttvt.c_iflag |= (IGNBRK|IGNPAR);
 #ifdef ATTSV
+#ifdef BSD44
+    tttvt.c_iflag &= ~(INLCR|IGNCR|ICRNL|BRKINT|INPCK|ISTRIP|IXANY);
+#else
     tttvt.c_iflag &= ~(INLCR|IGNCR|ICRNL|IUCLC|BRKINT|INPCK|ISTRIP|IXANY);
+#endif /* BSD44 */
 #else /* POSIX */
     tttvt.c_iflag &= ~(INLCR|IGNCR|ICRNL|BRKINT|INPCK|ISTRIP);
 #endif /* ATTSV */
     tttvt.c_oflag &= ~OPOST;
     tttvt.c_cflag &= ~(CSIZE|PARENB);
     tttvt.c_cflag |= (CS8|CREAD|HUPCL);
+#ifndef VEOF	/* DGUX termio has VEOF at entry 4, see comment above */
     tttvt.c_cc[4] = 1;
+#else
+#ifdef VMIN
+    tttvt.c_cc[VMIN] = 1;
+#endif /* VMIN */
+#endif /* VEOF */
+#ifndef VEOL	/* DGUX termio has VEOL at entry 5, see comment above */
     tttvt.c_cc[5] = 0;
+#else
+#ifdef VTIME
+    tttvt.c_cc[VTIME] = 0;
+#endif /* VTIME */
+#endif /* VEOL */
 
-#ifdef ATTSV
-    if (s > 0) {			/* Set speed */
-        tttvt.c_cflag &= ~CBAUD;
-        tttvt.c_cflag |= s;
-    }
-    if (ioctl(ttyfd,TCSETAW,&tttvt) < 0) return(-1);  /* set new modes . */
-#else /* POSIX */
+#ifdef BSD44ORPOSIX
     if (xlocal && (s > 0)) {
 	cfsetispeed(&tttvt,s);
 	cfsetospeed(&tttvt,s);
     }
     if (tcsetattr(ttyfd,TCSADRAIN,&tttvt) < 0) return(-1);
+#else /* ATTSV */
+    if (s > 0) {			/* Set speed */
+        tttvt.c_cflag &= ~CBAUD;
+        tttvt.c_cflag |= s;
+    }
+    if (ioctl(ttyfd,TCSETAW,&tttvt) < 0) return(-1);  /* set new modes . */
+#endif /* BSD44ORPOSIX */
 #endif /* ATTSV */
-#endif /* SVORPOSIX */
 
     ttspeed = speed;			/* Done, remember how we were */
     ttflow = flow;			/* called, so we can decide how to */
@@ -2800,6 +3154,18 @@ ttsspd(cps) int cps; {
     if (ttyfd > -1 && s > -1 && xlocal != 0) {
 	if (s2 == -1) s2 = s;
 
+#ifdef BSD44ORPOSIX
+	if (tcgetattr(ttyfd,&ttcur) < 0) return(-1);
+	cfsetospeed(&ttcur,s);
+	cfsetispeed(&ttcur,s2);
+	cfsetospeed(&ttraw,s);
+	cfsetispeed(&ttraw,s2);
+	cfsetospeed(&tttvt,s);
+	cfsetispeed(&tttvt,s2);
+	cfsetospeed(&ttold,s);
+	cfsetispeed(&ttold,s2);
+	if (tcsetattr(ttyfd,TCSADRAIN,&ttcur) < 0) return(-1);
+#else
 #ifdef ATTSV
 	if (cps == 888) return(-1);	/* No split speeds, sorry. */
 	if (ioctl(ttyfd,TCGETA,&ttcur) < 0) return(-1);
@@ -2812,18 +3178,6 @@ ttsspd(cps) int cps; {
 	ttold.c_cflag &= ~CBAUD;
 	ttold.c_cflag |= s;
 	if (ioctl(ttyfd,TCSETAW,&ttcur) < 0) return(-1);
-#else 
-#ifdef POSIX
-	if (tcgetattr(ttyfd,&ttcur) < 0) return(-1);
-	cfsetospeed(&ttcur,s);
-	cfsetispeed(&ttcur,s2);
-	cfsetospeed(&ttraw,s);
-	cfsetispeed(&ttraw,s2);
-	cfsetospeed(&tttvt,s);
-	cfsetispeed(&tttvt,s2);
-	cfsetospeed(&ttold,s);
-	cfsetispeed(&ttold,s2);
-	if (tcsetattr(ttyfd,TCSADRAIN,&ttcur) < 0) return(-1);
 #else
 	if (gtty(ttyfd,&ttcur) < 0) return(-1);
 	ttcur.sg_ospeed = s; ttcur.sg_ispeed = s2;
@@ -2831,8 +3185,8 @@ ttsspd(cps) int cps; {
 	ttraw.sg_ospeed = s; ttraw.sg_ispeed = s2;
 	ttold.sg_ospeed = s; ttold.sg_ispeed = s2;
 	if (stty(ttyfd,&ttcur) < 0) return(-1);
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
     }
     return(s);
 }
@@ -2855,35 +3209,36 @@ ttgspd() {				/* Get current tty speed */
 #endif /* NETCONN */
 
     if (ttyfd < 0) {
+#ifdef BSD44ORPOSIX
+	s = cfgetospeed(&ccold);
+#else
 #ifdef ATTSV
 	s = ccold.c_cflag & CBAUD;
 #else
-#ifdef POSIX	
-	s = cfgetospeed(&ccold);
-#else
 	s = ccold.sg_ospeed;		/* (obtained by congm()) */
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
+
     } else {
+#ifdef BSD44ORPOSIX
+	if (tcgetattr(ttyfd,&ttcur) < 0) return(-1);
+	s = cfgetospeed(&ttcur);
+#else
 #ifdef ATTSV
 	if (ioctl(ttyfd,TCGETA,&ttcur) < 0) return(-1);
 	s = ttcur.c_cflag & CBAUD;
 #else
-#ifdef POSIX
-	if (tcgetattr(ttyfd,&ttcur) < 0) return(-1);
-	s = cfgetospeed(&ttcur);
-#else
 	if (gtty(ttyfd,&ttcur) < 0) return(-1);
 	s = ttcur.sg_ospeed;
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
     }
     debug(F101,"ttgspd ttyfd","",ttyfd);
     debug(F101,"ttgspd code","",s);
     switch (s) {
 #ifdef B0
       case B0:    ss = 0L; break;
-#endif
+#endif /* B0 */
 
 #ifndef MINIX
 /*
@@ -2957,7 +3312,7 @@ ttgspd() {				/* Get current tty speed */
       default:
 	ss = -1; break;
     }
-    sprintf(temp,"%l",ss);
+    sprintf(temp,"%ld",ss);
     debug(F110,"speed",temp,0);
     return(ss);
 }
@@ -2986,9 +3341,17 @@ ttgspd() {				/* Get current tty speed */
  * let myread() strip the parity on its own, instead of stripping sign
  * bits as it does now.
  */
-
 #define MYBUFLEN 256
-static CHAR mybuf[MYBUFLEN];		/* Buffer, including push back */
+#ifdef SUNX25
+/*
+  On X.25 connections, there is an extra control byte at the beginning.
+*/
+static CHAR x25buf[MYBUFLEN+1];		/* Communication device input buffer */
+static CHAR  *mybuf = x25buf+1;
+#else
+static CHAR mybuf[MYBUFLEN];
+#endif /* SUNX25 */
+
 static int my_count = 0;		/* Number of chars still in mybuf */
 static int my_item = -1;		/* Last index read from mybuf[] */
 
@@ -3079,7 +3442,7 @@ myunrd(ch) CHAR ch; {
 int
 mygetbuf() {
     my_count = myfillbuf();
-    /* debug(F101, "myfillbuf read", "", my_count); */
+    debug(F101, "myfillbuf read", "", my_count);
     if (my_count <= 0)
       return(my_count < 0 ? -3 : -2);
     --my_count;
@@ -3170,8 +3533,32 @@ myfillbuf() {
 int
 myfillbuf() {
     PEEKTYPE avail;
+    int x;
 
-    if ((ioctl(ttyfd, FIONREAD, &avail) < 0) || (avail == 0))
+#ifdef SUNX25
+/*
+  SunLink X.25 support in this routine from Stefaan A. Eeckels, Eurostat (CEC).
+  Depends on SunOS having FIONREAD, not because we use it, but just so this
+  code is grouped correctly within the #ifdefs.  Let's hope Solaris keeps it.
+
+  We call x25xin() instead of read() so that Q-Bit packets, which contain
+  X.25 service-level information (e.g. PAD parameter changes), can be processed
+  transparently to the upper-level code.  This is a blocking read, and so
+  we depend on higher-level code (such as ttinc()) to set any necessary alarms.
+*/    
+    extern int nettype;
+    if (netconn && nettype == NET_SX25) {
+	while ((x = x25xin(sizeof(x25buf), x25buf)) < 1) ;
+	return(x - 1);	        /* "-1" compensates for extra status byte */
+    }    
+#endif /* SUNX25 */
+
+    x = ioctl(ttyfd, FIONREAD, &avail);
+    if (x < 0) {
+	debug(F101,"myfillbuf FIONREAD","",x);
+	debug(F101,"myfillbuf errno","",errno);
+    }
+    if (x < 0 || avail == 0)
       avail = 1;
 
     if (avail > MYBUFLEN)
@@ -3198,60 +3585,83 @@ myfillbuf() {
 
 int
 ttflui() {
-    int ffd;
-
+#ifdef BSD44
+    int n;
+#endif /* BSD44 */
 #ifndef SVORPOSIX
     int n;
 #endif /* SVORPOSIX */
+
+#ifdef MYREAD
+/*
+  Flush internal MYREAD buffer *FIRST*, in all cases.
+*/
+    my_count = 0;			/* Reset count to zero */
+    my_item = -1;			/* And buffer index to -1 */
+#endif /* MYREAD */
+
 #ifdef NETCONN
+/*
+  Network flush is done specially, in the network support module.
+*/
     if (netconn) return(netflui());
 #endif /* NETCONN */
 
-    ffd = xlocal ? ttyfd : 0;		/* If not local, use stdin */
-    debug(F101,"ttflui xlocal","",xlocal);
     debug(F101,"ttflui ttyfd","",ttyfd);
-    debug(F101,"ttflui ffd","",ffd);
-    if (ffd < 0) return(-1);
-
-#ifdef MYREAD
-    my_count = 0;			/* Initialize myread() stuff */
-    my_item = -1;
-#endif /* MYREAD */
+    if (ttyfd < 0) return(-1);
 
 #ifdef aegis
-    sio_$control((short)ffd, sio_$flush_in, true, st);
+    sio_$control((short)ttyfd, sio_$flush_in, true, st);
     if (st.all != status_$ok) {
 	fprintf(stderr, "flush failed: "); error_$print(st);
     } else {      /* sometimes the flush doesn't work */
         for (;;) {
 	    char buf[256];
             /* eat all the characters that shouldn't be available */
-            ios_$get((short)ffd, ios_$cond_opt, buf, 256L, st); /* (void) */
+            ios_$get((short)ttyfd, ios_$cond_opt, buf, 256L, st); /* (void) */
             if (st.all == ios_$get_conditional_failed) break;
             fprintf(stderr, "flush failed(2): "); error_$print(st);
         }
     }
 #else
-#ifdef ATTSV
-#ifndef VXVE
-    ioctl(ffd,TCFLSH,0);
-#endif /* VXVE */
-#else					/* POSIX */
-#ifdef POSIX
-    tcflush(ttyfd,TCIFLUSH);
-#else					/* Berkeley and others */
-#ifdef TIOCFLUSH
-#ifdef ANYBSD
+#ifdef BSD44				/* 4.4 BSD */
     n = FREAD;                          /* Specify read queue */
-    debug(F101,"ttflui anybsd flush","",ffd);
-    ioctl(ffd,TIOCFLUSH,&n);
+    debug(F101,"ttflui BSD44 flush","",ttyfd);
+    ioctl(ttyfd,TIOCFLUSH,&n);
+    ioctl(ttyfd,TCSAFLUSH,&n);
 #else
-    ioctl(ffd,TIOCFLUSH,0);
+#ifdef POSIX				/* POSIX */
+    tcflush(ttyfd,TCIFLUSH);
+#else
+#ifdef ATTSV				/* System V */
+#ifndef VXVE
+    ioctl(ttyfd,TCFLSH,0);
+#endif /* VXVE */
+#else					/* Not BSD44, POSIX, or Sys V */
+#ifdef TIOCFLUSH			/* Those with TIOCFLUSH defined */
+#ifdef ANYBSD				/* Berkeley */
+    n = FREAD;                          /* Specify read queue */
+    debug(F101,"ttflui anybsd flush","",ttyfd);
+    ioctl(ttyfd,TIOCFLUSH,&n);
+#else					/* Others (V7, etc) */
+    ioctl(ttyfd,TIOCFLUSH,0);
 #endif /* ANYBSD */
+#else					/* All others... */
+/*
+  No system call (that we know about) for input buffer flushing.
+  So see how many there are and read them in a loop, using ttinc().
+  ttinc() is buffered, so we're not getting charged with a system call 
+  per character, just a function call.
+*/
+    if ((n = ttchk()) > 0) {
+	debug(F101,"ttflui reading","",n);
+	while ((n--) && ttinc(0) > 1) ;
+    }
 #endif /* TIOCFLUSH */
+#endif /* ATTSV */
 #endif /* POSIX */
+#endif /* BSD44 */
 #endif /* aegis */
-#endif
     return(0);
 }
 
@@ -3272,16 +3682,18 @@ ttfluo() {				/* Flush output buffer */
 #ifdef SVORPOSIX
 SIGTYP
 esctrp(foo) int foo; {			/* trap console escapes (^\) */
-    conesc = 1;
     signal(SIGQUIT,SIG_IGN);            /* ignore until trapped */
+    conesc = 1;
+    debug(F101,"esctrp caught SIGQUIT","",conesc);
 }
 #endif /* SVORPOSIX */
 
 #ifdef V7
 SIGTYP
 esctrp(foo) int foo; {			/* trap console escapes (^\) */
-    conesc = 1;
     signal(SIGQUIT,SIG_IGN);            /* ignore until trapped */
+    conesc = 1;
+    debug(F101,"esctrp caught SIGQUIT","",conesc);
 }
 #endif
 
@@ -3295,13 +3707,27 @@ esctrp(foo) int foo; {			/* trap console escapes (^\) */
 
 /*  C O N B G T  --  Background Test  */
 
-static int jc;				/* 0 = no job control */
+static int jc = 0;			/* 0 = no job control */
 
+/*
+  Call with flag == 1 to prevent signal test, which can not be expected
+  to work during file transfer, when SIGINT probably *is* set to SIG_IGN.  
+
+  Call with flag == 0 to use the signal test, but only if the process-group
+  test fails, as it does on some UNIX systems, where getpgrp() is buggy,
+  requires an argument when the man page says it doesn't, or vice versa.
+ 
+  If flag == 0 and the process-group test fails, then we determine background
+  status simply (but not necessarily reliably) from isatty().
+
+  conbgt() sets the global backgrd = 1 if we appear to be in the background,
+  and to 0 if we seem to be in the foreground.  conbgt() is highly prone to
+  misbehavior.
+*/
 VOID
-conbgt() {
+conbgt(flag) int flag; {
     int x = -1,				/* process group or SIGINT test */
         y = 0;				/* isatty() test */
-
 /*
   Check for background operation, even if not running on real tty, so that
   background flag can be set correctly.  If background status is detected,
@@ -3337,8 +3763,8 @@ conbgt() {
   the same as the controlling terminal's process group.  This works if the
   getpgrp() call doesn't lie (as it does in the SUNOS System V environment).
 */
-    PID_T mypgrp;			/* Kermit's process group */
-    PID_T ctpgrp;			/* The terminal's process group */
+    PID_T mypgrp = (PID_T)0;		/* Kermit's process group */
+    PID_T ctpgrp = (PID_T)0;		/* The terminal's process group */
 #ifndef _POSIX_SOURCE
 /*
   The getpgrp() prototype is obtained from system header files for POSIX 
@@ -3370,13 +3796,13 @@ conbgt() {
 #endif /* SVR3 */
 
 /* Now get controlling tty's process group */
-#ifdef POSIX
+#ifdef BSD44ORPOSIX
     ctpgrp = tcgetpgrp(1);		/* The POSIX way */
     debug(F101,"POSIX conbgt terminal process group","",(int) ctpgrp);
 #else
     ioctl(1, TIOCGPGRP, &ctpgrp);	/* Or the BSD way */
     debug(F101,"non-POSIX conbgt terminal process group","",(int) ctpgrp);
-#endif /* POSIX */
+#endif /* BSD44ORPOSIX */
 
     if ((mypgrp > (PID_T) 0) && (ctpgrp > (PID_T) 0))
       x = (mypgrp == ctpgrp) ? 0 : 1;	/* If they differ, then background. */
@@ -3390,18 +3816,28 @@ conbgt() {
     jc = 0;				/* No job control allowed */
     debug(F111,"NOJC","jc",jc);
 #else
+#ifdef BSD44
+    jc = 1;
+#else
 #ifdef SVR4ORPOSIX			/* POSIX actually tells us */
     debug(F100,"SVR4ORPOSIX jc test...","",0);
 #ifdef _SC_JOB_CONTROL
-/*    jc = sysconf(_SC_JOB_CONTROL);	/* Whatever system says */
+#ifdef bsdi
     jc = 1;
+#else
+#ifdef __386BSD__
+    jc = 1;
+#else
+    jc = sysconf(_SC_JOB_CONTROL);	/* Whatever system says */
     debug(F111,"sysconf(_SC_JOB_CONTROL)","jc",jc);
+#endif /* __386BSD__ */
+#endif /* bsdi */
 #else
 #ifdef _POSIX_JOB_CONTROL
     jc = 1;				/* By definition */
     debug(F111,"_POSIX_JOB_CONTROL is defined","jc",jc);
 #else
-    jc = 0;				/* Assume job control allowed */
+    jc = 0;				/* Assume job control not allowed */
     debug(F111,"SVR4ORPOSIX _SC/POSIX_JOB_CONTROL not defined","jc",jc);
 #endif /* _POSIX_JOB_CONTROL */
 #endif /* _SC_JOB_CONTROL */
@@ -3410,10 +3846,16 @@ conbgt() {
     jc = 1;				/* Job control allowed */
     debug(F111,"BSD job control","jc",jc);
 #else
-    jc = 0;
+#ifdef SVR3JC
+    jc = 1;				/* JC allowed */
+    debug(F111,"SVR3 job control","jc",jc);
+#else
+    jc = 0;				/* JC not allowed */
     debug(F111,"job control catch-all","jc",jc);
+#endif /* SVR3JC */
 #endif /* BSD4 */
 #endif /* SVR4ORPOSIX */
+#endif /* BSD44 */
 #endif /* NOJC */
     debug(F101,"conbgt jc","",jc);
 
@@ -3425,7 +3867,7 @@ conbgt() {
   Note, it's safe to set SIGINT to SIG_IGN here, because further down
   we always set it to something else.
 */
-    if (x < 0) {			/* Didn't get good results above... */
+    if (x < 0 && !flag) {		/* Didn't get good results above... */
 
 	SIGTYP (*osigint)();
 
@@ -3452,7 +3894,9 @@ conbgt() {
 #ifdef MINIX
     backgrd = !y;
 #else
-    backgrd = (x || !y) ? 1 : 0;
+    if (x > -1)
+      backgrd = (x || !y) ? 1 : 0;
+    else backgrd = !y;
 #endif /* BSD29 */
 #endif /* sxaE50 */
 #endif /* MINIX */
@@ -3478,12 +3922,29 @@ conint(f,s) SIGTYP (*f)(), (*s)();
 #endif /* CK_ANSIC */
 /* conint */ {
 
-    conbgt();				/* Do background test. */
+    conbgt(0);				/* Do background test. */
 
 /* Set the desired handlers for hangup and software termination. */
 
-    signal(SIGHUP,f);                   /* Hangup */
     signal(SIGTERM,f);                  /* Software termination */
+
+#ifdef COMMENT
+/*
+  Prior to edit 184, we used to trap SIGHUP here.  That is clearly wrong;
+  on some systems, it would leave the user's process on the terminal after
+  the phone hung up.  But the trap was here for a reason: most likely some
+  UNIX systems (init, getty, or login) fail to properly restore the terminal
+  modes after regaining control of a hung-up-upon login terminal.  Therefore
+  removing this trap is likely to cause problems too.  A more sensible
+  approach would be to use a special handler for HANGUP, which would restore
+  the terminal modes and then exit().  But that could leave zombie processes
+  around (like the lower CONNECT fork, or any fork started by zxcmd()), but
+  there is probably no clean, portable, reliable way for Kermit to kill all
+  its forks.  So we just exit() and hope that UNIX fixes the terminal modes
+  before the next person tries to log in.
+*/
+    signal(SIGHUP,f);                   /* Hangup */
+#endif /* COMMENT */
 
 /* Now handle keyboard stop, quit, and interrupt signals. */
 /* Check if invoked in background -- if so signals set to be ignored. */
@@ -3647,7 +4108,7 @@ initrawq(tty) int tty; {
 
     if(setjmp(jjbuf) == 0) {
         while(1)
-            read(tty, &c, 1);
+	  read(tty, &c, 1);
     }
     signal(SIGALRM, SIG_DFL);
 
@@ -3746,13 +4207,21 @@ ttchk() {
     int x;
     PEEKTYPE n = 0;
 
+#ifdef COMMENT
+/*
+  This was REALLY slowing TELNET connections down!  Just do the regular
+  ttyfd-based stuff here.  Let the VMS version call nettchk if it has to...
+  FIONREAD definitely works for TELNET, at least on the NeXT and SUNOS.
+*/
 #ifdef NETCONN
     if (netconn) return(nettchk());
 #endif /* NETCONN */
+#endif /* COMMENT */
 
 #ifdef FIONREAD
     x = ioctl(ttyfd, FIONREAD, &n);     /* Berkeley and maybe some others */
-    debug(F101,"ttchk","",n);
+    debug(F101,"ttchk FIONREAD return code","",x);
+    debug(F101,"ttchk FIONREAD count","",n);
     if (x < 0) n = 0;
 #else
 #ifdef  V7
@@ -3770,24 +4239,27 @@ ttchk() {
     if (x < 0) n = 0;
 #else
 #ifdef RDCHK
-    /* Last resort for systems without FIONREAD or equivalent, but with
-     * something like rdchk(), like XENIX.
-     */
+/*
+  Last resort for systems without FIONREAD or equivalent, but with
+  something like rdchk(), like XENIX.
+*/
     if (my_count == 0 && rdchk(ttyfd) > 0) n = 1;
+    debug(F101,"ttchk rdchk","",n);
 #endif /* RDCHK */
 #endif /* PROVX1 */
 #endif /* V7 */
 #endif /* FIONREAD */
 
 #ifdef MYREAD
-    /* For myread() users, add the contents of myread()'s private buffer.
-     * Sometimes, this is all there is to construct a result of ttchk() on.
-     */
-    if (my_count > 0)		    /* Sys III, Sys V, Apollo Aegis, etc */
+/*
+  For myread() users, add the contents of myread()'s private buffer.
+  Sometimes, this is all there is to construct a result of ttchk() on.
+*/
+    if (my_count > 0)
 	n += my_count;
 #endif /* MYREAD */
 
-    debug(F101,"ttchk","",n);
+    debug(F101,"ttchk returns","",n);
     return(n);
 }
 
@@ -3802,16 +4274,24 @@ int
 ttxin(n,buf) int n; CHAR *buf; {
     register int x, c;
   
-    ttpmsk = (ttprty) ? 0177 : 0377;         /* Parity stripping mask. */
     debug(F101,"ttxin n","",n);
+    if (n < 1) return(0);
+    ttpmsk = (ttprty) ? 0177 : 0377;	/* Parity stripping mask. */
+
 #ifdef SUNX25
     if (netconn && (ttnet == NET_SX25))	/* X.25 connection */
       return(x25xin(n,buf));
 #endif /* SUNX25 */
 
 #ifdef MYREAD
+    debug(F101,"ttxin MYREAD","",0);
+    c = -2;
     for( x = 0; (x > -1) && (x < n) && (c = myread()) >= 0; )
       buf[x++] = c & ttpmsk;
+    if (c < 0) {
+	debug(F101,"ttxin myread returns","",c);
+	if (c == -3) x = -1;
+    }
 #else
     x = read(ttyfd,buf,n);
     for (c = 0; c < n; c++) buf[c] &= ttpmsk;
@@ -3873,40 +4353,55 @@ ttoc(char c)
 ttoc(c) char c;
 #endif /* CK_ANSIC */
 /* ttoc */ {
+#define TTOC_TMO 15			/* Timeout in case we get stuck */
+    int xx;
     c &= 0xff;
     /* debug(F101,"ttoc","",(CHAR) c); */
     if (ttyfd < 0) return(-1);          /* Check for not open. */
     saval = signal(SIGALRM,timerh);	/* Enable timer interrupt */
-    alarm(15);				/* for 15 seconds. */
+    xx = alarm(TTOC_TMO);		/* for this many seconds. */
+    if (xx < 0) xx = 0;			/* Save old alarm value. */
+    /* debug(F101,"ttoc alarm","",xx); */
     if (setjmp(sjbuf)) {		/* Timer went off? */
-	ttimoff();			/* Yes, turn off the alarm. */
-	if (!backgrd) conoc('\07');	/* Ring the bell. */
-        debug(F100,"ttoc timed out","",0); /* Log a message. */
-	if (ttflow == FLO_XONX) {
-	    debug(F101,"ttoc flow","",ttflow); 	/* Maybe we're xoff'd */
+	ttimoff();			/* Yes, cancel this alarm. */
+	if (xx - TTOC_TMO > 0) alarm(xx - TTOC_TMO); /* Restore previous one */
+        /* debug(F100,"ttoc timeout","",0); */
+#ifdef NETCONN
+	if (!netconn) {
+#endif /* NETCONN */
+	    debug(F101,"ttoc timeout","",c);
+	    if (ttflow == FLO_XONX) {
+		int x = 0, y;
+		debug(F101,"ttoc flow","",ttflow); /* Maybe we're xoff'd */
 #ifdef POSIX
-	    debug(F100,"ttoc tcflow","",0); /* POSIX way to unstick. */
-	    tcflow(ttyfd,TCOON);
+		y = tcflow(ttyfd,TCOON); /* POSIX way to unstick. */
+		debug(F100,"ttoc tcflow","",y);
 #else
 #ifdef BSD4				/* Berkeley way to do it. */
 #ifdef TIOCSTART
-	    debug(F100,"ttoc TIOCSTART","",0);
-	    ioctl(ttyfd, TIOCSTART, 0);
+/* .... Used to be "ioctl(ttyfd, TIOCSTART, 0);".  Who knows? */
+		y = ioctl(ttyfd, TIOCSTART, &x);
+		debug(F101,"ttoc TIOCSTART","",y);
 #endif /* TIOCSTART */
 #endif /* BSD4 */
+					/* Is there a Sys V way to do this? */
 #endif /* POSIX */
-	}
+	    }
+#ifdef NETCONN
+        }
+#endif /* NETCONN */
 	return(-1);			/* Return failure code. */
     } else {
 	if (write(ttyfd,&c,1) < 1) {	/* Try to write the character. */
-	    ttimoff();			/* If error, turn off timer, */
-	    if (!backgrd) conoc('\07');	/* ring the bell, */
-	    debug(F101,"ttoc error","",errno); /* log the error, */
+	    ttimoff();			/* Failed, turn off the alarm. */
+	    alarm(xx);			/* Restore previous alarm. */
+	    debug(F101,"ttoc error","",errno); /* Log the error, */
 	    return(-1);			/* and return the error code. */
 	}
     }
-    ttimoff();				/* Success, turn off timer. */
-    return(0);
+    ttimoff();				/* Success, turn off the alarm. */
+    alarm(xx);				/* Restore previous alarm. */
+    return(0);				/* Return good code. */
 }
 
 /*  T T I N L  --  Read a record (up to break character) from comm line.  */
@@ -3915,6 +4410,7 @@ ttoc(c) char c;
 
     (a) the packet length field if the "turn" argument is zero, or
     (b) on the packet-end character (eol) if the "turn" argument is nonzero
+    (c) two Ctrl-C's in a row
 
   and returns the number of characters read upon success, or if "max" was
   exceeded or the timeout interval expired before (a) or (b), returns -1.
@@ -3931,6 +4427,9 @@ ttoc(c) char c;
   Normally, ckutio.c does not depend on code from any other module, but there
   is an exception in this case because all the other ck?tio.c modules also
   need to call parchk(), so it's better to have it defined in a common place.
+
+  Since this function has grown to have its fingers so deeply into the 
+  protocol, it is slated for removal: rpack() will take care of everything.
 */
 #ifdef CTRLC
 #undef CTRLC
@@ -3974,12 +4473,14 @@ ttinl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
     *dest = '\0';                       /* Clear destination buffer */
     if (timo < 0) timo = 0;		/* Safety */
     if (timo) {				/* Don't time out if timo == 0 */
+	int xx;
 	saval = signal(SIGALRM,timerh);	/* Enable timer interrupt */
-	alarm(timo);			/* Set it. */
+	xx = alarm(timo);		/* Set it. */
+	debug(F101,"ttinl alarm","",xx);
     }
     if (setjmp(sjbuf)) {                /* Timer went off? */
 	debug(F100,"ttinl timout","",0); /* Get here on timeout. */
-	debug(F110," with",(char *) dest,0);
+	/* debug(F110," with",(char *) dest,0); */
 	ttimoff();			/* Turn off timer */
 	return(-1);			/* and return error code. */
     } else {
@@ -3994,6 +4495,10 @@ ttinl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
 
 	ttpmsk = m = (ttprty) ? 0177 : 0377; /* Set parity stripping mask. */
 
+#ifdef COMMENT
+/*
+  No longer needed.
+*/
 #ifdef SUNX25
         if (netconn && (ttnet == NET_SX25))
 #ifdef PARSENSE
@@ -4002,6 +4507,7 @@ ttinl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
 	  return(x25inl(dest,max,timo,eol));
 #endif /* PARSENSE */
 #endif /* SUNX25 */
+#endif /* COMMENT */
 
 /* Now read into destination, stripping parity and looking for the */
 /* the packet terminator, and also for two Ctrl-C's typed in a row. */
@@ -4092,15 +4598,9 @@ ttinl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
 		    debug(F101,"ttinl i","",i);
 		} else debug(F101,"ttinl got eol","",eol);
 		dest[i] = '\0';		/* Terminate the string, */
-
-/* Here's where we actually check and adjust the parity. */
-/* The major flaw here is if parity is NONE (ttprty = 0) and the packets */
-/* really do have no parity, then parchk() is called for every packet. */
-/* In practice, this doesn't really harm efficiency noticably, but it would */
-/* be better if ttinl() had a way of knowing to stop doing this once a */
-/* particular file transfer had been started and checked. */
-	        if (ttprty == 0) {
-		    if ((ttprty = parchk(dest,start,i)) > 0) {
+		/* Parity checked yet? */
+	        if (ttpflg++ == 0 && ttprty == 0) {
+		    if ((ttprty = parchk(dest,start,i)) > 0) { /* No, check. */
 			int j;
 			debug(F101,"ttinl senses parity","",ttprty);
 			debug(F110,"ttinl packet before",dest,0);
@@ -4108,7 +4608,7 @@ ttinl(dest,max,timo,eol) int max,timo; CHAR *dest, eol;
 			for (j = 0; j < i; j++)
 			  dest[j] &= 0x7f;	/* Strip parity from packet */
 			debug(F110,"ttinl packet after ",dest,0);
-		    } else debug(F101,"parchk","",ttprty);
+		    } else ttprty = 0;	/* restore if parchk error */
 		}
 #endif /* PARSENSE */
 		if (timo) {			/* Turn off timer. */
@@ -4141,42 +4641,49 @@ ttinc(timo) int timo; {
 #ifdef MYREAD
         /* comm line failure returns -1 thru myread, so no &= 0377 */
 	n = myread();			/* Wait for a character... */
-	/* debug(F101,"ttinc n","",n); */
+	/* debug(F101,"ttinc MYREAD n","",n); */
 	return(n < 0 ? n : n & ttpmsk);
 #else
         while ((n = read(ttyfd,&ch,1)) == 0) /* Wait for a character. */
         /* Shouldn't have to loop in ver 5A. */
 #ifdef NETCONN	  
 	  if (netconn) {		/* Special handling for net */
-	      netclos();
-	      netconn = 0;
+	      netclos();		/* If read() returns 0 it means */
+	      netconn = 0;		/* the connection has dropped. */
 	      errno = ENOTCONN;
 	      return(-2);
 	  }
 #endif /* NETCONN */
 	  ;
-/* debug(F000,"ttinc","",ch); */
+     /* debug(F000,"ttinc","",ch); */
         return( (n < 1) ? -3 : (ch & ttpmsk) );
 #endif /* MYREAD */
-    } else {
-	saval = signal(SIGALRM,timerh);	/* Timed, set up timer. */
-	alarm(timo);
-	if (setjmp(sjbuf)) {
-	    n = -1;
+    } else {				/* Timed read */
+	int xx;
+	saval = signal(SIGALRM,timerh);	/* Set up handler, save old one. */
+	xx = alarm(timo);		/* Set alarm, save old one. */
+	/* debug(F101,"ttinc alarm","",xx); */
+	if (setjmp(sjbuf)) {		/* Timer expired */
+	    n = -1;			/* set flag */
 	} else {
 #ifdef MYREAD
 	    n = myread();		/* If managing own buffer... */
-	    debug(F101,"ttinc myread","",n);
+	    /* debug(F101,"ttinc myread","",n); */
 #else
 	    n = read(ttyfd,&ch,1);	/* Otherwise call the system. */
-	    debug(F101,"ttinc read","",n);
+	    /* debug(F101,"ttinc read","",n); */
 	    if (n > 0)
 	      n = ch & 255;
 	    else
-	      n = (n < 0) ? -3 : -2;	/* Special return codes */
+	      n = (n < 0) ? -3 : -2;	/* Special return codes. */
 #endif /* MYREAD */
 	}
-	ttimoff();			/* Turn off timer */
+	ttimoff();			/* Turn off the timer */
+/* #ifdef COMMENT */
+	if (n == -1) xx -= timo;	/* and restore any previous alarm */
+	if (xx < 0) xx = 0;		/* adjusted by timeout interval */
+	alarm(xx);			/* if timer expired. */
+/* #endif */ /* COMMENT */
 #ifdef NETCONN
 	if (netconn) {
 	    if (n == -2) {		/* read() returns 0 */
@@ -4205,6 +4712,10 @@ sndbrk(msec) int msec; {
 #ifdef ANYBSD
 #define BSDBREAK
 #endif /* ANYBSD */
+
+#ifdef BSD44
+#define BSDBREAK
+#endif /* BSD44 */
 
 #ifdef COHERENT
 #define BSDBREAK
@@ -4244,21 +4755,6 @@ sndbrk(msec) int msec; {
     sio_$control((short)ttyfd, sio_$send_break, msec, st);
     return(0);
 #else
-#ifdef ATTSV
-/*
-  No way to send a long BREAK in Sys V, so send a bunch of regular ones.
-  (Actually, Sys V R4 is *supposed* to have the POSIX tcsendbreak() function,
-  but there's no way for this code to know for sure.)
-*/
-    x = msec / 275;
-    for (n = 0; n < x; n++) {
-	if (ioctl(ttyfd,TCSBRK,(char *)0) < 0) {
-	    perror("Can't send BREAK");
-	    return(-1);
-	}
-    }
-    return(0);
-#else
 #ifdef BSDBREAK
     n = FWRITE;                         /* Flush output queue. */
 /* Watch out for int vs long problems in &n arg! */
@@ -4274,6 +4770,21 @@ sndbrk(msec) int msec; {
                                         /*   with bad exit status */
     }
     return(x);
+#else
+#ifdef ATTSV
+/*
+  No way to send a long BREAK in Sys V, so send a bunch of regular ones.
+  (Actually, Sys V R4 is *supposed* to have the POSIX tcsendbreak() function,
+  but there's no way for this code to know for sure.)
+*/
+    x = msec / 275;
+    for (n = 0; n < x; n++) {
+	if (ioctl(ttyfd,TCSBRK,(char *)0) < 0) {
+	    perror("Can't send BREAK");
+	    return(-1);
+	}
+    }
+    return(0);
 #else
 #ifdef  V7
     return(genbrk(ttyfd,250));		/* Simulate a BREAK */
@@ -4310,17 +4821,19 @@ ttsndlb() {
 
 /* Define MSLFTIME for systems that must use an ftime() loop. */
 #ifdef ANYBSD				/* For pre-4.2 BSD versions */
-#ifndef BSD42
-#ifndef __386BSD__
+#ifndef BSD4
 #define MSLFTIME
-#endif /* __386BSD__ */
-#endif /* BSD42 */
+#endif /* BSD4 */
 #endif /* ANYBSD */
+
 #ifdef TOWER1				/* NCR Tower OS 1.0 */
 #define MSLFTIME
 #endif /* TOWER1 */
+
 #ifdef COHERENT				/* Coherent */
+#ifndef _I386
 #define MSLFTIME
+#endif /* _I386 */
 #endif /* COHERENT */
 
 int
@@ -4338,10 +4851,44 @@ msleep(m) int m; {
 #endif /* NEXT*/
 #endif /* USLEEP */
 
-#ifdef AIXRS
-/* RS/6000 can do select() */
-#define BSD4
+#ifdef AIXRS				/* RS/6000 can do select() */
+#define BSD42
 #endif /* AIXRS */
+
+#ifndef SELECT
+#ifdef BSD44
+#define SELECT
+#endif /* BSD44 */
+#ifdef BSD42
+#define SELECT
+#endif /* BSD42 */
+#endif /* SELECT */
+
+#ifdef SELECT
+/* BSD 4.2 & above can do it with select()... */
+    int t1;
+    if (m <= 0) return(0);
+    if (m >= 1000) {			/* Catch big arguments. */
+	sleep(m/1000);
+	m = m % 1000;
+	if (m < 10) return(0);
+    }
+    if (gettimeofday(&tv, &tz) < 0) return(-1); /* Get current time. */
+    t1 = tv.tv_sec;                     /* Seconds */
+    tv.tv_sec = 0;                      /* Use select() */
+    tv.tv_usec = m * 1000L;
+#ifdef BSD44
+    select( 0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &tv );
+#else
+#ifdef BSD43
+    select( 0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &tv );
+#else
+    select( 0, (int *)0, (int *)0, (int *)0, &tv );
+#endif /* BSD43 */
+#endif /* BSD44 */
+    return(0);
+
+#else					/* Not SELECT */
 
 #ifdef USLEEP
 /*
@@ -4374,29 +4921,10 @@ msleep(m) int m; {
     nap((long)m);
     return(0);
 #else
-#ifdef BSD42
-/* BSD 4.2 & above can do it with select()... */
-    int t1;
-    if (m <= 0) return(0);
-    if (m >= 1000) {			/* Catch big arguments. */
-	sleep(m/1000);
-	m = m % 1000;
-	if (m < 10) return(0);
-    }
-    if (gettimeofday(&tv, &tz) < 0) return(-1); /* Get current time. */
-    t1 = tv.tv_sec;                     /* Seconds */
-    tv.tv_sec = 0;                      /* Use select() */
-    tv.tv_usec = m * 1000L;
-    select( 0, (int *)0, (int *)0, (int *)0, &tv );
-    return(0);
-#ifdef AIXRS
-/* Don't pretend we're BSD any more! */
-#undef BSD4
-#endif /* AIXRS */
-
-#else
 #ifdef ATTSV
+#ifndef BSD44
     extern long times();		/* Or #include <times.h> ? */
+#endif /* BSD44 */
     long t1, t2, tarray[4];
     int t3;
 
@@ -4466,12 +4994,12 @@ msleep(m) int m; {
     }
     if (m > 0) while (m > 0) m--;	/* Just a dumb busy loop */
     return(0);
-#endif /* MLSFTIME */
+#endif /* MSLFTIME */
 #endif /* ATTSV */
-#endif /* BSD42 */
 #endif /* NAP */
 #endif /* PROVX1 */
 #endif /* aegis */
+#endif /* SELECT */
 #endif /* USLEEP */
 }
 
@@ -4600,6 +5128,11 @@ congm() {
 	perror("congm");
 	return(-1);
     }
+#ifdef BSD44ORPOSIX
+    if (tcgetattr(fd,&ccold) < 0) return(-1);
+    if (tcgetattr(fd,&cccbrk) < 0) return(-1);
+    if (tcgetattr(fd,&ccraw) < 0) return(-1);
+#else
 #ifdef ATTSV
     if (ioctl(fd,TCGETA,&ccold)  < 0) return(-1);
     if (ioctl(fd,TCGETA,&cccbrk) < 0) return(-1);
@@ -4611,16 +5144,11 @@ congm() {
     if (ioctl(fd,TCSETA,&ccraw) < 0) return(-1);
 #endif /* VXVE */
 #else
-#ifdef POSIX
-    if (tcgetattr(fd,&ccold) < 0) return(-1);
-    if (tcgetattr(fd,&cccbrk) < 0) return(-1);
-    if (tcgetattr(fd,&ccraw) < 0) return(-1);
-#else
     if (gtty(fd,&ccold) < 0) return(-1);
     if (gtty(fd,&cccbrk) < 0) return(-1);
     if (gtty(fd,&ccraw) < 0) return(-1);
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
 #ifdef sony_news			/* Sony NEWS */
     if (ioctl(fd,TIOCKGET,&km_con) < 0) { /* Get console Kanji mode */
 	perror("congm error getting Kanji mode");
@@ -4647,6 +5175,9 @@ concb(esc) char esc;
 #endif /* CK_ANSIC */
 /* concb */ {
     int x;
+    if (cgmf < 1) return(0);		/* Console modes not available yet */
+    if (ttfdflg && ttyfd >= 0 && ttyfd < 3)
+      return(0);
     debug(F101,"concb backgrd","",backgrd);
     if (!isatty(0)) return(0);          /* Only for real ttys */
     debug(F100,"concb isatty","",0);
@@ -4663,20 +5194,40 @@ concb(esc) char esc;
     cccbrk.sg_flags &= ~ECHO;           /* no echo. */
     x = stty(0,&cccbrk);
 #else					/* Sys V and POSIX */
-    cccbrk.c_lflag &= ~(ICANON|ECHO);
+    cccbrk.c_lflag &= ~(ICANON|ECHO|IEXTEN);
+#ifndef VINTR
     cccbrk.c_cc[0] = 003;               /* interrupt char is control-c */
+#else
+    cccbrk.c_cc[VINTR] = 003;
+#endif /* VINTR */
+#ifndef VQUIT
     cccbrk.c_cc[1] = escchr;            /* escape during packet modes */
+#else
+    cccbrk.c_cc[VQUIT] = escchr;
+#endif /* VQUIT */
+#ifndef VEOF
     cccbrk.c_cc[4] = 1;
+#else
+#ifdef VMIN
+    cccbrk.c_cc[VMIN] = 1;
+#endif /* VMIN */
+#endif /* VEOF */
 #ifdef ZILOG
     cccbrk.c_cc[5] = 0;
 #else
+#ifndef VEOL
     cccbrk.c_cc[5] = 1;
+#else
+#ifdef VTIME
+    cccbrk.c_cc[VTIME] = 1;
+#endif /* VTIME */
+#endif /* VEOL */
 #endif /* ZILOG */
-#ifdef ATTSV				/* Set new modes */
-    x = ioctl(0,TCSETAW,&cccbrk);	/* the Sys V way */
-#else /* POSIX */      			/* or the POSIX way */
+#ifdef BSD44ORPOSIX			/* Set new modes */
     x = tcsetattr(0,TCSADRAIN,&cccbrk);
-#endif /* ATTSV */
+#else /* ATTSV */      			/* or the POSIX way */
+    x = ioctl(0,TCSETAW,&cccbrk);	/* the Sys V way */
+#endif /* BSD44ORPOSIX */
 #endif /* SVORPOSIX */
 
 #ifndef aegis
@@ -4726,16 +5277,18 @@ conbin(esc) char esc;
 #endif /* aegis */
 
 #ifdef SVORPOSIX
-    ccraw.c_lflag &= ~(ISIG|ICANON|ECHO);
+    ccraw.c_lflag &= ~(ISIG|ICANON|ECHO|IEXTEN);
     ccraw.c_iflag |= (BRKINT|IGNPAR);
 #ifdef ATTSV
+#ifdef BSD44
+    ccraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|IXON|IXANY|IXOFF
+                        |INPCK|ISTRIP);
+#else
     ccraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|IUCLC|IXON|IXANY|IXOFF
                         |INPCK|ISTRIP);
+#endif /* BSD44 */
 #else /* POSIX */
     ccraw.c_iflag &= ~(IGNBRK|INLCR|IGNCR|ICRNL|IXON|IXOFF|INPCK|ISTRIP);
-#ifdef __386BSD__
-    ccraw.c_lflag &= ~IEXTEN; /* pass CTRL-V though while connected */
-#endif /* __386BSD__ */
 #endif /* ATTSV */
     ccraw.c_oflag &= ~OPOST;
 #ifdef ATT7300
@@ -4753,21 +5306,41 @@ conbin(esc) char esc;
  ***
  *** Sys III/V sites that have trouble with this can restore these lines.
  ***/
+#ifndef VINTR
     ccraw.c_cc[0] = 003;		/* Interrupt char is Ctrl-C */
+#else
+    ccraw.c_cc[VINTR] = 003;
+#endif /* VINTR */
+#ifndef VQUIT
     ccraw.c_cc[1] = escchr;		/* Escape during packet mode */
+#else
+    ccraw.c_cc[VQUIT] = escchr;
+#endif /* VQUIT */
+#ifndef VEOF
     ccraw.c_cc[4] = 1;
+#else
+#ifdef VMIN
+    ccraw.c_cc[VMIN] = 1;
+#endif
+#endif /* VEOF */
 
 #ifdef ZILOG
     ccraw.c_cc[5] = 0;
 #else
+#ifndef VEOL
     ccraw.c_cc[5] = 1;
+#else
+#ifdef VTIME
+    ccraw.c_cc[VTIME] = 1;
+#endif /* VTIME */
+#endif /* VEOL */
 #endif /* ZILOG */
 
-#ifdef ATTSV
-    return(ioctl(0,TCSETAW,&ccraw));	/* Set new modes. */
-#else
+#ifdef BSD44ORPOSIX
     return(tcsetattr(0,TCSADRAIN,&ccraw));
-#endif /* ATTSV */
+#else
+    return(ioctl(0,TCSETAW,&ccraw));	/* Set new modes. */
+#endif /* BSD44ORPOSIX */
 
 #else /* Berkeley, etc. */
     ccraw.sg_flags |= (RAW|TANDEM);     /* Set rawmode, XON/XOFF (ha) */
@@ -4795,23 +5368,23 @@ conres() {
     return(0);
 #endif /* aegis */
 
-#ifdef ATTSV
-    debug(F100,"conres restoring ioctl","",0);
-    return(ioctl(0,TCSETAW,&ccold));
-#else
-#ifdef POSIX
+#ifdef BSD44ORPOSIX
     debug(F100,"conres restoring tcsetattr","",0);
     return(tcsetattr(0,TCSADRAIN,&ccold));
 #else
-#ifdef sony_news			/* Sony NEWS */
-    return(ioctl(0,TIOCKSET,&km_con)); /* Restore console Kanji mode */
+#ifdef ATTSV
+    debug(F100,"conres restoring ioctl","",0);
+    return(ioctl(0,TCSETAW,&ccold));
 #else /* BSD, V7, and friends */
+#ifdef sony_news			/* Sony NEWS */
+    if (km_con != -1)
+      ioctl(0,TIOCKSET,&km_con);	/* Restore console Kanji mode */
+#endif /* sony_news */
     msleep(300);
     debug(F100,"conres restoring stty","",0);
     return(stty(0,&ccold));
-#endif /* sony_news */
-#endif /* POSIX */
 #endif /* ATTSV */
+#endif /* BSD44ORPOSIX */
 }
 
 /*  C O N O C  --  Output a character to the console terminal  */
@@ -4865,7 +5438,7 @@ int
 conchk() {
     int x; PEEKTYPE n;
 
-    if (!isatty(0)) return(0);
+    if (backgrd || !isatty(0)) return(0);
 #ifdef PROVX1
     x = ioctl(0, TIOCQCNT, &ttbuf);
     n = ttbuf.sg_ispeed & 0377;
@@ -4892,6 +5465,7 @@ conchk() {
 #else
 #ifdef SVORPOSIX
     if (conesc) {                       /* Escape typed */
+        debug(F100,"conchk returns conesc","",conesc);
         conesc = 0;
         signal(SIGQUIT,esctrp);         /* Restore escape */
         return(1);
@@ -4907,6 +5481,12 @@ conchk() {
     return(0);
 #else
 #ifdef FIONREAD
+/*
+  Reportedly, this can cause C-Kermit to be suspended on certain OS's,
+  such as Olivetti X/OS, when called if Kermit is really in the background.
+  Hence the change at the top of this routine to return 0 if the backgrd
+  flag is set.
+*/
     x = ioctl(0, FIONREAD, &n);         /* BSD and maybe some others */
     debug(F101,"conchk","",n);
     return((x < 0) ? 0 : n);
@@ -4921,11 +5501,17 @@ conchk() {
 }
 
 /*  C O N I N C  --  Get a character from the console  */
-
+/*
+  Call with timo > 0 to do a timed read, timo == 0 to do an untimed blocking
+  read.  Upon success, returns the character.  Upon failure, returns -1.
+  A timed read that does not complete within the timeout period returns -1.
+*/
 int
 coninc(timo) int timo; {
     int n = 0; CHAR ch;
-#ifdef aegis
+    int xx;
+#ifdef aegis				/* Apollo Aegis only... */
+    debug(F101,"coninc timo","",timo);
     fflush(stdout);
     if (conchk() > 0) {
 	--conbufn;
@@ -4933,42 +5519,88 @@ coninc(timo) int timo; {
     }
 #endif /* aegis */
 
-    if (timo <= 0 ) {                   /* Untimed. */
-        n = read(0, &ch, 1);            /* Read a character. */
-        ch &= 0377;
-        if (n > 0)			/* Return the character if read ok */
-	  return(ch);
-        else				/* otherwise... */
+    if (timo <= 0 ) {                   /* Untimed, blocking read. */
+	while (1) {			/* Keep trying till we get one. */
+	    n = read(0, &ch, 1);	/* Read a character. */
+	    if (n == 0) continue;	/* Shouldn't happen. */
+	    if (n > 0)			/* If read was successful, */
+	      return(ch & 0377);	/* return the character. */
+
+/* Come here if read() returned an error. */
+
+	    debug(F101, "coninc(0) errno","",errno); /* Log the error. */
 #ifdef SVORPOSIX
-#ifndef CIE                             /* CIE Regulus has no such symbol */
-	  if (n < 0 && errno == EINTR)  /* If read was interrupted by QUIT, */
-	    return(escchr);		/* user entered escape character. */
-	  else				/* Can't be ^c, sigint never returns */
+#ifdef CIE                             /* CIE Regulus has no EINTR symbol? */
+#ifndef EINTR
+#define EINTR 4
+#endif /* EINTR */
 #endif /* CIE */
+/*
+  This routine is used for several different purposes.  In CONNECT mode, it is
+  used to do an untimed, blocking read from the keyboard in the lower CONNECT
+  fork.  During local-mode file transfer, it reads a character from the
+  console to interrupt the file transfer (like A for a status report, X to
+  cancel a file, etc).  Obviously, we don't want the reads in the latter case
+  to be blocking, or the file transfer would stop until the user typed
+  something.  Unfortunately, System V does not allow the console device input
+  buffer to be sampled nondestructively (e.g. by conchk()), so a kludge is
+  used instead.  During local-mode file transfer, the SIGQUIT signal is armed
+  and trapped by esctrp(), and this routine pretends to have read the quit
+  character from the keyboard normally.  But, kludge or no kludge, the read()
+  issued by this command, under System V only, can fail if a signal -- ANY
+  signal -- is caught while the read is pending.  This can occur not only when
+  the user types the quit character, but also during telnet negotiations, when
+  the lower CONNECT fork signals the upper one about an echoing mode change.
+  When this happens, we have to post the read() again.  This is apparently not
+  a problem in BSD-based UNIX versions.
+*/
+	    if (errno == EINTR)		/* Read interrupted. */
+	      if (conesc)  {		/* If by SIGQUIT, */
+ 		 conesc = 0;		/* the conesc variable is set, */
+ 		 return(escchr);	/* so return the escape character. */
+	     } else continue;		/* By other signal, try again. */
+#else
+/*
+  This might be dangerous, but let's do this on non-System V versions too,
+  since at least one SunOS 4.1.2 user complains of immediate disconnections
+  upon first making a TELNET connection.
+*/
+	    if (errno == EINTR)		/* Read interrupted. */
+	      continue;
 #endif /* SVORPOSIX */
-	    {
-		debug(F101, "coninc(0) errno","",errno);
-		return(-1);		/* Return -1 as error indication */
-	    }
+	    return(-1);			/* Error */
+	}
     }
-    saval = signal(SIGALRM,timerh);	/* Timed read, so set up timer */
-    alarm(timo);
-    if (setjmp(sjbuf)) n = -2;
-    else {
-        n = read(0, &ch, 1);
-        ch &= 0377;
-    }
-    ttimoff();				/* Turn off timer */
-    if (n > 0) return(ch);
+
+    if (timo <= 0)
+      /* This should never happen */
+      debug(F100,"coninc HORRIBLE ERROR","",0);
+
+/* Timed read... */
+
+    saval = signal(SIGALRM,timerh);	/* Set up timeout handler. */
+    xx = alarm(timo);			/* Set the alarm. */
+    debug(F101,"coninc alarm","",xx);
+    if (setjmp(sjbuf))			/* The read() timed out. */
+      n = -2;				/* Code for timeout. */
     else
+      n = read(0, &ch, 1);
+    ttimoff();				/* Turn off timer */
+    if (n > 0)				/* Got character OK. */
+      return(ch & 0377);		/* Return it. */
+
+/*
+  Read returned an error.  Same deal as above, but without the loop.
+*/
+    debug(F101, "coninc(timo) n","",n);
+    debug(F101, "coninc(timo) errno","",errno);
 #ifdef SVORPOSIX
-#ifndef CIE                             /* CIE Regulus has no such symbol */
-        if (n == -1 && errno == EINTR)  /* If read interrupted by QUIT, */
-            return(escchr);             /* user entered escape character, */
-        else                            /* can't be ^c, sigint never returns */
-#endif /* CIE */
+    if (n == -1 && errno == EINTR && conesc != 0) {
+	conesc = 0;
+	return(escchr);			/* User entered escape character. */
+    } else				/* n == 0 shouldn't happen. */
 #endif /* SVORPOSIX */
-        return(-1);
+      return(-1);
 }
 
 /*  C O N G K S  --  Console Get Keyboard Scancode  */
@@ -5163,7 +5795,7 @@ ongetty(ttname) char *ttname; {
  * will simply be a no-op for BSD.
  *
  * Note that in previous versions, the carrier was most often left unchanged
- * in ttpkt()/ttvt() unless they were called with DIALING or CONNECT.  This
+ * in ttpkt()/ttvt() unless they were called with FLO_DIAL or FLO_DIAX.  This
  * has changed.  Now it is controlled by ttcarr in conjunction with these
  * modes.
  */
@@ -5193,11 +5825,11 @@ ttscarr(carrier) int carrier; {
  */
 #ifdef SVORPOSIX
 int
-#ifdef ATTSV
-carrctl(ttpar, carrier)	struct termio *ttpar; int carrier;
-#else /* POSIX */
+#ifdef BSD44ORPOSIX
 carrctl(ttpar, carrier)	struct termios *ttpar; int carrier;
-#endif /* ATTSV */
+#else /* ATTSV */
+carrctl(ttpar, carrier)	struct termio *ttpar; int carrier;
+#endif /* BSD44ORPOSIX */
 /* carrctl */ {
     debug(F101, "carrctl","",carrier);
     if (carrier)
@@ -5346,11 +5978,7 @@ ttgmdm() {
   Hence the following ifndef on a symbol which is defined there.
 */
 #ifndef TIOCMGET
-#ifdef __386BSD__
-#include <sys/ioctl.h>
-#else
 #include <sys/ttycom.h>
-#endif /* __386BSD__ */
 #endif /* TIOCMGET */
 
     int x, y, z;
@@ -5783,41 +6411,24 @@ real_uid() {
 }
 
 VOID
-ttimoff() {                           /* Turn off any timer interrupts */
-    alarm(0);
-    if (saval)
-      signal(SIGALRM,saval);
-    else
-      signal(SIGALRM,SIG_DFL);
-    saval = NULL;
-}
-
-#ifdef UTEK
-/* Turn on or off hardware flow control under UTek */
-VOID
-hardflow(flow) int flow; {
-    int x;
-    x = LDODTR | LDOCTS;
-    if (flow == FLO_HARD) {		/* Use hardware flow control */
-	if (lmodef) {
-	    x = ioctl(ttyfd,TIOCLBIS,&x);
-	    if (x < 0) {
-	        debug(F100,"hardflow TIOCLBIS error","",0);
-	    } else {
-		lmodef++;
-		debug(F100,"hardflow TIOCLBIS ok","",0);
-	    }
-	}
+ttimoff() {				/* Turn off any timer interrupts */
+    int xx;
+/*
+  As of 5A(183), we set SIGALRM to SIG_IGN (to ignore alarms) rather than to
+  SIG_DFL (to catch alarms, or if there is no handler, to exit).  This is to
+  cure (mask, really) a deeper problem with stray alarms that occurs on some
+  systems, possibly having to do with sleep(), that caused core dumps.  It
+  should be OK to do this, because no code in this module uses nested alarms.
+  (But we still have to watch out for SCRIPT and DIAL...)
+*/
+    xx = alarm(0);
+    /* debug(F101,"ttimoff alarm","",xx); */
+    if (saval) {			/* Restore any previous */
+	signal(SIGALRM,saval);		/* alarm handler. */
+	/* debug(F101,"ttimoff alarm restoring saval","",saval); */
+	saval = NULL;
     } else {
-	if (lmodef) {
-	    x = ioctl(ttyfd,TIOCLBIC,&x);
-	    if (x < 0) {
-	        debug(F100,"hardflow TIOCLBIC error","",0);
-	    } else {
-		lmodef++;
-		debug(F100,"hardflow TIOCLBIC ok","",0);
-	    }
-	}
+	signal(SIGALRM,SIG_IGN);	/* Used to be SIG_DFL */
+	/* debug(F100,"ttimoff alarm SIG_IGN","",0); */
     }
 }
-#endif /* UTEK */

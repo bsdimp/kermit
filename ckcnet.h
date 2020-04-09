@@ -9,6 +9,7 @@
 #define NET_SX25 3			/* SUNOS SunLink X.25 */
 #define NET_DEC  4			/* DECnet */
 #define NET_VPSI 5			/* VAX PSI */
+#define NET_PIPE 6			/* LAN Manager Named Pipe */
 
 /* Network virtual terminal protocols */
 
@@ -126,23 +127,64 @@ _PROTOTYP( int x25inl, (CHAR *, int, int, CHAR) );
 
 #endif /* SUNX25 */
 
-/* TGV / SRI MultiNet, TCP/IP for VAX/VMS */
+/* DEC TCP/IP for (Open)VMS, previously known as UCX */
+
+#ifdef DEC_TCPIP			/* DEC_TCPIP implies TCPSOCKET */
+#ifndef TCPSOCKET
+#define TCPSOCKET
+#endif /* TCPSOCKET */
+#ifndef VMSTCPIP
+#define VMSTCPIP
+#endif /* VMSTCPIP */
+#endif /* DEC_TCPIP */
+
+/* TGV/SRI MultiNet, TCP/IP for VAX/VMS */
 
 #ifdef MULTINET				/* MULTINET implies TCPSOCKET */
 #ifndef TCPSOCKET
 #define TCPSOCKET
 #endif /* TCPSOCKET */
+#ifndef VMSTCPIP
+#define VMSTCPIP
+#endif /* VMSTCPIP */
+#ifndef TGVORWIN			/* MULTINET and WINTCP */
+#define TGVORWIN			/* share a lot of code... */
+#endif /* TGVORWIN */
 #endif /* MULTINET */
+
+/* Wollongong TCP/IP for VAX/VMS */
+
+#ifdef WINTCP				/* WINTCP implies TCPSOCKET */
+#ifndef TCPSOCKET
+#define TCPSOCKET
+#endif /* TCPSOCKET */
+#ifndef VMSTCPIP
+#define VMSTCPIP
+#endif /* VMSTCPIP */
+#ifndef TGVORWIN			/* WINTCP and MULTINET */
+#define TGVORWIN			/* share a lot of code... */
+#endif /* TGVORWIN */
+#endif /* WINTCP */
 
 /* Wollongong TCP/IP for AT&T Sys V */
 
 #ifdef WOLLONGONG			/* WOLLONGONG implies TCPSOCKET */
+#ifndef TCPSOCKET			/* Don't confuse WOLLONGONG */
+#define TCPSOCKET			/* (which is for UNIX) with */
+#endif /* TCPSOCKET */			/* WINTCP, which is for VMS! */
+#endif /* WOLLONGONG */
+
+#ifdef EXCELAN				/* EXCELAN implies TCPSOCKET */
 #ifndef TCPSOCKET
 #define TCPSOCKET
 #endif /* TCPSOCKET */
-#endif /* WOLLONGONG */
+#endif /* EXCELAN */
 
-/* Should do the same for EXCELAN, INTERLAN, etc... */
+#ifdef INTERLAN				/* INTERLAN implies TCPSOCKET */
+#ifndef TCPSOCKET
+#define TCPSOCKET
+#endif /* TCPSOCKET */
+#endif /* INTERLAN */
 
 /* Telnet protocol */
 
@@ -196,9 +238,22 @@ _PROTOTYP( int x25inl, (CHAR *, int, int, CHAR) );
 #define minor				/* Do not include <sys/macros.h> */
 #include <sys/inet.h>
 #else
+#ifndef OXOS
 #ifndef HPUX
 #include <arpa/inet.h>
 #endif /* HPUX */
+#else /* OXOS */
+/* In too many releases of X/OS, <arpa/inet.h> declares inet_addr() as
+ * ``struct in_addr''.  This is definitively wrong, and could cause
+ * core dumps.  Instead of including that bad file, inet_addr() is
+ * correctly declared here.  Of course, all the declarations done there
+ * has been copied here.
+ */
+unsigned long inet_addr();
+char	*inet_ntoa();
+struct	in_addr inet_makeaddr();
+unsigned long inet_network();
+#endif /* OXOS */
 #endif /* WOLLONGONG */
 #endif /* INTERLAN */
 #endif /* EXCELAN */
@@ -233,20 +288,21 @@ _PROTOTYP( int x25inl, (CHAR *, int, int, CHAR) );
 #ifdef DU2				/* DEC Ultrix 2.0 */
 #define INADDRX
 #endif /* DU2 */
-#ifdef OXOS				/* Olivetti X/OS */
-/*
-  Reportedly this was only necessary because of a bug in X/OS,
-  which is now fixed.  X/OS users who have trouble compiling ckcnet.c
-  should uncomment this section.
-*/
-#ifdef COMMENT
-#define INADDRX
-#endif /* COMMENT */
-#endif /* OXOS */
 
 #else /* Not UNIX */
 
 #ifdef VMS				/* VAX/VMS section */
+
+#ifdef WINTCP				/* TWG WIN/TCP for VMS */
+#include <errno.h>
+#include "twg$tcp:[netdist.include.sys]types.h"
+#include "twg$tcp:[netdist.include.sys]socket.h"
+#include "twg$tcp:[netdist.include]netdb.h"
+#include "twg$tcp:[netdist.include.sys]domain.h"
+#include "twg$tcp:[netdist.include.sys]protosw.h"
+#include "twg$tcp:[netdist.include.netinet]in.h"
+#include "twg$tcp:[netdist.include.sys]ioctl.h"
+#endif /* WINTCP */
 
 #ifdef MULTINET				/* TGV MultiNet */
 #include "multinet_root:[multinet.include]errno.h"
@@ -256,7 +312,21 @@ _PROTOTYP( int x25inl, (CHAR *, int, int, CHAR) );
 #include "multinet_root:[multinet.include.netinet]in.h"
 #include "multinet_root:[multinet.include.sys]ioctl.h"
 #endif /* MULTINET */
-/* Others here -- DECnet, VAX/PSI */
+
+#ifdef DEC_TCPIP
+#include <in.h>
+#include <netdb.h>
+#include <socket.h>
+#include "ckvioc.h"
+#define socket_errno errno
+#define bzero(s,n) memset(s,0,n) 
+#define bcopy(h,a,l) memmove(a,h,l)
+#define socket_read 	read
+#define socket_write 	write
+#define socket_ioctl	ioctl
+#define socket_close    close
+#endif /* DEC_TCPIP */
+
 #endif /* VMS */
 #endif /* UNIX */
 #endif /* TCPSOCKET */
@@ -294,13 +364,13 @@ _PROTOTYP( int x25inl, (CHAR *, int, int, CHAR) );
 #ifndef TELOPT_ECHO			/* Then the options */
 #define TELOPT_ECHO 1
 #endif /* TELOPT_ECHO */
-#ifndef TELOPT_SGA 
+#ifndef TELOPT_SGA
 #define	TELOPT_SGA 3
 #endif /* TELOPT_SGA */
-#ifndef TELOPT_STATUS 
+#ifndef TELOPT_STATUS
 #define	TELOPT_STATUS 5
 #endif /* TELOPT_STATUS */
-#ifndef TELOPT_TTYPE 
+#ifndef TELOPT_TTYPE
 #define	TELOPT_TTYPE 24
 #endif /* TELOPT_TTYPE */
 #ifndef NTELOPTS
@@ -311,7 +381,7 @@ _PROTOTYP( int x25inl, (CHAR *, int, int, CHAR) );
 
 _PROTOTYP( int tn_ini, (void) );	/* Telnet protocol support */
 _PROTOTYP( int tn_sopt, (int, int) );
-_PROTOTYP( int tn_doop, (CHAR, int) );
+_PROTOTYP( int tn_doop, (CHAR, int, int (*)(int) ) );
 _PROTOTYP( int tn_sttyp, (void) );
 _PROTOTYP( int tnsndbrk, (void) );
 

@@ -22,6 +22,8 @@
 #include "ckuusr.h"
 #include "ckcxla.h"
  
+extern char *ccntab[];
+
 #ifndef NOICP
 #ifdef DCMDBUF
 extern char *cmdbuf;
@@ -38,7 +40,7 @@ extern char trafil[];
 #endif
 
 extern char *xarg0;
-extern int nrmt, nprm, dfloc, local, parity, duplex;
+extern int nrmt, nprm, dfloc, local, parity, duplex, escape;
 extern int turn, flow;
 extern int binary, warn, quiet, keep;
 extern int success;
@@ -54,7 +56,7 @@ extern struct keytab remcmd[];
 static
 char *hlp1[] = {
 #ifndef NOICP
-"[cmdfile] [-x arg [-x arg]...[-yyy]..] [ = text ] ]\n",
+" [cmdfile] [-x arg [-x arg]...[-yyy]..] [ = text ] ]\n",
 #else
 "[-x arg [-x arg]...[-yyy]..]\n",
 #endif
@@ -140,12 +142,14 @@ usage() {
  
 static char *tophlp[] = { 
 "Trustees of Columbia University in the City of New York.\n",
+
 #ifndef NOHELP
-"Type ? for a list of commands, type HELP x for any command x.",
+"Type INTRO for an introduction to C-Kermit, press ? for a list of commands.",
+"Type HELP followed by a command name for help about a specific command.",
 #else
 "Type ? for a list of commands; see documentation for detailed descriptions.",
 #endif /* NOHELP */
-"While typing commands, you may use the following special characters:\n",
+"While typing commands, you may use the following special characters:",
 " DEL, RUBOUT, BACKSPACE, CTRL-H: Delete the most recent character typed.",
 " CTRL-W:  Delete the most recent word typed.",
 " CTRL-U:  Delete the current line.",
@@ -154,23 +158,120 @@ static char *tophlp[] = {
 " ESC      (or TAB) Attempt to complete the current field.",
 " \\        (backslash) include the following character literally",
 #ifndef NOSPL
-"          or introduce a numeric backslash code, variable, or function.\n",
+"          or introduce a backslash code, variable, or function.\n",
 #else
 "          or introduce a numeric backslash code.\n",
 #endif /* NOSPL */
 
 "Command words other than filenames can be abbreviated in most contexts.",
-"Commands may be continued onto subsequent lines by ending them with - (dash)",
-"and commands may have trailing comments introduced by ; (semicolon).",
-#ifndef NOFRILLS
-"The BUG command tells you how to report bugs.",
-#endif /* NOFRILLS */
 #ifndef NOCMDL
-"\nFrom system level, type 'kermit -h' for help about command line options.",
+"From system level, type \"kermit -h\" for help about command-line options.",
 #endif /* NOCMDL */
-"" };
+" ",
+#ifdef MAC
+"Documentation for Command Window: \"Using C-Kermit\" by Frank da Cruz and",
+"Christine M. Gianone. Digital Press ISBN: 1-55558-108-0; Prentice-Hall ISBN:",
+"0-13-037490-3.  DECdirect:+1-800-344-4825, Order # EY-J896E-DP, US $34.95,",
+"January 1993.  Macintosh-specific documentation is in preparation.",
+#else
+"DOCUMENTATION: \"Using C-Kermit\" by Frank da Cruz and Christine M. Gianone,",
+"Digital Press.  DP ISBN: 1-55558-108-0; Prentice-Hall ISBN: 0-13-037490-3.",
+"DECdirect: +1-800-344-4825, Order Number EY-J896E-DP, US $34.95, Jan 1993.",
+#endif /* MAC */
+""
+};
  
 #ifndef NOHELP
+char *introtxt[] = {
+"Welcome to C-Kermit communications software for:",
+" . Error-free file transfer",
+" . Terminal connection",
+#ifndef NOSPL
+" . Script programming",
+#endif /* NOSPL */
+#ifndef NOICS
+" . International character set conversion",
+#endif /* NOICS */
+"\nSupporting:",
+" . Serial connections, direct or dialed.",
+#ifndef NODIAL
+" . Automatic modem dialing",
+#endif /* NODIAL */
+#ifdef TCPSOCKET
+" . TCP/IP network connections",
+#endif /* TCPSOCKET */
+#ifdef SUNX25
+" . X.25 network connections",
+#endif /* SUNX25 */
+#ifdef OS2
+#ifdef DECNET
+" . DECnet/PATHWORKS LAT Ethernet connections",
+"   (if you have PATHWORKS installed on your OS/2 system)",
+#endif /* DECNET */
+#ifdef NPIPE
+" . Microsoft LAN Manager named-pipe network connections",
+"   (if you have LAN Manager installed on your OS/2 system)",
+#endif /* NPIPE */
+#endif /* OS2 */
+" . UNIX, VAX/VMS, OS/2, AOS/VS, OS-9, Commodore Amiga, Atari ST.",
+"\nBasic C-Kermit commands:",
+"  EXIT          exit from C-Kermit",
+"  HELP          request help about a command",
+"  TAKE          execute commands from a file",
+
+"\nCommands for file transfer:",
+"  SEND          send files",
+"  RECEIVE       receive files",
+"  SERVER        be a file transfer server",
+
+"\nEssential settings:",
+"  SET PARITY    communications parity",
+"  SET FLOW      communications flow control, such as XON/XOFF",
+"  SET FILE      file settings, for example TYPE TEXT or TYPE BINARY",
+
+"\nTo make a direct serial connection:",
+"  SET LINE      select serial communication device",
+"  SET SPEED     select communication speed   ",
+"  CONNECT       begin terminal connection",
+
+#ifndef NODIAL
+"\nTo dial out with a modem:",
+"  SET MODEM     select modem type",
+"  SET LINE      select serial communication device",
+"  SET SPEED     select communication speed   ",
+"  DIAL          dial ",
+"  CONNECT       begin terminal connection",
+#endif /* NODIAL */
+
+#ifdef NETCONN
+"\nTo make a network connection:",
+"  SET NETWORK   select network type",
+"  SET HOST      select network host",
+"  CONNECT       begin terminal connection",
+#ifdef TNCODE
+"  TELNET        select a TCP/IP host and CONNECT to it",
+#endif /* TNCODE */
+#endif /* NETCONN */
+
+"\nTo return from a terminal connection to the C-Kermit prompt:",
+"  Type your escape character followed by the letter C.",
+
+"\nTo display your escape character:",
+"  SHOW ESCAPE",
+
+"\nTo display other settings:",
+"  SHOW COMMUNICATIONS, SHOW TERMINAL, SHOW FILE, SHOW PROTOCOL, etc.",
+
+"\nFor further information about a particular command, type HELP xxx,",
+"where xxx is the name of the command.  For documentation, news of new",
+"releases, and information about other Kermit software, contact:\n",
+"  Kermit Distribution        E-mail:",
+"  Columbia University        kermit@columbia.edu (Internet)",
+"  612 West 115th Street      KERMIT@CUVMA (BITNET/EARN)",
+"  New York, NY 10025 USA",
+"  Phone: (212) 854-3703      Fax: (212) 662-6442",
+""
+};
 
 static char *hmxxbye = "Syntax: BYE\n\
 Shut down and log out a remote Kermit server";
@@ -179,14 +280,25 @@ static char *hmxxclo[] = {
 "Syntax:  CLOSE name",
 "Example: CLOSE SESSION\n",
 "Close one of the following logs or files:",
-"SESSION, TRANSACTION, PACKET, DEBUGGING, READ, WRITE",
+"  SESSION",
+#ifdef TLOG
+"  TRANSACTION",
+#endif /* TLOG */
+"  PACKET",
+#ifdef DEBUG
+"  DEBUGGING",
+#endif /* DEBUG */
+#ifndef NOSPL
+"  READ",
+"  WRITE",
+#endif /* NOSPL */
 "Type HELP LOG and HELP OPEN for further info.", "" };
  
 static char *hmxxcon = "Syntax: CONNECT (or C)\n\n\
 Connect to a remote computer via the tty device given in the most recent\n\
 SET LINE command, or the network host named in the most recent SET HOST\n\
-command.  Type the escape character (normally Ctrl-\\) followed by C to\n\
-get back, or followed by ? for help.";
+command.  Type the escape character followed by C to get back, or followed\n\
+by ? for a list of CONNECT-mode escape commands.";
  
 static char *hmxxget = "Syntax: GET filespec\n\
 Tell the remote Kermit server to send the named file or files.\n\
@@ -195,13 +307,17 @@ local filenames separately.";
  
 static char *hmxxlg[] = { "Syntax: LOG (or L) name [ { NEW, APPEND } ]",
 "Record information in a log file:\n",
+#ifdef DEBUG
 "DEBUGGING     Debugging information, to help track down bugs in the C-Kermit",
 "              program (default log name is debug.log).\n",
+#endif /* DEBUG */
 "PACKETS       Kermit packets, to help with protocol problems (packet.log)",
 "SESSION       Terminal session, during CONNECT command (session.log)",
+#ifdef TLOG
 "TRANSACTIONS  Names and statistics about files transferred (transact.log)\n",
-"If you include the APPEND keyword after the filename, the existing log, if",
-"any, is appended to; otherwise a new file is created.",
+#endif /* TLOG */
+"If you include the APPEND keyword after the filename, the existing log file,",
+"if any, is appended to; otherwise a new file is created.",
 "" } ;
  
 #ifndef NOSCRIPT
@@ -279,38 +395,69 @@ static char *hmhskey[] = { "Syntax: SET KEY k text\n",
 ""};
 #endif /* NOSETKEY */
 
-static char *hmxychkt[] = { "Syntax: SET BLOCK-CHECK n\n",
-"Type of packet block check to be used for error detection, 1, 2, or 3.",
-"Type 1 is standard, and catches most errors.  Types 2 and 3 specify more",
-"rigorous checking at the cost of higher overhead.",
+static char *hmxychkt[] = { "Syntax: SET BLOCK-CHECK type\n",
+"Type of packet block check to be used for error detection, 1, 2, 3, or",
+"BLANK-FREE-2.  Type 1 is standard, and catches most errors.  Types 2 and 3",
+"specify more rigorous checking at the cost of higher overhead.  The",
+"BLANK-FREE-2 type is the same as Type 2, but is guaranteed to contain no",
+"blanks.",
 "" } ;
  
-static char *hmxydial[] = {"SET DIAL DISPLAY {ON, OFF}",
+#ifndef NODIAL
+static char *hmxydial[] = {
+"SET DIAL DIAL-COMMAND [ text ]",
+"The 'text' replaces C-Kermit's built-in modem dialing command.  It must",
+"include '%s' (percent s) as a place-holder for the telephone numbers",
+"given in your DIAL commands.  If the 'text' is omitted, C-Kermit uses its",
+"built-in modem-specific dialing command.\n",
+"SET DIAL DIRECTORY filename",
+"Name of dialing directory file.  Type HELP DIAL for further info.\n",
+"SET DIAL DISPLAY {ON, OFF}",
 "Whether to display dialing progress on the screen.\n",
 "SET DIAL HANGUP {ON, OFF}",
 "Whether the DIAL command should hang up the phone before dialing.\n",
-"SET DIAL INIT-STRING text",
-"The 'text' is a replacement for Kermit's built-in initialization command",
-"for the modem.\n",
+"SET DIAL INIT-STRING [ text ]",
+"The 'text' is a replacement for C-Kermit's built-in initialization command",
+"for the modem.  If 'text' omitted, use built-in initialization command.\n",
 "SET DIAL KERMIT-SPOOF {ON, OFF}",
 "If the selected modem type supports the Kermit protocol directly,",
 "use this command to turn its Kermit protocol function on or off.\n",
+"SET DIAL MODEM-HANGUP {ON, OFF}",
+"Governs how the HANGUP, <esc>H, and similar operations work when you have",
+"a dialed connection (in local mode, and a specific modem type is set).",
+"ON means to use modem commands to hang up the phone, e.g. ATH0.",
+"OFF means to hang up by attempting to turn off the DTR signal.",
+"ON is not necessarily supported for all modem types.\n",
 "SET DIAL MNP-ENABLE {ON, OFF}",
-"Enable or disable MNP negotiation by the modem.  Currently works only",
-"for Telebits.\n",
+"Enable or disable MNP negotiation by the modem.\n",
+"SET DIAL PREFIX [ text ]",
+"Establish a prefix to be applied to the phone numbers given in the DIAL",
+"command or read from the dialing directory.\n",
 "SET DIAL SPEED-MATCHING {ON, OFF}",
-"If selected, the modem locks its interface speed, even if it connects",
-"to a slower modem.  Default is OFF (modem changes speed).\n",
+"ON (the default) means that C-Kermit changes its serial interface speed to",
+"agree with the speed reported by the modem's CONNECT message, if any.  OFF",
+"means that C-Kermit should not change its interface speed.\n",
 "SET DIAL TIMEOUT number",
-"How many seconds to wait for a dialed call to complete.  Use this",
+"How many seconds to wait for a dialed call to complete.  Use this command",
 "to override the DIAL command's automatic timeout calculation.  A value",
 "of 0 turns off this feature and returns to Kermit's automatic dial",
-"timeout calculation.",
+"timeout calculation.\n",
+"Also see DIAL and SET MODEM.  Use SHOW DIAL to display dial-related",
+"settings.\n",
 "" } ;
+#endif /* NODIAL */
+
+static char *hmxyflo[] = { "Syntax: SET FLOW value\n",
+"Type of flow control to use during file transfer and CONNECT mode.",
+"Choices: KEEP (don't change device's current setting), XON/XOFF (software",
+"flow control, the default), NONE (no flow control at all), and possibly",
+"others including RTS/CTS (hardware) depending on the capabilities of your",
+"system.  Type SET FLOW ? for a list.",
+""};
 
 static char *hmxyf[] = { "Syntax: SET FILE parameter value",
-"Parameters are:\n",
-
+"Parameters:\n",
+"TYPE: How file contents are to be treated during file transfer.",
 "TYPE is normally TEXT, with conversion of record format and character set.",
 "BINARY means to do no conversion.  Use BINARY for executable programs or",
 "binary data.  Example: SET FILE TYPE BINARY.\n",
@@ -324,12 +471,20 @@ static char *hmxyf[] = { "Syntax: SET FILE parameter value",
 "\n",
 #endif /* VMS */
 
+"BYTESIZE { 7, 8 }: normally 8.  If 7, truncate the 8th bit of all file \
+bytes.\n",
+
 #ifndef NOCSETS
 "CHARACTER-SET: tells the encoding of the local file, ASCII by default.",
 "The names ITALIAN, PORTUGUESE, NORWEGIAN, etc, refer to 7-bit ISO-646",
-"national replacement character (NRC) sets.  Latin-1 is the 8-bit ISO 8859",
-"Latin Alphabet 1.  Next is the 8-bit character set of the NeXT workstation.",
-"The CPnnn sets are for IBM PCs.  Apple-Quickdraw is for the Macintosh.",
+"national character sets.  LATIN1 is the 8-bit ISO 8859-1 Latin Alphabet 1",
+"for Western European languages.",
+"NEXT is the 8-bit character set of the NeXT workstation.",
+"The CPnnn sets are for IBM PCs.  MACINTOSH-LATIN is for the Macintosh.",
+#ifndef NOLATIN2
+"LATIN2 is ISO 8859-2 for Eastern European languages that are written with",
+"Roman letters.",
+#endif /* NOLATIN2 */
 #ifdef CYRILLIC
 "KOI-CYRILLIC, CYRILLIC-ISO, and CP866 are 8-bit Cyrillic character sets.",
 "SHORT-KOI is a 7-bit ASCII coding for Cyrillic.",
@@ -341,8 +496,8 @@ static char *hmxyf[] = { "Syntax: SET FILE parameter value",
 "Type SET FILE CHAR ? for a complete list of file character sets.\n",
 #endif /* NOCSETS */
 
-"BYTESIZE { 7, 8 }: normally 8.  If 7, truncate the 8th bit of all file \
-bytes.\n",
+"INCOMPLETE - what to do with an incompletely received file: DISCARD",
+"(default), or KEEP.\n",
 
 "NAMES are normally CONVERTED to 'common form' during transmission; LITERAL",
 "means use filenames literally (useful between like systems).\n",
@@ -364,11 +519,20 @@ bytes.\n",
 "this to receive VMS BACKUP savesets or other fixed-format files. The default",
 "of 512 is suitable for executable (.EXE) files, etc.\n",
 "Example: SET FILE REC 8192\n",
-#endif
+#endif /* VMS */
 
-"DISPLAY is normally ON, causing file transfer progress to be displayed",
-"on your screen when in local mode.  SET DISPLAY OFF is useful for",
-"allowing local-mode file transfers to proceed in the background.\n",
+"SET FILE DISPLAY selects the format of the file transfer display for",
+"local-mode file transfer.  The choices are:",
+"  SERIAL (the default).  One dot is printed for every K bytes transferred.",
+"    This format works on any kind of terminal, even a hardcopy.",
+"  CRT.  Numbers are continuously updated on a single screen line.  This",
+"    format can be used on any video display terminal.",
+#ifdef CK_CURSES
+"  FULLSCREEN.  A fully formatted 24x80 screen showing lots of information.",
+"    This requires a video display terminal whose control sequences are",
+"    understood by Kermit.",
+#endif /* CK_CURSES */
+"  NONE.  No file transfer display at all.\n",
 
 "WARNING.  SET FILE WARNING is superseded by the newer command, SET FILE",
 "COLLISION.  SET FILE WARNING ON is equivalent to SET FILE COLLISION RENAME",
@@ -408,22 +572,24 @@ The REMOTE command is used to send file management instructions to a",
 static char *ifhlp[] = { "Syntax: IF [NOT] condition command\n",
 "If the condition is (is not) true, do the command.  Only one command may",
 "be given, and it must appear on the same line as the IF.  Conditions are:\n",
-"  SUCCESS - the previous command succeeded",
-"  FAILURE - the previous command failed",
+"  SUCCESS    - the previous command succeeded",
+"  FAILURE    - the previous command failed",
+"  BACKGROUND - C-Kermit is running in the background",
+"  FOREGROUND - C-Kermit is running in the foreground\n",
 "  DEFINED variablename or macroname - The named variable or macro is defined",
 "  NUMERIC variable or constant      - The variable or constant is numeric",
-"  EXIST filename                    - The named file exists",
+"  EXIST filename                    - The named file exists\n",
 "  COUNT   - subtract one from COUNT, execute the command if the result is",
-"            greater than zero (see SET COUNT)",
+"            greater than zero (see SET COUNT)\n",
 "  EQUAL s1 s2 - s1 and s2 (character strings or variables) are equal",
 "  LLT s1 s2   - s1 is lexically (alphabetically) less than s2",
-"  LGT s1 s1   - s1 is lexically (alphabetically) greater than s2",
+"  LGT s1 s1   - s1 is lexically (alphabetically) greater than s2\n",
 "  = n1 n1 - n1 and n2 (numbers or variables containing numbers) are equal",
 "  < n1 n2 - n1 is arithmetically less than n2",
 "  > n1 n2 - n1 is arithmetically greater than n2\n",
 "The IF command may be followed on the next line by an ELSE command. Example:",
 "  IF < \\%x 10 ECHO It's less",
-"  ELSE echo It's not less",
+"  ELSE echo It's not less\n",
 "See also XIF.",
 "" };
 #endif /* NOSPL */
@@ -447,9 +613,9 @@ Syntax: FOR variablename initial-value final-value increment { commandlist }",
 "Example:  FOR \\%i 10 1 -1 { pause 1, echo \\%i }", "" };
 
 static char *whihlp[] = { "\
-Syntax: WHILE condition { commandlist }\n",
+Syntax: WHILE condition { commandlist }",
 "\nWHILE loop.  Execute the comma-separated commands in the commandlist while",
-"the condition is true.  Conditions are the same as for IF commands.\n", "" };
+"the condition is true.  Conditions are the same as for IF commands.", "" };
 #endif /* NOSPL */
 
 #ifndef NOSPL
@@ -466,9 +632,20 @@ static char *openhlp[] = {
 #ifndef NOSPL
 static char *hxxaskq[] = {
 "Syntax:  ASKQ variablename prompt",
-"Example: ASKQ %p Password:\n",
+"Example: ASKQ %p { Password:}\n",
 "Issues the prompt and defines the variable to be whatever you type in.",
-"The characters that you type do not echo on the screen.", "" };
+"The characters that you type do not echo on the screen.",
+"Use braces to preserve leading and/or trailing spaces in the prompt.",
+"To include a question mark, precede it by backslash (\\).","" };
+#endif /* NOSPL */
+
+#ifndef NOSPL
+static char *hxxask[] = {
+"Syntax:  ASK variablename prompt",
+"Example: ASK %n { What is your name\\? }\n",
+"Issues the prompt and defines the variable to be whatever you type in.",
+"Use braces to preserve leading and/or trailing spaces in the prompt.",
+"To include a question mark, precede it by backslash (\\).","" };
 #endif /* NOSPL */
 
 #ifndef NOSPL
@@ -530,19 +707,23 @@ static char *hxxinc[] = {
 #ifdef SUNX25
 static char *hxxpad[] = {
 "Syntax: PAD command",
-"Execute a PAD command. Examples:\n",
-"    PAD clear - clear the virtual call",
-"    PAD status - return the status of virtual call",
-"    PAD reset - send a reset packet",
-"    PAD interrupt - send an interrupt packet", ""};
+"X.25 PAD commands:\n",
+"    PAD CLEAR     - Clear the virtual call",
+"    PAD STATUS    - Return the status of virtual call",
+"    PAD RESET     - Send a reset packet",
+"    PAD INTERRUPT - Send an interrupt packet",
+""};
 
 static char *hxyx25[] = {
-"Syntax: SET X.25 call-option on [index,string]/off\n",
-"Set X.25 call option.  Options are:",
-"  closed-user-group on index/off - to enable/disable closed user group call,",
-"    where index is the group index and can range from 0 to 99",
-"  reverse-charge on/off - to enable/disable reverse charge call",
-"  call-user-data on string/off - to specify call user data in X.25 call.",
+"Syntax: SET X.25 option { ON [ data ], OFF }\n",
+"X.25 call options:",
+"  CLOSED-USER-GROUP { ON index, OFF }",
+"    Enable or disable closed user group call, where index is the group",
+"    index, 0 to 99.",
+"  REVERSE-CHARGE { ON, OFF }",
+"    Tell whether you want to reverse the charges for the call.",
+"  CALL-USER-DATA { ON string, OFF }",
+"    Specify call user-data for the X.25 call.",
 ""};
 #endif /* SUNX25 */
 
@@ -552,6 +733,12 @@ static char *hxxpau[] = {
 "Do nothing for the specified number of seconds; if no number given, one",
 "second.  If interrupted from the keyboard, set FAILURE, otherwise SUCCESS.",
 "" };
+
+static char *hxxmsl[] = {
+"Syntax:  MSLEEP [ number ]",
+"Example: MSLEEP 500\n",
+"Do nothing for the specified number of milliseconds; if no number given,",
+"100 milliseconds.","" };
 
 #ifndef NOPUSH
 static char *hxxshe[] = {
@@ -606,6 +793,7 @@ static char *hxxwri[] = {
 "backslash codes, and is not terminated by a newline unless you include the",
 "appropriate code.  The name parameter can be any of the following:\n",
 "  DEBUG-LOG",
+"  ERROR (standard error)",
 #ifndef NOSPL
 "  FILE (the OPEN WRITE, OPEN !WRITE, or OPEN APPEND file, see HELP OPEN)",
 #endif /* NOSPL */
@@ -617,9 +805,27 @@ static char *hxxwri[] = {
 #ifndef NODIAL
 static char *hxxdial[] = { "Syntax:  DIAL phonenumber",
 "Example: DIAL 7654321\n",
-"Dial a number using a modem autodialer.  First you must SET MODEM, then",
-"SET LINE and SET SPEED.  Then give the DIAL command, including the phone",
-"number.  See also SET DIAL, SET MODEM, SET LINE, SET SPEED, REDIAL.", "" };
+"Dial a number using an autodial modem.  First you must SET MODEM, then",
+"SET LINE, then SET SPEED.  Then give the DIAL command, including the phone",
+"number, for example:\n",
+"  DIAL 7654321\n",
+#ifdef NETCONN
+"If the modem is on a network modem server, SET HOST first, then SET MODEM,",
+"then DIAL.  See also SET DIAL, SET MODEM, SET LINE, SET HOST, SET SPEED,",
+"and REDIAL.\n",
+#else
+"See also SET DIAL, SET MODEM, SET LINE, SET SPEED, REDIAL.\n",
+#endif /* NETCONN */
+"The 'phonenumber' can also the name of an entry from your dialing directory,",
+"which is a plain text file, one entry per line:\n",
+"  name  phonenumber  speed   parity   comments\n",
+"for example:\n",
+"  e-mail  765-4321   2400    even     My electronic mailbox\n",
+"The fields are separated by spaces, and all fields after the 'phonenumber'",
+"are optional.  If the speed or parity are present, they replace your current",
+"SET SPEED and SET PARITY settings.  Specify your dialing directory file with",
+"the SET DIAL DIRECTORY command.",
+ "" };
 #endif /* NODIAL */
 
 #endif /* NOHELP */
@@ -632,19 +838,18 @@ int
 dohlp(xx) int xx; {
     int x,y;
  
+    debug(F101,"DOHELP xx","",xx);
     if (xx < 0) return(xx);
     switch (xx) {
  
 #ifdef NOHELP
 
 case XXHLP:
-    if ((x = cmcfm()) < 0) return(x);
-    printf("%s, Copyright (C) 1985, 1992,\n",versio);
-    for ( x = 0; *tophlp[x] ; x++ )	/* Print lines */
-      printf("%s\n",tophlp[x]);
-    printf("\n");			/* End with blank line */
-    return(1);
- 
+    if ((x = cmcfm()) < 0)
+      return(x);
+    printf("%s, Copyright (C) 1985, 1992,",versio);
+    return(hmsga(tophlp));
+
 #else /* help is available */
 
 #ifndef NOSPL
@@ -652,10 +857,7 @@ case XXASS:				/* assign */
     return(hmsga(hxxass));
 
 case XXASK:				/* ask */
-    return(hmsg("\
-Syntax:  ASK variablename prompt\n\
-Example: ASK \\%n What is your name\\63\\32\n\n\
-Issues the prompt and defines the variable to be whatever you type in."));
+    return(hmsga(hxxask));
 
 case XXASKQ:
     return(hmsga(hxxaskq));
@@ -669,6 +871,12 @@ case XXBUG:
 case XXBYE:				/* bye */
     return(hmsg(hmxxbye));
  
+case XXCHK:				/* check */
+    return(hmsg("\
+Syntax: CHECK name\n\
+Check to see if the named feature is included in this version of C-Kermit.\n\
+To list the features you can check, type \"check ?\"."));
+
 #ifndef NOFRILLS
 case XXCLE:				/* clear */
     return(hmsg("\
@@ -687,7 +895,10 @@ Introduce a comment.  Beginning of command line only.  Commands may also\n\
 have trailing comments, introduced by ; (semicolon)."));
 
 case XXCON:				/* connect */
-    return(hmsg(hmxxcon));
+    hmsg(hmxxcon);
+    printf("Your escape character is Ctrl-%c (ASCII %d, %s)\r\n",
+	   ctl(escape), escape, (escape == 127 ? "DEL" : ccntab[escape]));
+    return(0);
  
 case XXCWD:				/* cd / cwd */
 #ifdef vms
@@ -770,14 +981,15 @@ named capability, such as CD, DELETE, RECEIVE, etc.  Opposite of DISABLE."));
 
 #ifndef NOSPL
 case XXEND:				/* end */
-    return(hmsg("Syntax: END\n\
-Exit from the current macro or TAKE file, back to wherever invoked from."));
+    return(hmsg("Syntax: END [ number [ message ] ]\n\
+Exit from the current macro or TAKE file, back to wherever invoked from.\n\
+Number is return code.  Message, if given, is printed."));
 #endif /* NOSPL */
 
 #ifndef NOFRILLS
 case XXERR:				/* error */
     return(hmsg("Syntax: ERROR\n\
-Send an Error packet to the other Kermit."));
+Send an Error packet to the other Kermit to get it out of packet mode."));
 #endif /* NOFRILLS */
 
 case XXEXI:				/* exit */
@@ -821,8 +1033,19 @@ case XXHAN:
 Hang up the phone or network connection."));    
 
 case XXHLP:
+/*
+  We get confirmation here, even though we do it again in hmsga(), to prevent
+  the Copyright message from being printed prematurely.  This doesn't do any
+  harm, because the first call to cmcfm() sets cmflgs to 1, making the second
+  call return immediately.
+*/
+    if ((x = cmcfm()) < 0)
+      return(x);
     printf("%s, Copyright (C) 1985, 1992,",versio);
     return(hmsga(tophlp));
+
+case XXINT:
+    return(hmsg("Give a brief introduction to C-Kermit."));	
 
 #ifndef NOSPL
 case XXIF:
@@ -833,10 +1056,11 @@ case XXINC:
 
 case XXINP:
    return(hmsg("\
-Syntax:  INPUT n text\n\
+Syntax:  INPUT n [ text ]\n\
 Example: INPUT 5 Login:\n\n\
 Wait up to n seconds for the given text to arrive on the communication line.\n\
-For use in script programs with IF FAILURE and IF SUCCESS."));
+If no text, waits for any character.  For use in script programs with\n\
+IF FAILURE and IF SUCCESS.  Also see SET INPUT."));
 #endif /* NOSPL */
 
 #ifndef NODIAL
@@ -906,7 +1130,17 @@ case XXPAD:
 #ifndef NOSPL
 case XXPAU:
     return(hmsga(hxxpau));
+
+case XXMSL:
+    return(hmsga(hxxmsl));
 #endif /* NOSPL */
+
+#ifdef TCPSOCKET
+case XXPNG:
+    return(hmsg("Syntax: PING [ IP-hostname-or-number ]\n\n\
+Check if given IP network host is reachable.  Default host from most\n\
+recent SET HOST or TELNET command.  Runs system PING program, if any."));
+#endif /* TCPSOCKET */
 
 #ifndef NOFRILLS
 case XXPRI:
@@ -929,9 +1163,7 @@ case XXREC:
     return(hmsga(hmxxrc));
  
 case XXREM:
-    if ((y = cmkey(remcmd,nrmt,"Remote command","",xxstring)) == -2) return(y);
-    if (y == -1) return(y);
-    if ((x = cmcfm()) < 0) return(x);
+    y = cmkey(remcmd,nrmt,"Remote command","",xxstring);
     return(dohrmt(y));
  
 #ifndef NOSPL
@@ -957,9 +1189,7 @@ such as fg."));
 
 case XXSET:
     y = cmkey(prmtab,nprm,"Parameter","",xxstring);
-    if (y == -3) return(dohset(y));
-    if (y < 0) return(y);
-    if ((x = cmcfm()) < 0) return(x);
+    debug(F101,"HELP SET y","",y);
     return(dohset(y));
  
 #ifndef NOPUSH
@@ -990,9 +1220,9 @@ Display statistics about most recent file transfer"));
  
 #ifndef NOSPL
 case XXSTO:
-    return(hmsg("Syntax: STOP\n\
-Stop executing the current macro or TAKE file and return immediately\n\
-to the C-Kermit prompt."));
+    return(hmsg("Syntax: STOP [ number [ message ] ]\n\
+Stop executing the current macro or TAKE file and return immediately to\n\
+the C-Kermit prompt.  Number is a return code.  Message printed if given."));
 #endif /* NOSPL */
 
 case XXTAK:
@@ -1062,20 +1292,24 @@ default:
     return(success = 0);
 }
 
-#ifndef NOHELP 
+#ifdef NOHELP 
 
-/*  H M S G  --  Get confirmation, then print the given message  */
- 
-int
-hmsg(s) char *s; {
-    int x;
-    if ((x = cmcfm()) < 0) return(x);
-    printf("\n%s\n\n",s);
+int					/* Print an array of lines, */
+hmsga(s) char *s[]; {			/* cheap version. */
+    int i;
+    if ((i = cmcfm()) < 0) return(i);
+    printf("\n");			/* Start off with a blank line */
+    for (i = 0; *s[i]; i++) {		/* Print each line. */
+	printf("%s\n",s[i]);
+    }
+    printf("\n");
     return(0);
 }
- 
-int
-hmsga(s) char *s[]; {			/* Same function, but for arrays */
+
+#else
+
+int					/* Print an array of lines, */
+hmsga(s) char *s[]; {			/* pausing at end of each screen. */
     int x, y, i, j, k, n;
     if ((x = cmcfm()) < 0) return(x);
 
@@ -1096,6 +1330,16 @@ hmsga(s) char *s[]; {			/* Same function, but for arrays */
     return(0);
 }
 
+/*  H M S G  --  Get confirmation, then print the given message  */
+ 
+int
+hmsg(s) char *s; {
+    int x;
+    if ((x = cmcfm()) < 0) return(x);
+    printf("\n%s\n\n",s);
+    return(0);
+}
+ 
 #ifndef NOXMIT
 static char *hsetxmit[] = {
 "Syntax: SET TRANSMIT parameter value\n",
@@ -1162,10 +1406,11 @@ static char *hxxinp[] = {
 "The SET INPUT command controls the behavior of the INPUT command:\n",
 "SET INPUT CASE { IGNORE, OBSERVE }",
 "Tells whether alphabetic case is to be significant in string comparisons.\n",
-"SET INPUT DEFAULT-TIMEOUT secs",
-"Establishes default timeout for INPUT commands.  Currently has no effect.\n",
 "SET INPUT ECHO { ON, OFF }",
 "Tells whether to display arriving characters read by INPUT on the screen.\n",
+"SET INPUT SILENCE <number>",
+"The maximum number to seconds of silence (no input at all) before the INPUT",
+"command times out, 0 for no maximum.\n",
 "SET INPUT TIMEOUT-ACTION { PROCEED, QUIT }",
 "Tells whether to proceed or quit from a script program if an INPUT command",
 "fails.  PROCEED (default) allows use of IF SUCCESS and IF FAILURE commands.",
@@ -1182,6 +1427,10 @@ static char *hxytak[] = {
 
 static char *hxyterm[] = {
 "Syntax: SET TERMINAL parameter value\n",
+#ifdef OS2
+"SET TERMINAL ARROW-KEYS { APPLICATION, CURSOR }",
+"sets the mode for the arrow keys during VT terminal emulation.\n", 
+#endif /* OS2 */
 "SET TERMINAL BYTESIZE 7 or 8, to use 7- or 8-bit terminal characters",
 "between C-Kermit and the remote host during CONNECT.\n",
 "SET TERMINAL CHARACTER-SET <remote-cs> [ <local-cs> ] to specify the",
@@ -1189,10 +1438,7 @@ static char *hxyterm[] = {
 "set used by C-Kermit locally, <local-cs>.  If you don't specify the",
 "local character set, the current FILE CHARACTER-SET is used.  When you",
 "specify two different character sets, C-Kermit translates between them",
-"during CONNECT.  By default, both character sets are ASCII.\n",
-#ifdef OS2PM
-"SET TERMINAL VT100 or TEK4014, to set terminal emulation mode.",
-#endif /* OS2 */
+"during CONNECT.  By default, both character sets are TRANSPARENT.\n",
 #ifdef OS2
 "SET TERMINAL COLOR <screenpart> <foreground> <background>, to set",
 "the colors of the terminal emulation screen. <screenpart> may be one",
@@ -1201,11 +1447,24 @@ static char *hxyterm[] = {
 "BROWN, LGRAY, DGRAY, LBLUE, LGREEN, LCYAN, LRED, LMAGENTA, YELLOW",
 "or WHITE.  The L prefix for the color names means Light.\n",
 #endif /* OS2 */
+"SET TERMINAL CR-DISPLAY { CRLF, NORMAL } to specify how incoming",
+"carriage return characters are to be displayed on your screen.\n",
+"SET TERMINAL ECHO { LOCAL, REMOTE } to specify which side does the",
+"echoing during terminal connection.\n",
+#ifdef OS2
+"SET TERMINAL KEYPAD-MODE { APPLICATION, NUMERIC } to specify the keypad",
+"mode for VT terminal emulation.\n",
+#endif /* OS2 */
 "SET TERMINAL LOCKING-SHIFT { OFF, ON } tells C-Kermit whether to use",
 "Shift-In/Shift-Out (Ctrl-O and Ctrl-N) to switch between 7-bit and 8-bit",
 "characters during CONNECT.  OFF by default.\n",
 "SET TERMINAL NEWLINE-MODE { OFF, ON } tells whether to send CRLF when you",
 "type CR during CONNECT mode.\n",
+#ifdef OS2
+"SET TERMINAL TYPE { VT102, VT52 } to select which terminal to emulate.\n",
+"SET TERMINAL WRAP { OFF, ON } to tell whether the VT terminal emulator",
+"should automatically wrap long lines on your screen.\n",
+#endif /* OS2 */
 "Type SHOW TERMINAL to see current terminal settings.",
 "" };
 
@@ -1218,18 +1477,36 @@ static char *hxyhost[] = {
 "  SET HOST 128.59.39.2",
 "" };
 
+#ifdef TNCODE
+static char *hxytel[] = {
+"Syntax: SET TELNET parameter value\n",
+"For TCP/IP SET HOST and TELNET connections:\n",
+"SET TELNET ECHO { LOCAL, REMOTE }",
+"  C-Kermit's initial echoing state for TELNET connections, LOCAL by default.",
+"  After the connection is made, TELNET negotiations determine the echoing",
+"  state.",
+"SET TELNET NEWLINE-MODE { OFF, ON }",
+"  ON (the default) means send CRLF when user types CR.",
+"  OFF means send CR alone.",
+"SET TELNET TERMINAL-TYPE name",
+"  The terminal type to send to the remote TELNET host.  If none is given,",
+"  your local terminal type is sent.\n",
+"Type SHOW NETWORK to see the current values of these parameters.",
+"" };
+#endif /* TNCODE */
+
 static char *hxynet[] = {
 "Syntax: SET NETWORK network-type\n",
+"Select the type of network to be used with SET HOST connections:\n",
+#ifdef TCPSOCKET
+"  SET NETWORK TCP/IP",
+#endif /* TCPSOCKET */
 #ifdef SUNX25
-"Select TCP/IP or X.25 network communication.",
-#else
-"Select TCP/IP network communication.",
+"  SET NETWORK X.25",
 #endif /* SUNX25 */
-"After SET NETWORK give the type of network to use. Examples:\n",
-"  SET NETWORK tcp/ip",
-#ifdef SUNX25
-"  SET NETWORK x.25",
-#endif
+#ifdef DECNET
+"  SET NETWORK DECNET",
+#endif /* DECNET */
 ""};
 #endif /* NETCONN */
  
@@ -1243,20 +1520,33 @@ static char *hxymacr[] = {
 "terminated upon a command error.", "" };
 #endif /* NOSPL */
 
+#ifndef NODIAL
 static char *hxymodm[] = {
 "Syntax: SET MODEM-DIALER name\n",
-"Type of modem for dialing remote connections.  Indicates that modem can",
-"be commanded to dial without Carrier Detect signal from modem, and selects",
-"the appropriate dialing protocol to be used by the DIAL command.  Many modem",
-"models are supported.  Type SET MODEM ? for a list.  DIRECT or NONE means",
-"a direct connection, with no modem at all.  Also see HELP DIAL, HELP CARRIER",
+"Type of modem for dialing remote connections.  Selects the dialing protocol,",
+#ifdef MINIDIAL
+"such as HAYES, to be used by the DIAL command.  Several dialing protocols",
+#else
+"such as HAYES, to be used by the DIAL command.  Many modem dialing protocols",
+#endif /* MINIDIAL */
+"are supported; type SET MODEM ? for a list.  DIRECT or NONE means a direct",
+"connection, with no modem at all.  Also see HELP DIAL, HELP SET CARRIER.",
 "" };
+#endif /* NODIAL */
 
 static char *hmxyprm[] = {
 "Syntax: SET PROMPT [ text ]\n",
+#ifdef MAC
 "Prompt text for this program, normally 'C-Kermit>'.  May contain backslash",
+#else
+"Prompt text for this program, normally 'Mac-Kermit>'.  May contain backslash",
+#endif /* MAC */
 "codes for special effects.  Surround by { } to preserve leading or trailing",
+#ifdef MAC
 "spaces.  If text omitted, prompt reverts to C-Kermit>.",
+#else
+"spaces.  If text omitted, prompt reverts to Mac-Kermit>.",
+#endif /* MAC */
 "" };
 
 static char *hxywind[] = {
@@ -1268,20 +1558,44 @@ static char *hxywind[] = {
 "connections with long delays.  A full duplex connection is required.",
 "" };
 
-static char *hxysr[] = {
+static char *hxyrcv[] = { 
+"Syntax: SET RECEIVE parameter value\n",
+"Specify parameters for inbound packets:\n",
 "END-OF-PACKET number",
-"ASCII value of control character, normally 13 (carriage return).\n",
+" ASCII value of control character that terminates incoming packets,",
+" normally 13 (carriage return).\n",
 "PACKET-LENGTH number",
-"2000 or less.\n",
+" Maximum length packet the other Kermit should send.\n",
 "PADDING number",
-"number of prepacket padding characters, 94 or less (rarely used).\n",
+" Number of prepacket padding characters to ask for (normally 0).\n",
 "PAD-CHARACTER number",
-"ASCII value of control character to use for padding (typically 0).\n",
+" ASCII value of control character to use for padding (normally 0).\n",
 "START-OF-PACKET number",
-"ASCII value of control character to mark start of packet (normally 1).\n",
+" ASCII value of character that marks start of inbound packet.\n",
 "TIMEOUT number",
-"Number of seconds to wait for a packet before sending NAK or retransmitting",
-"(94 seconds or less)", "" };
+" Number of seconds other Kermit should wait for a packet before sending",
+" NAK or retransmitting.",
+"" };
+
+static char *hxysnd[] = {
+"Syntax: SET SEND parameter value\n",
+"Specify parameters for outbound packets.  This command should be used only",
+"to override the normal negotiated parameters and is rarely needed:\n",
+"END-OF-PACKET number",
+" ASCII value of control character to terminate an outbound packet,",
+" normally 13 (carriage return).\n",
+"PACKET-LENGTH number",
+" Maximum length packet to send, even if other Kermit asks for longer ones.\n",
+"PADDING number",
+" Number of prepacket padding characters to send.\n",
+"PAD-CHARACTER number",
+" ASCII value of control character to use for padding.\n",
+"START-OF-PACKET number",
+" ASCII value of character to mark start of outbound packet.\n",
+"TIMEOUT number",
+" Number of seconds to wait for a packet before sending NAK or",
+" retransmitting.",
+"" };
 
 static char *hxyxfer[] = {
 "Syntax: SET TRANSFER LOCKING-SHIFT { OFF, ON, FORCED }\n",
@@ -1295,18 +1609,17 @@ static char *hxyxfer[] = {
 "Select the character set used to represent textual data in Kermit packets.",
 "Text characters are translated to/from the FILE CHARACTER-SET.",
 "The choices are TRANSPARENT (no translation, the default), ASCII,",
+"LATIN1 (ISO Latin Alphabet 1), LATIN2 (ISO Latin Alphabet 2),",
 #ifdef CYRILLIC
 #ifdef KANJI
-"LATIN1 (ISO Latin Alphabet 1), CYRILLIC-ISO (ISO Latin/Cyrillic),",
+"CYRILLIC-ISO (ISO Latin/Cyrillic),",
 "and JAPANESE-EUC.",
 #else
-"LATIN1 (ISO Latin Alphabet 1), and CYRILLIC-ISO (ISO Latin/Cyrillic).",
+"and CYRILLIC-ISO (ISO Latin/Cyrillic).",
 #endif /* KANJI */
 #else /* No CYRILLIC */
 #ifdef KANJI
-"LATIN1 (ISO Latin Alphabet 1), and JAPANESE-EUC.",
-#else
-"and LATIN1 (ISO Latin Alphabet 1).",
+"and JAPANESE-EUC.",
 #endif /* KANJI */
 #endif /* CYRILLIC */
 "Synonym: SET XFER CHARACTER-SET.", 
@@ -1317,9 +1630,11 @@ static char *hxyxfer[] = {
  
 int
 dohset(xx) int xx; {
-    
+    int x;
+
     if (xx == -3) return(hmsga(hmhset));
     if (xx < 0) return(xx);
+    if ((x = cmcfm()) < 0) return(x);
     switch (xx) {
  
 case XYATTR:
@@ -1364,6 +1679,17 @@ case XYCOUN:
 Example: SET COUNT 5\n\
 Set up a loop counter, for use with IF COUNT."));
 #endif /* NOSPL */
+
+case XYDEBU:
+#ifdef DEBUG    
+    return(hmsg("Syntax: SET DEBUG { SESSION, ON, OFF }\n\
+SESSION means display control and 8-bit characters symbolically during\n\
+CONNECT mode.  ON means log debugging information to file debug.log."));
+#else
+    return(hmsg("Syntax: SET DEBUG { SESSION, OFF }\n\
+SESSION means display control and 8-bit characters symbolically during\n\
+CONNECT mode."));
+#endif /* DEBUG */
 
 case XYDFLT:
     return(hmsg("Syntax: SET DEFAULT directory\n\
@@ -1411,15 +1737,7 @@ case XYFILE:
     return(hmsga(hmxyf));
  
 case XYFLOW:
-#ifdef UTEK
-    return(hmsg("Syntax: SET FLOW value\n\
-Type of flow control to be used during file transfer and connect mode.\n\
-The choices are XON/XOFF (default), IDTR/OCTS, and NONE."));
-#else
-    return(hmsg("Syntax: SET FLOW value\n\
-Type of flow control to be used during file transfer.\n\
-The choices are XON/XOFF (default) and NONE."));
-#endif /* UTEK */
+    return(hmsga(hmxyflo));
  
 case XYHAND:
    return(hmsga(hmxyhsh));
@@ -1449,7 +1767,8 @@ case XYKEY:				/* SET KEY */
 case XYLANG:
     return(hmsg("Syntax: SET LANGUAGE name\n\
 Selects language-specific translation rules for text-mode file transfers.\n\
-Used with SET FILE CHARACTER-SET and SET TRANSFER CHARACTER-SET."));
+Used with SET FILE CHARACTER-SET and SET TRANSFER CHARACTER-SET when one\n\
+of these is ASCII."));
 #endif /* NOCSETS */
 
 case XYLINE:
@@ -1470,8 +1789,10 @@ case XYMACR:
     return(hmsga(hxymacr));
 #endif /* NOSPL */
 
+#ifndef NODIAL
 case XYMODM:
     return(hmsga(hxymodm));
+#endif /* NODIAL */
  
 case XYPARI:
     return(hmsg("Syntax: SET PARITY name\n\n\
@@ -1483,7 +1804,7 @@ case XYPROM:
  
 case XYQUIE:
     return(hmsg("Syntax: SET QUIET {ON, OFF}\n\n\
-Normally ON.  OFF disables most information messages during interactive\n\
+Normally OFF.  ON disables most information messages during interactive\n\
 operation."));
 
 case XYRETR:
@@ -1504,19 +1825,19 @@ SET LINE command, in bits per second.  Type SET SPEED ? for a list of\n\
 possible speeds."));
 
 case XYRECV:
+    return(hmsga(hxyrcv));
 case XYSEND:
-    if (xx == XYRECV)
-      puts("\nSyntax: SET RECEIVE parameter value\n\n\
-Specify parameters for inbound packets:");
-    else puts("\nSyntax: SET SEND parameter value\n\n\
-Specify parameters for outbound packets.  This command should be used only\n\
-to override the normal negotiated parameters.");
-    return(hmsga(hxysr));
- 
+    return(hmsga(hxysnd));
+
 #ifndef NOSERVER
 case XYSERV:
     return(hmsga(hsetsrv));
 #endif /* NOSERVER */
+
+#ifdef TNCODE
+case XYTEL:
+    return(hmsga(hxytel));
+#endif /* TNCODE */
 
 #ifndef NOXMIT
 case XYXMIT:
@@ -1541,10 +1862,8 @@ it."));
 case XYWIND:
     return(hmsga(hxywind));
 
-#ifndef NOCSETS
 case XYXFER:
     return(hmsga(hxyxfer));
-#endif
 
 default:
     printf("Not available yet - %s\n",cmdbuf);
@@ -1567,6 +1886,7 @@ dohrmt(xx) int xx; {
     int x;
     if (xx == -3) return(hmsga(hmhrmt));
     if (xx < 0) return(xx);
+    if ((x = cmcfm()) < 0) return(x);
     switch (xx) {
  
 case XZCWD:
